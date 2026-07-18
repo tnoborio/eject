@@ -73,6 +73,7 @@ Read the complete [design principles](PRINCIPLES.md).
 - [Security and privacy](docs/SECURITY.md) / [日本語](docs/SECURITY.ja.md)
 - [Internationalization](docs/I18N.md) / [日本語](docs/I18N.ja.md)
 - [Roadmap](docs/ROADMAP.md) / [日本語](docs/ROADMAP.ja.md)
+- [Stage 0 Windows spike](docs/STAGE-0-WINDOWS-SPIKE.md) / [日本語](docs/STAGE-0-WINDOWS-SPIKE.ja.md)
 - [References](docs/REFERENCES.md) / [日本語](docs/REFERENCES.ja.md)
 
 ## Platform notes

@@ -1,0 +1,96 @@
+name: Windows spike
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - .github/workflows/windows-spike.yml
+      - Directory.Build.props
+      - Eject.slnx
+      - global.json
+      - src/**
+      - tests/**
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/windows-spike.yml
+      - Directory.Build.props
+      - Eject.slnx
+      - global.json
+      - src/**
+      - tests/**
+
+permissions:
+  contents: read
+
+concurrency:
+  group: windows-spike-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Test and build Windows x64
+    runs-on: windows-2025
+    timeout-minutes: 15
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+      DOTNET_NOLOGO: "1"
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Set up .NET 10
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: 10.0.x
+          dotnet-quality: ga
+
+      - name: Restore test dependencies
+        run: dotnet restore Eject.slnx
+
+      - name: Run tests
+        run: dotnet test Eject.slnx --configuration Release --no-restore
+
+      - name: Restore Windows runtime
+        run: dotnet restore src/Eject.Agent.Cli/Eject.Agent.Cli.csproj --runtime win-x64
+
+      - name: Publish self-contained Windows executable
+        run: >-
+          dotnet publish src/Eject.Agent.Cli/Eject.Agent.Cli.csproj
+          --configuration Release
+          --runtime win-x64
+          --self-contained true
+          --no-restore
+          --output artifacts/windows-x64
+          -p:PublishSingleFile=true
+          -p:DebugType=None
+
+      - name: Smoke-test drive discovery
+        run: ./artifacts/windows-x64/eject-agent.exe list
+
+      - name: Write checksum and build summary
+        shell: pwsh
+        run: |
+          $artifactPath = "artifacts/windows-x64/eject-agent.exe"
+          $checksumPath = "artifacts/windows-x64/eject-agent.exe.sha256"
+          $hash = (Get-FileHash -LiteralPath $artifactPath -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash *eject-agent.exe" | Set-Content -LiteralPath $checksumPath -Encoding ascii
+          "### Windows spike artifact" >> $env:GITHUB_STEP_SUMMARY
+          "- File: ``eject-agent.exe``" >> $env:GITHUB_STEP_SUMMARY
+          "- SHA-256: ``$hash``" >> $env:GITHUB_STEP_SUMMARY
+          "- Signing: unsigned test build" >> $env:GITHUB_STEP_SUMMARY
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: eject-windows-x64
+          path: |
+            artifacts/windows-x64/eject-agent.exe
+            artifacts/windows-x64/eject-agent.exe.sha256
+          if-no-files-found: error
+          retention-days: 14
+          compression-level: 0

@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Eject.Agent.Cli/Eject.Agent.Cli.csproj" />
+    <Project Path="src/Eject.Agent.Core/Eject.Agent.Core.csproj" />
+    <Project Path="src/Eject.Agent.Windows/Eject.Agent.Windows.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Eject.Agent.Windows.Tests/Eject.Agent.Windows.Tests.csproj" />
+  </Folder>
+</Solution>
