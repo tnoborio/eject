@@ -3,6 +3,10 @@
 Read `PRINCIPLES.md`, `docs/SECURITY.md`, and `docs/I18N.md` before proposing or
 implementing product changes.
 
+Read `docs/HANDOFF.md` before continuing implementation work. Update its English
+and Japanese versions when the current phase, verified evidence, or next
+recommended action changes.
+
 - Preserve the product's single physical action and deadpan tone.
 - Treat consent, minimal capability, and no-surveillance as binding constraints.
 - Never add generic remote command execution to the desktop agent.
