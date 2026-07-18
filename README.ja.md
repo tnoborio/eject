@@ -73,6 +73,7 @@ Kazがあなたをejectしました。
 - [国際化](docs/I18N.ja.md) / [English](docs/I18N.md)
 - [ロードマップ](docs/ROADMAP.ja.md) / [English](docs/ROADMAP.md)
 - [Stage 0 Windowsスパイク](docs/STAGE-0-WINDOWS-SPIKE.ja.md) / [English](docs/STAGE-0-WINDOWS-SPIKE.md)
+- [実装ハンドオフ](docs/HANDOFF.ja.md) / [English](docs/HANDOFF.md)
 - [参考資料](docs/REFERENCES.ja.md) / [English](docs/REFERENCES.md)
 
 ## プラットフォームについて
