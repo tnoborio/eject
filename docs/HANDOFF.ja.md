@@ -7,12 +7,16 @@
 
 ## スナップショット
 
-- **日付:** 2026-07-18
+- **日付:** 2026-07-19
 - **リポジトリ:** `tnoborio/eject`
 - **現在のブランチ:** `main`
-- **マージ済み実装PR:** [#2](https://github.com/tnoborio/eject/pull/2)
-- **マージコミット:** `444fb817166cbd5467e676b5f6d56e7cb4a5ee23`
-- **検証済みWindowsビルド:** [Actions run 29628427491](https://github.com/tnoborio/eject/actions/runs/29628427491)
+- **マージ済みPR:** [#2](https://github.com/tnoborio/eject/pull/2)(Stage 0スパイク)、
+  [#3](https://github.com/tnoborio/eject/pull/3)(One Bitロゴ)、
+  [#4](https://github.com/tnoborio/eject/pull/4)(ハードウェア検証キット)、
+  [#5](https://github.com/tnoborio/eject/pull/5)(protocol v1)
+- **マージコミット:** `cac982af474579e634568d0525659dad15289c6a`
+- **`main`上の検証済みCI:** [Windows spike run 29688104811](https://github.com/tnoborio/eject/actions/runs/29688104811)、
+  [protocol contract run 29688208249](https://github.com/tnoborio/eject/actions/runs/29688208249)
 - **現在のプロダクト段階:** Stage 0は物理証拠待ち。Stage 1 protocol v1は実装済みで、
   制御面は未着手
 
@@ -46,6 +50,9 @@ Stage 1 protocol v1も、閉じたJSON Schema契約、reference validator、vali
 11件の意味テスト、専用CI workflowとして実装済みです。端末宛先の完全一致、最大60秒の
 有効時間、replay消費、1回の試行報告、`OPENED`を主張できない事実ベースのlifecycleを
 定義しています。
+
+ビジュアルアイデンティティはOne Bitを採用済みです。採用版アセットと利用上の注意は
+`assets/logo/`に、検討過程は`assets/logo-concepts/`にあります。
 
 Stage 0自体は**未完了**です。トレイ式光学ドライブを持つ実際のWindows端末では、まだ
 実行していません。その証拠が得られるまで、物理トレイを開けられると表現してはいけません。
@@ -127,6 +134,12 @@ docs/decisions/0002-stage-1-protocol-v1.md
     一致、期限、未来方向skew、replay、ローカル拒否、1回の試行結果、lifecycle遷移を含む。
 15. `actionlint` 1.7.12はWindowsとprotocol両workflowを受理し、
     `npm ci --prefix protocol`はlocked dependency graphを再現し、audit脆弱性を報告しない。
+16. 2026-07-19に、`main`上の`windows-spike` workflowが検証キットを組み立て、Windows
+    runner上でejectなしの`-VerifyOnly`確認を完了し、キット全体をartifactとして
+    アップロードした([run 29688104811](https://github.com/tnoborio/eject/actions/runs/29688104811))。
+17. `protocol-contract` workflowは`main`上で成功した
+    ([run 29688208249](https://github.com/tnoborio/eject/actions/runs/29688208249))。
+    これによりprotocol test 11件にもCI証拠がある。
 
 検証済み`main` artifactのチェックサムは次のとおりです。
 
@@ -160,7 +173,6 @@ artifactには期限があり、後続ビルドのチェックサムは変わり
 ## 既知の制限と未確認事項
 
 - 物理光学ドライブに対してコードを実行していない。
-- 新しい検証ツールとartifact組み立ては、Windows Actions runでまだ検証していない。
 - 標準ユーザーでデバイスハンドルを開けるか未確認。
 - 空、メディア挿入、使用中、切断、USB、SATA、複数ドライブ、トレイレスを未確認。
 - Windows API成功と目視できるトレイ動作の関係を未確認。
@@ -168,8 +180,6 @@ artifactには期限があり、後続ビルドのチェックサムは変わり
   適するが永続的なハードウェア識別子ではなく、ドライブ文字の再割り当てで変化する。
 - UI、インストーラー、コード署名、更新チャネル、デバイス資格情報、サーバー接続がない。
 - protocol v1は実際の制御面とagent間ではまだ動かしていない。
-- protocol workflowはGitHub Actions上でまだ実行していない。現時点の証拠はローカル
-  Node.js testとworkflow静的検証である。
 - 制御面、Webクライアント、アカウント認証、PostgreSQL schema、device credential、polling
   transportは未実装。
 - 具体的な認証provider、device credential、message integrity方式、revocation確認は
@@ -241,18 +251,18 @@ authenticated pollingまたはenrollmentの前に、person auth provider、端�
 
 ## この実装からのPR順序
 
-今後の変更も小さくレビュー可能な単位に保ちます。
+更新済み両workflowのCI検証は`main`上で完了しています(スナップショットのリンクを
+参照)。今後の変更も小さくレビュー可能な単位に保ちます。
 
-1. **CI検証** — 検証キットとprotocol契約の更新済み両workflowを実行する。
-2. **Stage 1制御面domain skeleton** — Next.js/TypeScript modular monolith、test済みの
+1. **Stage 1制御面domain skeleton** — Next.js/TypeScript modular monolith、test済みの
    方向付きpermission、cooldown、pause、revoke、command永続化境界を実装する。device
    enrollmentはまだ行わない。
-3. **identity・device security ADR** — person認証、device credential、保護保存、integrity、
+2. **identity・device security ADR** — person認証、device credential、保護保存、integrity、
    revocation、idempotency、clock規則を選ぶ。
-4. **認証済みoutbound polling** — protocol v1だけに従う発行と結果取り込みを実装する。
-5. **Windows登録とpolling** — 保護ストレージ上の独立したdevice credential、ローカル
+3. **認証済みoutbound polling** — protocol v1だけに従う発行と結果取り込みを実装する。
+4. **Windows登録とpolling** — 保護ストレージ上の独立したdevice credential、ローカル
    リプレイ防止、1回だけの実行、結果報告を実装し、インバウンドポートを開かない。
-6. **並行するハードウェア証拠** — 機材入手後、レビュー済みレポートと、証拠により狭く
+5. **並行するハードウェア証拠** — 機材入手後、レビュー済みレポートと、証拠により狭く
    裏付けられたadapter修正を追加する。
 
 Stage 1の登録を完了扱いにする前に、認証プロバイダーと具体的な暗号方式について、集中的な

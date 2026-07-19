@@ -8,12 +8,16 @@ the order in which work should continue.
 
 ## Snapshot
 
-- **Date:** 2026-07-18
+- **Date:** 2026-07-19
 - **Repository:** `tnoborio/eject`
 - **Current branch:** `main`
-- **Merged implementation PR:** [#2](https://github.com/tnoborio/eject/pull/2)
-- **Merge commit:** `444fb817166cbd5467e676b5f6d56e7cb4a5ee23`
-- **Verified Windows build:** [Actions run 29628427491](https://github.com/tnoborio/eject/actions/runs/29628427491)
+- **Merged PRs:** [#2](https://github.com/tnoborio/eject/pull/2) (Stage 0
+  spike), [#3](https://github.com/tnoborio/eject/pull/3) (One Bit logo),
+  [#4](https://github.com/tnoborio/eject/pull/4) (hardware validation kit),
+  [#5](https://github.com/tnoborio/eject/pull/5) (protocol v1)
+- **Merge commit:** `cac982af474579e634568d0525659dad15289c6a`
+- **Verified CI on `main`:** [Windows spike run 29688104811](https://github.com/tnoborio/eject/actions/runs/29688104811),
+  [protocol contract run 29688208249](https://github.com/tnoborio/eject/actions/runs/29688208249)
 - **Current product phase:** Stage 0 awaits physical evidence; Stage 1 protocol
   v1 is implemented and the control plane has not started
 
@@ -49,6 +53,9 @@ reference validator, valid and invalid fixtures, eleven semantic tests, and a
 dedicated CI workflow. It defines exact device audience, a maximum 60-second
 lifetime, replay consumption, one-attempt reporting, and a factual lifecycle
 that cannot claim `OPENED`.
+
+The One Bit visual identity is adopted, with production assets and usage notes
+in `assets/logo/` and the study preserved in `assets/logo-concepts/`.
 
 Stage 0 itself is **not complete**. No real Windows computer with a tray-style
 optical drive has run the executable yet. The project must not claim that it can
@@ -137,6 +144,13 @@ The following facts have direct build or test evidence:
 15. `actionlint` 1.7.12 accepts both the Windows and protocol workflows, and
     `npm ci --prefix protocol` reproduces the locked dependency graph with no
     reported audit vulnerabilities.
+16. On 2026-07-19, the `windows-spike` workflow on `main` assembled the
+    validation kit, completed the non-ejecting `-VerifyOnly` check on the
+    Windows runner, and uploaded the full kit as the artifact
+    ([run 29688104811](https://github.com/tnoborio/eject/actions/runs/29688104811)).
+17. The `protocol-contract` workflow passed on `main`
+    ([run 29688208249](https://github.com/tnoborio/eject/actions/runs/29688208249)),
+    so all eleven protocol tests also have CI evidence.
 
 The verified `main` artifact had this checksum:
 
@@ -174,8 +188,6 @@ Record the failure and narrow the supported capability contract instead.
 ## Known limitations and unknowns
 
 - The code has not run against a physical optical drive.
-- The new validation helper and artifact assembly have not yet been verified by
-  a Windows Actions run.
 - Standard-user access to the device handle is unverified.
 - Empty, inserted, busy, disconnected, USB, SATA, multiple-drive, and trayless
   cases are unverified.
@@ -186,8 +198,6 @@ Record the failure and narrow the supported capability contract instead.
 - The executable has no UI, installer, code signature, update channel, device
   credential, or server connection.
 - Protocol v1 has not yet been exercised between a real control plane and agent.
-- The protocol workflow has not yet run in GitHub Actions; its current evidence
-  is local Node.js testing and static workflow validation.
 - The control plane, web client, account authentication, PostgreSQL schema,
   device credential, and polling transport have not been implemented.
 - The exact authentication provider, device credential, message-integrity
@@ -264,22 +274,21 @@ incomplete until that contract is repeatable on real hardware.
 
 ## Planned PR sequence from this implementation
 
-Keep subsequent changes small and reviewable:
+CI verification for both updated workflows is complete on `main` (see the
+snapshot links). Keep subsequent changes small and reviewable:
 
-1. **CI verification** — run both updated workflows for the validation kit and
-   protocol contract.
-2. **Stage 1 control-plane domain skeleton** — Next.js/TypeScript modular
+1. **Stage 1 control-plane domain skeleton** — Next.js/TypeScript modular
    monolith, tested directional permission, cooldown, pause, revoke, and command
    persistence boundaries; no device enrollment yet.
-3. **Identity and device-security ADR** — choose person authentication, device
+2. **Identity and device-security ADR** — choose person authentication, device
    credential, protected storage, integrity, revocation, idempotency, and clock
    rules.
-4. **Authenticated outbound polling** — implement issuance and result ingestion
+3. **Authenticated outbound polling** — implement issuance and result ingestion
    strictly against protocol v1.
-5. **Windows enrollment and polling** — separate device credential in protected
+4. **Windows enrollment and polling** — separate device credential in protected
    storage, local replay protection, one attempt, result report, and no inbound
    port.
-6. **Hardware evidence in parallel** — add reviewed reports and any narrowly
+5. **Hardware evidence in parallel** — add reviewed reports and any narrowly
    evidence-backed adapter corrections when equipment becomes available.
 
 The authentication provider and precise cryptographic scheme need a focused
