@@ -76,33 +76,44 @@ DeviceIoControl/IOKit呼び出しは公開しません。
 
 ## 命令のライフサイクル
 
+protocol v1は、次の事実に基づくlifecycleを使います。wire形式とfield間規則の正本は
+`protocol/v1/README.ja.md`です。
+
 ```text
-requested（要求）
-  -> rejected（拒否） | authorized（認可）
-  -> queued（待機）
-  -> delivered（配信）
-  -> accepted_by_agent（アプリ受理） | expired（期限切れ）
-  -> executed（実行）
-  -> opened（開いた） | failed（失敗） | unknown（不明）
+REQUESTED
+  -> REJECTED | AUTHORIZED
+AUTHORIZED
+  -> QUEUED | CANCELLED
+QUEUED
+  -> DISPATCHED | EXPIRED | CANCELLED
+DISPATCHED
+  -> DISPATCHED | DELIVERED | EXPIRED | CANCELLED
+DELIVERED
+  -> REJECTED_BY_AGENT | ATTEMPTED
+ATTEMPTED
+  -> FAILED | OUTCOME_UNKNOWN
 ```
 
-各遷移に時刻と機械可読な理由コードを持たせます。ローカルアダプターが成功結果を
-返した後にだけ、UIで「トレイが開いた」と表示できます。ハードウェアが物理動作を
-確認できない場合、楽観的に成功へ変更せず、結果に適切な留保を残します。
+`DISPATCHED`は、serverがresponseへコマンドを入れたことだけを意味します。
+`DELIVERED`には認証済みagentの報告が必要です。各遷移はtimestampと機械可読な理由コードを
+持ちます。protocol v1に`OPENED`状態はなく、ハードウェアが動作の信頼できる証拠を提供できる
+まで、試行済みの物理結果は常に`UNKNOWN`です。
 
 ## 命令エンベロープの例
 
 ```json
 {
-  "command_id": "opaque-unique-id",
+  "protocol_version": 1,
+  "kind": "COMMAND",
+  "command_id": "018f47a0-7b2c-7c9d-8e1f-0123456789ab",
   "type": "OPTICAL_DRIVE_EJECT",
-  "device_id": "registered-device-id",
-  "issued_at": "RFC3339 timestamp",
-  "expires_at": "RFC3339 timestamp",
+  "device_id": "018f47a0-7b2c-7c9d-8e1f-1123456789ab",
   "actor": {
-    "id": "person-id",
+    "person_id": "018f47a0-7b2c-7c9d-8e1f-2123456789ab",
     "display_name": "Kaz"
-  }
+  },
+  "issued_at": "2026-07-18T05:00:00Z",
+  "expires_at": "2026-07-18T05:00:30Z"
 }
 ```
 

@@ -1,0 +1,10 @@
+{
+  "protocol_version": 1,
+  "kind": "LIFECYCLE_EVENT",
+  "event_id": "018f47a0-7b2c-7c9d-8e1f-3123456789ab",
+  "command_id": "018f47a0-7b2c-7c9d-8e1f-0123456789ab",
+  "state": "OUTCOME_UNKNOWN",
+  "reason_code": "PHYSICAL_OUTCOME_UNVERIFIED",
+  "occurred_at": "2026-07-18T05:00:13Z"
+}
+

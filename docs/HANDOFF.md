@@ -11,11 +11,11 @@ the order in which work should continue.
 - **Date:** 2026-07-18
 - **Repository:** `tnoborio/eject`
 - **Current branch:** `main`
-- **Merged implementation PR:** [#1](https://github.com/tnoborio/eject/pull/1)
-- **Merge commit:** `b6bea9dab8d3538cc4140a95c400a1aa6e00e55a`
+- **Merged implementation PR:** [#2](https://github.com/tnoborio/eject/pull/2)
+- **Merge commit:** `444fb817166cbd5467e676b5f6d56e7cb4a5ee23`
 - **Verified Windows build:** [Actions run 29628427491](https://github.com/tnoborio/eject/actions/runs/29628427491)
-- **Current product phase:** Stage 0 software spike implemented; physical
-  hardware truth not yet established
+- **Current product phase:** Stage 0 awaits physical evidence; Stage 1 protocol
+  v1 is implemented and the control plane has not started
 
 ## Executive status
 
@@ -37,6 +37,19 @@ The following work is complete:
 - downloadable workflow artifacts containing the executable and checksum; and
 - paired English and Japanese Stage 0 documentation.
 
+The repository also includes a privacy-bounded Windows hardware
+validation kit. It verifies the executable checksum, requires a deliberate
+physical-safety confirmation, performs one attempt without retry, and records a
+schema-constrained report containing the API result and human-observed outcome.
+This kit has not yet run on a real Windows optical drive and does not complete
+Stage 0 by itself.
+
+Stage 1 protocol v1 is also implemented as a closed JSON Schema contract with a
+reference validator, valid and invalid fixtures, eleven semantic tests, and a
+dedicated CI workflow. It defines exact device audience, a maximum 60-second
+lifetime, replay consumption, one-attempt reporting, and a factual lifecycle
+that cannot claim `OPENED`.
+
 Stage 0 itself is **not complete**. No real Windows computer with a tray-style
 optical drive has run the executable yet. The project must not claim that it can
 open a physical tray until that test evidence exists.
@@ -46,6 +59,13 @@ open a physical tray until that test evidence exists.
 ```text
 .github/workflows/windows-spike.yml
     Native Windows test, publish, smoke-test, checksum, and artifact workflow.
+
+.github/workflows/protocol-contract.yml
+    Locked Node.js install and protocol Schema/semantic tests.
+
+protocol/v1/
+    Closed command, agent-result, and lifecycle Schema; reference validator;
+    fixtures; and paired English/Japanese contract documentation.
 
 src/Eject.Agent.Core/
     Closed capability interface, drive capability, and bounded eject results.
@@ -60,13 +80,24 @@ tests/Eject.Agent.Windows.Tests/
     Adapter containment, identity, native mapping, and selection tests.
 
 scripts/build-windows-spike.sh
-    Local tests and self-contained `win-x64` cross-publish.
+    Local tests, self-contained `win-x64` cross-publish, checksum, and validation
+    kit assembly.
+
+scripts/record-windows-hardware-test.ps1
+    Checksum verification, one deliberate attempt, and privacy-bounded evidence
+    capture with English and Japanese locale resources.
+
+docs/schemas/stage-0-hardware-evidence.schema.json
+    Closed schema for reviewed Stage 0 hardware evidence.
 
 docs/STAGE-0-WINDOWS-SPIKE.md
     Build, operation, safety, and hardware-test instructions.
 
 docs/decisions/0001-implementation-stack.md
     Accepted language, deployment, and architecture direction.
+
+docs/decisions/0002-stage-1-protocol-v1.md
+    Accepted expiry, audience, replay, result, lifecycle, and transport boundary.
 ```
 
 English documents are canonical. Update the corresponding `.ja.md` file in the
@@ -85,6 +116,27 @@ The following facts have direct build or test evidence:
    `eject-agent.exe.sha256` as `eject-windows-x64` for 14 days.
 7. The artifact downloaded from the verified `main` run passed SHA-256
    verification and was identified as a Windows x64 PE executable.
+8. On 2026-07-18, the current implementation passed all ten tests and reproduced
+   the self-contained `win-x64` cross-publish on Linux ARM64 with .NET 10.
+9. The local build assembled the executable, checksum, validation helper, both
+   locale resources, and evidence schema; the generated executable checksum
+   verified successfully.
+10. PowerShell 7.6.3 parsed the validation helper, decoded both JSON locale
+    resources as strict UTF-8, and found exact parity across all 22 keys.
+11. A temporary Linux test copy, with only the Windows platform guard removed,
+    completed the non-ejecting `-VerifyOnly` path in both locales against a
+    zero-drive fake executable.
+12. A separate temporary record-path simulation with a fake executable and a
+    substituted privilege classification produced a report accepted by AJV in
+    strict Draft 2020-12 mode. This synthetic report is not hardware evidence.
+13. The same AJV validation rejected an added `computer_name` field, and
+    `actionlint` 1.7.12 accepted the updated Windows workflow.
+14. All eleven protocol tests pass on Node.js 22 with AJV 8.20.0, including closed
+    payloads, exact audience, expiry, future skew, replay, local rejection,
+    one-attempt result shape, and lifecycle transitions.
+15. `actionlint` 1.7.12 accepts both the Windows and protocol workflows, and
+    `npm ci --prefix protocol` reproduces the locked dependency graph with no
+    reported audit vulnerabilities.
 
 The verified `main` artifact had this checksum:
 
@@ -109,7 +161,12 @@ These properties are part of the implementation contract and must remain true:
 - the code does not read disc labels, file names, contents, or media metadata;
 - there is no tray-close operation; and
 - a successful Windows API call is `COMMAND_ACCEPTED`, while
-  `physical_outcome` remains `UNKNOWN`.
+  `physical_outcome` remains `UNKNOWN`;
+- protocol v1 accepts only `OPTICAL_DRIVE_EJECT` for one exact device audience;
+- protocol payloads cannot carry a local drive path, executable instruction,
+  localized sentence, or an `OPENED` physical outcome; and
+- a consumed command may resend its stored result but may not cause another
+  physical attempt.
 
 Do not loosen one of these boundaries as a workaround for unsupported hardware.
 Record the failure and narrow the supported capability contract instead.
@@ -117,6 +174,8 @@ Record the failure and narrow the supported capability contract instead.
 ## Known limitations and unknowns
 
 - The code has not run against a physical optical drive.
+- The new validation helper and artifact assembly have not yet been verified by
+  a Windows Actions run.
 - Standard-user access to the device handle is unverified.
 - Empty, inserted, busy, disconnected, USB, SATA, multiple-drive, and trayless
   cases are unverified.
@@ -126,8 +185,13 @@ Record the failure and narrow the supported capability contract instead.
   can change when Windows reassigns drive letters.
 - The executable has no UI, installer, code signature, update channel, device
   credential, or server connection.
-- The control plane, web client, account authentication, PostgreSQL schema, and
-  realtime transport have not been implemented.
+- Protocol v1 has not yet been exercised between a real control plane and agent.
+- The protocol workflow has not yet run in GitHub Actions; its current evidence
+  is local Node.js testing and static workflow validation.
+- The control plane, web client, account authentication, PostgreSQL schema,
+  device credential, and polling transport have not been implemented.
+- The exact authentication provider, device credential, message-integrity
+  construction, and revocation check remain security decisions.
 - macOS remains experimental and must not be started before Windows hardware
   truth is established.
 
@@ -148,6 +212,8 @@ Then synchronize and verify the checkout:
 git switch main
 git pull --ff-only origin main
 dotnet test Eject.slnx --configuration Release
+npm ci --prefix protocol
+npm test --prefix protocol
 ```
 
 The repository selects .NET 10 through `global.json`. If `dotnet` is not
@@ -168,45 +234,53 @@ gh run watch RUN_ID
 gh run download RUN_ID --name eject-windows-x64 --dir artifacts/github-actions
 ```
 
-## Required next work: close Stage 0
+## Required next work while hardware is unavailable
 
-The next session should prioritize real hardware, not the server control plane.
+Physical validation remains a parallel requirement, but it is no longer the
+only development queue. The next software change should implement the Stage 1
+control-plane domain skeleton against protocol v1:
 
-1. Obtain a Windows 10 or Windows 11 computer and at least one tray-style
-   optical drive.
-2. Download a fresh GitHub Actions artifact and verify its checksum.
-3. Run `eject-agent.exe list` as a standard user.
-4. Keep the tray area clear and run one eject attempt using a returned opaque
-   identifier.
-5. Record Windows version, privilege, drive model, connection type, media state,
-   semantic result, native error code, and observed tray movement.
-6. Repeat the matrix in `STAGE-0-WINDOWS-SPIKE.md` without adding automatic
-   retries.
-7. Fix only evidence-backed adapter problems, preserving the closed capability.
-8. Document a narrow Windows capability contract in English and Japanese.
+1. scaffold the Next.js/TypeScript modular monolith without a public eject
+   endpoint;
+2. implement pure, tested authorization for directional grants, recipient
+   pause, cooldown, rate limits, device eligibility, and immediate revocation;
+3. model command and lifecycle persistence with PostgreSQL-facing repository
+   interfaces and transactional command-ID uniqueness;
+4. keep person sessions separate from device credentials and defer device
+   enrollment until its security ADR is accepted; and
+5. expose no network path that can carry a command type or field outside
+   protocol v1.
 
-The Stage 0 exit condition is met only when this contract is repeatable on real
-hardware without arbitrary command execution.
+Before authenticated polling or enrollment, record a focused decision covering
+the person auth provider, per-device credential, protected local storage,
+message integrity, revocation lookup, result idempotency, and clock handling.
 
-## Planned PR sequence after hardware evidence
+## Hardware work when equipment becomes available
+
+Run the validation kit as a standard user, review the privacy-bounded reports,
+repeat the matrix in `STAGE-0-WINDOWS-SPIKE.md`, fix only evidence-backed adapter
+problems, and document a narrow Windows capability contract. Stage 0 remains
+incomplete until that contract is repeatable on real hardware.
+
+## Planned PR sequence from this implementation
 
 Keep subsequent changes small and reviewable:
 
-1. **Hardware evidence and capability contract** — add the real test matrix,
-   supported cases, unsupported cases, and truthful outcome definition.
-2. **Adapter corrections** — only if the evidence identifies a specific Windows
-   API or identity problem; include tests and update both languages.
-3. **Stage 0 completion record** — update the roadmap status without implying
-   broader hardware support.
-4. **Stage 1 protocol contract** — define machine-readable command, lifecycle,
-   expiry, audience, uniqueness, and bounded result schemas; no localized text
-   or device path in payloads.
-5. **Stage 1 control-plane skeleton** — Next.js/TypeScript modular monolith,
-   managed PostgreSQL/auth, directional permission, cooldown, pause, revoke,
-   and authenticated outbound polling.
-6. **Windows enrollment and polling** — separate device credential in protected
+1. **CI verification** — run both updated workflows for the validation kit and
+   protocol contract.
+2. **Stage 1 control-plane domain skeleton** — Next.js/TypeScript modular
+   monolith, tested directional permission, cooldown, pause, revoke, and command
+   persistence boundaries; no device enrollment yet.
+3. **Identity and device-security ADR** — choose person authentication, device
+   credential, protected storage, integrity, revocation, idempotency, and clock
+   rules.
+4. **Authenticated outbound polling** — implement issuance and result ingestion
+   strictly against protocol v1.
+5. **Windows enrollment and polling** — separate device credential in protected
    storage, local replay protection, one attempt, result report, and no inbound
    port.
+6. **Hardware evidence in parallel** — add reviewed reports and any narrowly
+   evidence-backed adapter corrections when equipment becomes available.
 
 The authentication provider and precise cryptographic scheme need a focused
 security decision before Stage 1 enrollment is considered complete.

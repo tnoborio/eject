@@ -23,6 +23,12 @@ Test:
 **Exit condition:** document a narrow, repeatable Windows capability contract on
 real hardware without requiring arbitrary command execution.
 
+When test hardware is temporarily unavailable, protocol and control-plane
+domain work may proceed in parallel if it preserves Stage 0 uncertainty and all
+safety boundaries. Parallel work does not satisfy the Stage 0 exit condition,
+authorize a physical-success claim, or permit public remote delivery before the
+hardware contract exists.
+
 ## Stage 1 — Two-person prototype
 
 Connect two accounts and two Windows agents across separate networks.

@@ -1,0 +1,12 @@
+{
+  "protocol_version": 1,
+  "kind": "AGENT_RESULT",
+  "command_id": "018f47a0-7b2c-7c9d-8e1f-0123456789ab",
+  "device_id": "018f47a0-7b2c-7c9d-8e1f-1123456789ab",
+  "recorded_at": "2026-07-18T05:00:12Z",
+  "disposition": "ATTEMPTED",
+  "attempt_count": 1,
+  "result": "COMMAND_ACCEPTED",
+  "physical_outcome": "OPENED"
+}
+

@@ -77,34 +77,45 @@ disc reading, or arbitrary DeviceIoControl/IOKit invocation.
 
 ## Command lifecycle
 
+Protocol v1 uses the following factual lifecycle. The canonical wire shape and
+cross-field rules are in `protocol/v1/README.md`.
+
 ```text
-requested
-  -> rejected | authorized
-  -> queued
-  -> delivered
-  -> accepted_by_agent | expired
-  -> executed
-  -> opened | failed | unknown
+REQUESTED
+  -> REJECTED | AUTHORIZED
+AUTHORIZED
+  -> QUEUED | CANCELLED
+QUEUED
+  -> DISPATCHED | EXPIRED | CANCELLED
+DISPATCHED
+  -> DISPATCHED | DELIVERED | EXPIRED | CANCELLED
+DELIVERED
+  -> REJECTED_BY_AGENT | ATTEMPTED
+ATTEMPTED
+  -> FAILED | OUTCOME_UNKNOWN
 ```
 
-Each transition has a timestamp and machine-readable reason code. The UI may say
-“tray opened” only after the local adapter reports a successful outcome. If the
-hardware cannot confirm physical movement, the result must remain appropriately
-qualified rather than upgraded optimistically.
+`DISPATCHED` means only that the server placed a command in a response.
+`DELIVERED` requires an authenticated agent report. Each transition has a
+timestamp and machine-readable reason code. Protocol v1 has no `OPENED` state;
+its attempted physical outcome is always `UNKNOWN` until hardware can provide
+trustworthy evidence of movement.
 
 ## Illustrative command envelope
 
 ```json
 {
-  "command_id": "opaque-unique-id",
+  "protocol_version": 1,
+  "kind": "COMMAND",
+  "command_id": "018f47a0-7b2c-7c9d-8e1f-0123456789ab",
   "type": "OPTICAL_DRIVE_EJECT",
-  "device_id": "registered-device-id",
-  "issued_at": "RFC3339 timestamp",
-  "expires_at": "RFC3339 timestamp",
+  "device_id": "018f47a0-7b2c-7c9d-8e1f-1123456789ab",
   "actor": {
-    "id": "person-id",
+    "person_id": "018f47a0-7b2c-7c9d-8e1f-2123456789ab",
     "display_name": "Kaz"
-  }
+  },
+  "issued_at": "2026-07-18T05:00:00Z",
+  "expires_at": "2026-07-18T05:00:30Z"
 }
 ```
 

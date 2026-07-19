@@ -1,0 +1,47 @@
+name: Protocol contract
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - .github/workflows/protocol-contract.yml
+      - protocol/**
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/protocol-contract.yml
+      - protocol/**
+
+permissions:
+  contents: read
+
+concurrency:
+  group: protocol-contract-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Validate protocol v1
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@2028fbc5c25fe9cf00d9f06a71cc4710d4507903 # v6.0.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: protocol/package-lock.json
+
+      - name: Install locked dependencies
+        run: npm ci --prefix protocol
+
+      - name: Validate schemas and semantics
+        run: npm test --prefix protocol
+

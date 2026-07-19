@@ -1,0 +1,14 @@
+{
+  "protocol_version": 1,
+  "kind": "COMMAND",
+  "command_id": "018f47a0-7b2c-7c9d-8e1f-4123456789ab",
+  "type": "OPTICAL_DRIVE_EJECT",
+  "device_id": "018f47a0-7b2c-7c9d-8e1f-1123456789ab",
+  "actor": {
+    "person_id": "018f47a0-7b2c-7c9d-8e1f-2123456789ab",
+    "display_name": "Kaz"
+  },
+  "issued_at": "2026-07-18T05:00:00Z",
+  "expires_at": "2026-07-18T05:02:00Z"
+}
+
