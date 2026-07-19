@@ -17,3 +17,12 @@ cd "${repository_root}"
   --output "${artifact_dir}" \
   -p:PublishSingleFile=true \
   -p:DebugType=None
+
+cp scripts/record-windows-hardware-test.ps1 "${artifact_dir}/"
+cp docs/schemas/stage-0-hardware-evidence.schema.json "${artifact_dir}/"
+mkdir -p "${artifact_dir}/locales"
+cp scripts/locales/stage0-hardware-validation.*.json "${artifact_dir}/locales/"
+(
+  cd "${artifact_dir}"
+  sha256sum eject-agent.exe > eject-agent.exe.sha256
+)

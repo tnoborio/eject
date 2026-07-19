@@ -1,0 +1,25 @@
+{
+  "AgentMissing": "この検証キットに eject-agent.exe がありません。",
+  "PlatformUnsupported": "この検証ツールはWindowsでのみ実行できます。",
+  "LocaleResourcesInvalid": "英語と日本語の検証リソースが不正か、keyが一致していません。",
+  "ChecksumMissing": "この検証キットに eject-agent.exe.sha256 がありません。",
+  "ChecksumInvalid": "チェックサムファイルが所定の形式ではありません。",
+  "ChecksumMismatch": "実行ファイルが SHA-256 チェックサムと一致しません。eject は試していません。",
+  "SchemaMissing": "この検証キットに stage-0-hardware-evidence.schema.json がありません。",
+  "SchemaInvalid": "ハードウェア証拠schemaが正しいJSONではありません。",
+  "DiscoveryFailed": "ドライブ検出が終了コード {0} で失敗しました。eject は試していません。",
+  "DiscoveryInvalid": "ドライブ検出の結果が不正です。eject は試していません。",
+  "VerificationCompleted": "検証キットを確認しました。検出した光学ドライブ: {0} 台。eject は試していません。",
+  "OutputExists": "証拠ファイルはすでに存在します: {0}",
+  "DriveModelInvalid": "DriveModelにはメーカー名とモデル系列が必要です。ejectは試していません。",
+  "ExpectedDriveMissing": "選択したドライブは存在する想定ですが、検出されませんでした。eject は試していません。",
+  "ExpectedDrivePresent": "選択したドライブは存在しない想定ですが、現在は検出されています。eject は試していません。",
+  "SafetyNotice": "選択した光学ドライブの前方を空けてください。このツールは eject を1回だけ試し、再試行しません。",
+  "ConfirmationPrompt": "続けるには EJECT と入力してください",
+  "Cancelled": "eject は試していません。",
+  "ObservationPrompt": "目視結果（OPENED、NO_VISIBLE_MOVEMENT、NOT_OBSERVABLE のいずれか）",
+  "ObservationInvalid": "OPENED、NO_VISIBLE_MOVEMENT、NOT_OBSERVABLE のいずれかを入力してください。eject は再試行しません。",
+  "OutputDirectoryMissing": "証拠の出力先ディレクトリがありません: {0}",
+  "ReportWritten": "ハードウェア証拠を {0} に書き込みました。"
+}
+

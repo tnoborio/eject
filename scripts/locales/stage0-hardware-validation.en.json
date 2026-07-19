@@ -1,0 +1,25 @@
+{
+  "AgentMissing": "eject-agent.exe is missing from this validation kit.",
+  "PlatformUnsupported": "This validation helper runs only on Windows.",
+  "LocaleResourcesInvalid": "The English and Japanese validation resources are invalid or have different keys.",
+  "ChecksumMissing": "eject-agent.exe.sha256 is missing from this validation kit.",
+  "ChecksumInvalid": "The checksum file is not in the expected format.",
+  "ChecksumMismatch": "The executable does not match its SHA-256 checksum. No attempt was made.",
+  "SchemaMissing": "stage-0-hardware-evidence.schema.json is missing from this validation kit.",
+  "SchemaInvalid": "The hardware evidence schema is not valid JSON.",
+  "DiscoveryFailed": "Drive discovery exited with code {0}. No attempt was made.",
+  "DiscoveryInvalid": "Drive discovery returned an invalid result. No attempt was made.",
+  "VerificationCompleted": "Validation kit verified. Discovered optical drives: {0}. No eject attempt was made.",
+  "OutputExists": "The evidence file already exists: {0}",
+  "DriveModelInvalid": "DriveModel must contain a manufacturer and model family. No attempt was made.",
+  "ExpectedDriveMissing": "The selected drive was expected to be present but was not discovered. No attempt was made.",
+  "ExpectedDrivePresent": "The selected drive was expected to be absent but is currently discovered. No attempt was made.",
+  "SafetyNotice": "Keep the space in front of the selected optical drive clear. This helper makes one eject attempt and never retries.",
+  "ConfirmationPrompt": "Type EJECT to continue",
+  "Cancelled": "No eject attempt was made.",
+  "ObservationPrompt": "Observed physical outcome (OPENED, NO_VISIBLE_MOVEMENT, or NOT_OBSERVABLE)",
+  "ObservationInvalid": "Enter OPENED, NO_VISIBLE_MOVEMENT, or NOT_OBSERVABLE. The eject attempt will not be repeated.",
+  "OutputDirectoryMissing": "The evidence output directory does not exist: {0}",
+  "ReportWritten": "Hardware evidence written to {0}"
+}
+

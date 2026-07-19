@@ -27,14 +27,16 @@ Windows端末とトレイ式光学ドライブが必要です。
 ./scripts/build-windows-spike.sh
 ```
 
-Windows x64向けの単一実行ファイルは次に出力されます。
+Windows x64向けの単一実行ファイルとハードウェア検証キットは次に出力されます。
 
 ```text
 artifacts/windows-x64/eject-agent.exe
 ```
 
-出力は自己完結型で、テスト用Windows端末に.NETランタイムを別途インストールする
-必要はありません。コード署名はされていないため、公開配布には使用できません。
+出力には、自己完結型実行ファイル、そのチェックサム、検証ツール、英語・日本語の
+検証ツール用リソース、証拠JSON Schemaが含まれます。テスト用Windows端末に.NET
+ランタイムを別途インストールする必要はありません。コード署名はされていないため、
+公開配布には使用できません。
 
 ## GitHub Actionsでのビルド
 
@@ -50,8 +52,8 @@ GitHubのWebサイトから実行する手順は次のとおりです。
 4. 完了したworkflow runを開く。
 
 workflow runの**Artifacts**欄から`eject-windows-x64`をダウンロードします。ダウンロード
-内容は`eject-agent.exe`と`eject-agent.exe.sha256`で、14日後に期限切れになります。
-リポジトリの読み取り権限と、認証済みのGitHubセッションが必要です。
+内容には`eject-agent.exe`、そのチェックサム、ハードウェア検証キットが含まれ、14日後に
+期限切れになります。リポジトリの読み取り権限と、認証済みのGitHubセッションが必要です。
 
 GitHub CLIでは次のように実行できます。
 
@@ -84,6 +86,65 @@ PowerShellを標準ユーザーとして開きます。最初にローカルの�
 ドライブパスを指定する引数は意図的に用意していません。実行ファイルはWindows APIを
 呼ぶ前に、不透明な識別子を最新のローカル検出結果と照合します。
 
+## 1件のハードウェアテストを記録する
+
+artifactには`record-windows-hardware-test.ps1`が含まれます。このツールは実行ファイルの
+チェックサムを検証し、最新のドライブ検出を行い、物理的安全の確認を求めた後、ejectを
+正確に1回だけ試します。その後、テスターに目視結果の分類を求めます。物理操作を再試行する
+ことはありません。
+
+物理テストの前に、ejectせず検証キットの組み立てを確認します。
+
+```powershell
+powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass `
+  -File .\record-windows-hardware-test.ps1 `
+  -VerifyOnly `
+  -Locale ja
+```
+
+最初に`list`を実行し、選択した不透明な識別子をコピーします。メディアが入っていない、
+存在するトレイ式外付けUSBドライブなら、次のように実行します。
+
+```powershell
+powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass `
+  -File .\record-windows-hardware-test.ps1 `
+  -DriveId optical-REPLACE_WITH_DISCOVERED_ID `
+  -DriveModel "メーカー名とモデル系列のみ" `
+  -ConnectionType EXTERNAL_USB `
+  -Mechanism TRAY `
+  -MediaState EMPTY `
+  -Locale ja `
+  -OutputPath .\stage-0-usb-empty.json
+```
+
+これらのコマンドにあるexecution policyのoverrideは、そのPowerShell processだけに適用
+されます。既知のActions runからダウンロードした未署名テストartifactにだけ使い、端末全体の
+execution policyは変更しないでください。検証ツールは引き続き、ドライブ検出やejectより前に
+同梱実行ファイルのチェックサムを検証します。
+
+検証ツールは`en`と`ja`に対応します。`-Locale`を省略すると、Windows UIカルチャが日本語
+なら日本語、それ以外なら英語を選びます。トレイの前方を空けてから`EJECT`と入力して
+ください。実行後、次のいずれかを記録します。
+
+- `OPENED`
+- `NO_VISIBLE_MOVEMENT`
+- `NOT_OBSERVABLE`
+
+切断テストでは、以前の検出で得た識別子を保持し、既知のテスト用ドライブを切断して、
+`-ExpectedDiscoveryState ABSENT`を追加します。検証ツールはagentを呼ぶ前に識別子が存在
+しないことを要求するため、デバイスパスを受け付けずに、adapterの限定されたnot-found結果を
+記録できます。
+
+生成されるJSONは`stage-0-hardware-evidence.schema.json`に従います。テスト日、Windowsの
+バージョンとアーキテクチャ、権限区分、粗いドライブ条件、実行ファイルのチェックサム、
+限定されたagent結果、人が目視した物理結果だけを含みます。ドライブ識別子、ユーザー名、
+コンピューター名、デバイスのシリアル番号、メディア内容、正確なイベント時刻は含めません。
+
+生のレポートはレビューするまでローカルに保管してください。`-DriveModel`にはメーカー名と
+モデル系列だけを記録し、シリアル番号、資産タグ、人名、コンピューター名を入力しないで
+ください。レビュー済みレポートは、後でStage 0の明示的な証拠としてコミットできます。
+これはテスト証拠であり、非公開のプロダクトイベント履歴ではありません。
+
 ## 結果の契約
 
 `COMMAND_ACCEPTED`はWindowsのデバイス制御呼び出しが成功を返したことを意味します。
@@ -102,8 +163,9 @@ CLIは常に`physical_outcome`を`UNKNOWN`として報告します。
 
 ## 今後必要な実機検証
 
-次の各条件について、Windowsバージョン、ユーザー権限、接続方式、ドライブ機種、
-メディア状態、意味コード、ネイティブエラーコード、観察した物理結果を記録します。
+次の各条件について、検証ツールを使い、Windowsバージョン、ユーザー権限、接続方式、
+ドライブのモデル系列、メディア状態、意味コード、ネイティブエラーコード、観察した物理結果を
+記録します。
 
 - 内蔵および外付けのトレイ式ドライブ
 - 空のドライブおよびメディア挿入時
