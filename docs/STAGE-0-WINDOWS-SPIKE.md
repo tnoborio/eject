@@ -27,15 +27,17 @@ Install a .NET 10 SDK, then run:
 ./scripts/build-windows-spike.sh
 ```
 
-The Windows x64 single-file executable is written to:
+The Windows x64 single-file executable and hardware-validation kit are written
+to:
 
 ```text
 artifacts/windows-x64/eject-agent.exe
 ```
 
-The output is self-contained and does not require a separately installed .NET
-runtime on the Windows test computer. It is not code-signed and must not be
-distributed as a public build.
+The output contains the self-contained executable, its checksum, the validation
+helper, English and Japanese helper resources, and the evidence JSON Schema. It
+does not require a separately installed .NET runtime on the Windows test
+computer. It is not code-signed and must not be distributed as a public build.
 
 ## Build with GitHub Actions
 
@@ -51,9 +53,9 @@ To run it in the GitHub website:
 4. open the completed workflow run.
 
 Download `eject-windows-x64` from the workflow run's **Artifacts** section. The
-download contains `eject-agent.exe` and `eject-agent.exe.sha256` and expires
-after 14 days. Repository read access and an authenticated GitHub session are
-required.
+download contains `eject-agent.exe`, its checksum, and the hardware-validation
+kit, and expires after 14 days. Repository read access and an authenticated
+GitHub session are required.
 
 The equivalent GitHub CLI flow is:
 
@@ -87,6 +89,66 @@ There is deliberately no drive-path argument. The executable resolves the
 opaque identifier against a fresh local discovery before calling the Windows
 API.
 
+## Record one hardware test
+
+The artifact includes `record-windows-hardware-test.ps1`. It verifies the
+executable checksum, performs fresh discovery, requires a physical-safety
+confirmation, makes exactly one eject attempt, and asks the tester to classify
+the visible outcome. It never retries the physical operation.
+
+Before any physical test, verify the assembled kit without ejecting:
+
+```powershell
+powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass `
+  -File .\record-windows-hardware-test.ps1 `
+  -VerifyOnly `
+  -Locale en
+```
+
+First run `list` and copy the selected opaque identifier. For a present,
+tray-style external USB drive with no media, run:
+
+```powershell
+powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass `
+  -File .\record-windows-hardware-test.ps1 `
+  -DriveId optical-REPLACE_WITH_DISCOVERED_ID `
+  -DriveModel "Manufacturer and model family only" `
+  -ConnectionType EXTERNAL_USB `
+  -Mechanism TRAY `
+  -MediaState EMPTY `
+  -Locale en `
+  -OutputPath .\stage-0-usb-empty.json
+```
+
+The execution-policy override in these commands applies only to that PowerShell
+process. Use it only for the unsigned test artifact downloaded from the known
+Actions run; do not change the machine-wide execution policy. The helper still
+verifies the companion executable checksum before discovery or eject.
+
+The helper accepts `en` and `ja`. Omit `-Locale` to select Japanese when the
+Windows UI culture is Japanese and English otherwise. Enter `EJECT` only after
+clearing the space in front of the tray. After the attempt, record one of:
+
+- `OPENED`;
+- `NO_VISIBLE_MOVEMENT`; or
+- `NOT_OBSERVABLE`.
+
+For a disconnect test, retain an identifier from a prior discovery, disconnect
+that known test drive, and add `-ExpectedDiscoveryState ABSENT`. The helper
+requires the identifier to be absent before invoking the agent, so the adapter
+records its bounded not-found result without accepting a device path.
+
+The resulting JSON follows `stage-0-hardware-evidence.schema.json`. It includes
+only the test date, Windows version and architecture, privilege class, coarse
+drive conditions, executable checksum, bounded agent result, and human-observed
+physical outcome. It excludes the drive identifier, user name, computer name,
+device serial number, media contents, and exact event time.
+
+Keep raw reports local until reviewed. Record only the manufacturer and model
+family in `-DriveModel`; never enter a serial number, asset tag, person name, or
+computer name. A reviewed report may be committed later as explicit Stage 0
+evidence. It is test evidence, not private product event history.
+
 ## Result contract
 
 `COMMAND_ACCEPTED` means that the Windows device-control call returned success.
@@ -105,8 +167,9 @@ Expected bounded failures include:
 
 ## Hardware validation still required
 
-Record the Windows version, user privilege, connection type, drive model, media
-state, semantic result, native error code, and observed physical outcome for:
+Use the validation helper to record the Windows version, user privilege,
+connection type, drive model family, media state, semantic result, native error
+code, and observed physical outcome for:
 
 - internal and external tray-style drives;
 - empty drives and inserted media;

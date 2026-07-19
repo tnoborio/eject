@@ -1,0 +1,111 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "EJECT Stage 0 hardware evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "event",
+    "test_date",
+    "platform",
+    "drive",
+    "agent",
+    "attempt"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "event": {
+      "const": "STAGE_0_HARDWARE_TEST_RECORDED"
+    },
+    "test_date": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+    },
+    "platform": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version", "architecture", "privilege"],
+      "properties": {
+        "name": { "const": "WINDOWS" },
+        "version": { "type": "string", "minLength": 1, "maxLength": 64 },
+        "architecture": { "enum": ["X64", "ARM64"] },
+        "privilege": { "enum": ["STANDARD_USER", "ELEVATED"] }
+      }
+    },
+    "drive": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "model",
+        "connection_type",
+        "mechanism",
+        "media_state",
+        "expected_discovery_state",
+        "discovered_drive_count"
+      ],
+      "properties": {
+        "model": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "connection_type": {
+          "enum": ["INTERNAL_SATA", "EXTERNAL_USB", "OTHER", "UNKNOWN"]
+        },
+        "mechanism": { "enum": ["TRAY", "TRAYLESS", "UNKNOWN"] },
+        "media_state": {
+          "enum": ["EMPTY", "INSERTED_IDLE", "INSERTED_BUSY", "UNKNOWN"]
+        },
+        "expected_discovery_state": { "enum": ["PRESENT", "ABSENT"] },
+        "discovered_drive_count": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "agent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sha256"],
+      "properties": {
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "attempt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "process_exit_code",
+        "result",
+        "native_error_code",
+        "physical_outcome"
+      ],
+      "properties": {
+        "process_exit_code": {
+          "type": "integer",
+          "minimum": -2147483648,
+          "maximum": 2147483647
+        },
+        "result": {
+          "enum": [
+            "COMMAND_ACCEPTED",
+            "DRIVE_NOT_FOUND",
+            "DRIVE_BUSY",
+            "DRIVE_NOT_READY",
+            "DRIVE_UNSUPPORTED",
+            "DRIVE_DISCONNECTED",
+            "ACCESS_DENIED",
+            "FAILED",
+            "RESULT_UNKNOWN"
+          ]
+        },
+        "native_error_code": {
+          "type": ["integer", "null"],
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "physical_outcome": {
+          "enum": ["OPENED", "NO_VISIBLE_MOVEMENT", "NOT_OBSERVABLE"]
+        }
+      }
+    }
+  }
+}

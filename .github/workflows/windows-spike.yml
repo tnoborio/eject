@@ -10,6 +10,10 @@ on:
       - global.json
       - src/**
       - tests/**
+      - scripts/build-windows-spike.sh
+      - scripts/record-windows-hardware-test.ps1
+      - scripts/locales/stage0-hardware-validation.*.json
+      - docs/schemas/stage-0-hardware-evidence.schema.json
   push:
     branches:
       - main
@@ -20,6 +24,10 @@ on:
       - global.json
       - src/**
       - tests/**
+      - scripts/build-windows-spike.sh
+      - scripts/record-windows-hardware-test.ps1
+      - scripts/locales/stage0-hardware-validation.*.json
+      - docs/schemas/stage-0-hardware-evidence.schema.json
 
 permissions:
   contents: read
@@ -72,25 +80,35 @@ jobs:
       - name: Smoke-test drive discovery
         run: ./artifacts/windows-x64/eject-agent.exe list
 
-      - name: Write checksum and build summary
+      - name: Assemble hardware validation kit
         shell: pwsh
         run: |
           $artifactPath = "artifacts/windows-x64/eject-agent.exe"
           $checksumPath = "artifacts/windows-x64/eject-agent.exe.sha256"
           $hash = (Get-FileHash -LiteralPath $artifactPath -Algorithm SHA256).Hash.ToLowerInvariant()
           "$hash *eject-agent.exe" | Set-Content -LiteralPath $checksumPath -Encoding ascii
+          Copy-Item -LiteralPath "scripts/record-windows-hardware-test.ps1" -Destination "artifacts/windows-x64/"
+          Copy-Item -LiteralPath "docs/schemas/stage-0-hardware-evidence.schema.json" -Destination "artifacts/windows-x64/"
+          New-Item -ItemType Directory -Path "artifacts/windows-x64/locales" -Force | Out-Null
+          Copy-Item -Path "scripts/locales/stage0-hardware-validation.*.json" -Destination "artifacts/windows-x64/locales/"
           "### Windows spike artifact" >> $env:GITHUB_STEP_SUMMARY
           "- File: ``eject-agent.exe``" >> $env:GITHUB_STEP_SUMMARY
           "- SHA-256: ``$hash``" >> $env:GITHUB_STEP_SUMMARY
           "- Signing: unsigned test build" >> $env:GITHUB_STEP_SUMMARY
+
+      - name: Verify hardware validation kit without ejecting
+        shell: pwsh
+        run: >-
+          ./artifacts/windows-x64/record-windows-hardware-test.ps1
+          -VerifyOnly
+          -Locale en
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: eject-windows-x64
           path: |
-            artifacts/windows-x64/eject-agent.exe
-            artifacts/windows-x64/eject-agent.exe.sha256
+            artifacts/windows-x64/**
           if-no-files-found: error
           retention-days: 14
           compression-level: 0
