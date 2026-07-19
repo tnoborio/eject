@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">EJECT mark, one color</title>
+  <desc id="desc">Two bit slots with a gap between them and the missing bit ejected above, in a single color.</desc>
+  <rect width="256" height="256" rx="56" fill="#111311"/>
+  <rect x="42" y="152" width="44" height="44" fill="none" stroke="#F2F0E8" stroke-width="12"/>
+  <rect x="170" y="152" width="44" height="44" fill="none" stroke="#F2F0E8" stroke-width="12"/>
+  <rect x="100" y="46" width="56" height="56" fill="#F2F0E8"/>
+</svg>

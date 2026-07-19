@@ -2,6 +2,8 @@
 
 [English](README.md)
 
+![EJECTロゴ: ビット列から一つのビットが上へ排出された図と、EJECTのワードマーク](assets/logo/logo.svg)
+
 > 真面目な技術。ほとんどない目的。
 
 EJECTは、ほとんど何の役にも立たないIoTソーシャルネットワークです。

@@ -2,10 +2,12 @@
 
 [日本語](README.ja.md)
 
-These are working concepts, not an adopted visual identity. They are drawn as
-self-contained SVG lockups so they remain legible in both GitHub light and dark
-themes. No tagline is embedded, allowing the surrounding README to remain
-localized.
+These are working concepts. They are drawn as self-contained SVG lockups so
+they remain legible in both GitHub light and dark themes. No tagline is
+embedded, allowing the surrounding README to remain localized.
+
+> **Decision:** **One Bit** (S1, below) has been adopted as the direction.
+> Production assets live in [`../logo/`](../logo/README.md).
 
 ## 1. Tray Line
 
@@ -87,3 +89,44 @@ A physical baseline and one ballistic arc, without an arrow.
 
 A removed wedge reappears outside the solid boundary. This is the most abstract
 of the five studies.
+
+## Social studies
+
+The concepts so far cover hardware (01–04) and etymology (05–10). These five
+address the third axis: EJECT as a one-bit physical social network — people,
+consent, and remote presence.
+
+### S1. One Bit
+
+![EJECT One Bit social concept](11-one-bit.svg)
+
+A single bit leaves its slot in a bit field and is ejected upward. "One action,
+one physical result," expressed in the smallest unit of data.
+
+### S2. Eject Back
+
+![EJECT Eject Back social concept](12-eject-back.svg)
+
+Two eject symbols facing each other: one ejects, the other ejects back. The
+core reciprocal experience, expressed only by inverting the mark.
+
+### S3. Somewhere
+
+![EJECT Somewhere social concept](13-somewhere.svg)
+
+A dotted signal travels from a remote point across distance, and a tray opens.
+A literal drawing of the sentence "Somewhere, a tray opens."
+
+### S4. Consent Gate
+
+![EJECT Consent Gate social concept](14-consent-gate.svg)
+
+The top edge of a boundary has been deliberately opened; the form can leave
+only through that opened gap. A diagram of "consent before connection."
+
+### S5. One Press
+
+![EJECT One Press social concept](15-one-press.svg)
+
+A single keycap carrying the eject symbol — the one action a friend performs,
+drawn from the sender's side.
