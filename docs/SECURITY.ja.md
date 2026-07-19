@@ -68,6 +68,16 @@ Aliceをejectできることを意味しません。Aliceが許可、一時停�
 
 許可済みドライブとの結合は受信者のコンピューター上で作成し、送信者には選ばせません。
 
+protocol v1は、これらの制約を実行可能にします。コマンドは完全一致する1台の端末を宛先とし、
+最大60秒以内に期限切れになり、未知のfieldを拒否します。端末宛ての正しく期限内のコマンドに
+ついて、agentはローカル試行前、または試行とatomicにcommand IDを永続的に消費します。
+transport失敗後に保存済み結果を再送できますが、物理操作を繰り返してはいけません。消費済み
+IDは再起動後も24時間以上保持します。
+
+protocol検証は認証済みtransportの代わりではありません。person認証provider、端末ごとの
+credential、message integrity方式、revocation確認、保護済みローカル保存は、device
+enrollment完了前に集中的なdecisionが必要です。
+
 ## 不正利用と物理安全
 
 - 受理したeject後に、受信者が管理するクールダウンを適用する。

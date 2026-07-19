@@ -76,6 +76,7 @@ Read the complete [design principles](PRINCIPLES.md).
 - [Internationalization](docs/I18N.md) / [日本語](docs/I18N.ja.md)
 - [Roadmap](docs/ROADMAP.md) / [日本語](docs/ROADMAP.ja.md)
 - [Stage 0 Windows spike](docs/STAGE-0-WINDOWS-SPIKE.md) / [日本語](docs/STAGE-0-WINDOWS-SPIKE.ja.md)
+- [Stage 1 protocol v1](protocol/v1/README.md) / [日本語](protocol/v1/README.ja.md)
 - [Implementation handoff](docs/HANDOFF.md) / [日本語](docs/HANDOFF.ja.md)
 - [References](docs/REFERENCES.md) / [日本語](docs/REFERENCES.ja.md)
 

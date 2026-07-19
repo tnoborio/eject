@@ -10,11 +10,11 @@
 - **日付:** 2026-07-18
 - **リポジトリ:** `tnoborio/eject`
 - **現在のブランチ:** `main`
-- **マージ済み実装PR:** [#1](https://github.com/tnoborio/eject/pull/1)
-- **マージコミット:** `b6bea9dab8d3538cc4140a95c400a1aa6e00e55a`
+- **マージ済み実装PR:** [#2](https://github.com/tnoborio/eject/pull/2)
+- **マージコミット:** `444fb817166cbd5467e676b5f6d56e7cb4a5ee23`
 - **検証済みWindowsビルド:** [Actions run 29628427491](https://github.com/tnoborio/eject/actions/runs/29628427491)
-- **現在のプロダクト段階:** Stage 0のソフトウェアスパイクは実装済み。物理ハードウェア上の
-  事実は未確立
+- **現在のプロダクト段階:** Stage 0は物理証拠待ち。Stage 1 protocol v1は実装済みで、
+  制御面は未着手
 
 ## 現在の状態
 
@@ -36,6 +36,17 @@
 - 実行ファイルとチェックサムを含むworkflow artifact
 - Stage 0文書の英語版と日本語版
 
+リポジトリには、プライバシーを限定したWindowsハードウェア検証キットも含まれて
+います。このキットは実行ファイルのチェックサムを検証し、意図的な物理安全確認を要求し、
+再試行せず1回だけ実行し、API結果と人が目視した結果をschemaで制約したレポートに記録
+します。このキットはまだ実際のWindows光学ドライブでは動かしておらず、それ自体で
+Stage 0が完了するわけではありません。
+
+Stage 1 protocol v1も、閉じたJSON Schema契約、reference validator、valid/invalid fixture、
+11件の意味テスト、専用CI workflowとして実装済みです。端末宛先の完全一致、最大60秒の
+有効時間、replay消費、1回の試行報告、`OPENED`を主張できない事実ベースのlifecycleを
+定義しています。
+
 Stage 0自体は**未完了**です。トレイ式光学ドライブを持つ実際のWindows端末では、まだ
 実行していません。その証拠が得られるまで、物理トレイを開けられると表現してはいけません。
 
@@ -44,6 +55,13 @@ Stage 0自体は**未完了**です。トレイ式光学ドライブを持つ実
 ```text
 .github/workflows/windows-spike.yml
     Windows上のテスト、発行、スモークテスト、チェックサム、artifact用workflow。
+
+.github/workflows/protocol-contract.yml
+    locked Node.js installとprotocol Schema・意味テスト。
+
+protocol/v1/
+    閉じたcommand、agent-result、lifecycle Schema、reference validator、fixture、英日両方の
+    契約文書。
 
 src/Eject.Agent.Core/
     閉じた能力インターフェース、ドライブ能力、限定済みeject結果。
@@ -58,13 +76,23 @@ tests/Eject.Agent.Windows.Tests/
     アダプター封じ込め、識別、ネイティブ結果変換、選択処理のテスト。
 
 scripts/build-windows-spike.sh
-    ローカルテストと自己完結型`win-x64`クロス発行。
+    ローカルテスト、自己完結型`win-x64`クロス発行、チェックサム、検証キットの組み立て。
+
+scripts/record-windows-hardware-test.ps1
+    チェックサム検証、意図的な1回の実行、英日locale resourceを使ったプライバシー限定の
+    証拠記録。
+
+docs/schemas/stage-0-hardware-evidence.schema.json
+    レビュー済みStage 0ハードウェア証拠の閉じたschema。
 
 docs/STAGE-0-WINDOWS-SPIKE.md
     ビルド、操作、安全、ハードウェアテスト手順。
 
 docs/decisions/0001-implementation-stack.md
     採用済みの言語、配置、アーキテクチャ方針。
+
+docs/decisions/0002-stage-1-protocol-v1.md
+    採用済みの期限、宛先、replay、結果、lifecycle、transport境界。
 ```
 
 英語文書が正本です。意味を変える場合は、対応する`.ja.md`も同じ変更で更新してください。
@@ -82,6 +110,23 @@ docs/decisions/0001-implementation-stack.md
    `eject-windows-x64`として14日間保存する。
 7. 検証済み`main` runからダウンロードしたartifactはSHA-256検証に成功し、Windows x64
    PE実行ファイルとして認識された。
+8. 2026-07-18に、現在の実装は10件すべてのテストに成功し、Linux ARM64上の.NET 10で
+   自己完結型`win-x64`クロス発行を再現した。
+9. ローカルビルドは実行ファイル、チェックサム、検証ツール、両locale resource、証拠
+   schemaを組み立て、生成された実行ファイルのチェックサム検証に成功した。
+10. PowerShell 7.6.3で検証ツールをparseし、両JSON locale resourceをstrict UTF-8で
+    decodeでき、22個すべてのkeyが完全に一致した。
+11. Windows platform guardだけを外した一時的なLinuxテスト用copyが、ドライブ0台を返す
+    fake実行ファイルに対して、両localeのejectなし`-VerifyOnly`経路を完了した。
+12. fake実行ファイルと置換した権限区分を使う別の一時的なrecord経路simulationは、AJVの
+    strictなDraft 2020-12 modeが受理するレポートを生成した。この合成レポートは実機証拠
+    ではない。
+13. 同じAJV検証は追加した`computer_name` fieldを拒否し、`actionlint` 1.7.12は更新済み
+    Windows workflowを受理した。
+14. Node.js 22とAJV 8.20.0でprotocol test 11件がすべて成功する。閉じたpayload、宛先完全
+    一致、期限、未来方向skew、replay、ローカル拒否、1回の試行結果、lifecycle遷移を含む。
+15. `actionlint` 1.7.12はWindowsとprotocol両workflowを受理し、
+    `npm ci --prefix protocol`はlocked dependency graphを再現し、audit脆弱性を報告しない。
 
 検証済み`main` artifactのチェックサムは次のとおりです。
 
@@ -104,6 +149,10 @@ artifactには期限があり、後続ビルドのチェックサムは変わり
 - ディスクラベル、ファイル名、内容、メディアメタデータを読まない。
 - トレイを閉じる操作がない。
 - Windows API成功は`COMMAND_ACCEPTED`であり、`physical_outcome`は`UNKNOWN`のままにする。
+- protocol v1は、1台の完全一致する端末宛てに`OPTICAL_DRIVE_EJECT`だけを受理する。
+- protocol payloadはローカルドライブパス、実行命令、翻訳済み文章、`OPENED`物理結果を
+  運べない。
+- 消費済みコマンドは保存済み結果を再送できるが、物理試行をもう一度発生させてはいけない。
 
 非対応ハードウェアへの回避策として、これらの境界を緩めてはいけません。失敗を記録し、
 対応する能力契約を狭く定義してください。
@@ -111,13 +160,20 @@ artifactには期限があり、後続ビルドのチェックサムは変わり
 ## 既知の制限と未確認事項
 
 - 物理光学ドライブに対してコードを実行していない。
+- 新しい検証ツールとartifact組み立ては、Windows Actions runでまだ検証していない。
 - 標準ユーザーでデバイスハンドルを開けるか未確認。
 - 空、メディア挿入、使用中、切断、USB、SATA、複数ドライブ、トレイレスを未確認。
 - Windows API成功と目視できるトレイ動作の関係を未確認。
 - 不透明なドライブ識別子は現在のドライブルートから生成している。ローカルスパイクには
   適するが永続的なハードウェア識別子ではなく、ドライブ文字の再割り当てで変化する。
 - UI、インストーラー、コード署名、更新チャネル、デバイス資格情報、サーバー接続がない。
-- 制御面、Webクライアント、アカウント認証、PostgreSQLスキーマ、リアルタイム配送は未実装。
+- protocol v1は実際の制御面とagent間ではまだ動かしていない。
+- protocol workflowはGitHub Actions上でまだ実行していない。現時点の証拠はローカル
+  Node.js testとworkflow静的検証である。
+- 制御面、Webクライアント、アカウント認証、PostgreSQL schema、device credential、polling
+  transportは未実装。
+- 具体的な認証provider、device credential、message integrity方式、revocation確認は
+  security decisionとして未決定。
 - macOSは実験扱いのままであり、Windowsのハードウェア上の事実を確立する前に着手しない。
 
 ## 新しい開発セッションの開始
@@ -137,6 +193,8 @@ artifactには期限があり、後続ビルドのチェックサムは変わり
 git switch main
 git pull --ff-only origin main
 dotnet test Eject.slnx --configuration Release
+npm ci --prefix protocol
+npm test --prefix protocol
 ```
 
 リポジトリは`global.json`で.NET 10を選択します。`dotnet`がない場合は、作業を続ける前に
@@ -157,38 +215,45 @@ gh run watch RUN_ID
 gh run download RUN_ID --name eject-windows-x64 --dir artifacts/github-actions
 ```
 
-## 次の必須作業: Stage 0を完了する
+## ハードウェアがない間の次の必須作業
 
-次のセッションでは、サーバー制御面ではなく実機を優先してください。
+物理検証は並行要件として残しますが、唯一の開発queueにはしません。次のsoftware changeは、
+protocol v1に対するStage 1制御面domain skeletonです。
 
-1. Windows 10またはWindows 11端末と、少なくとも1台のトレイ式光学ドライブを用意する。
-2. 新しいGitHub Actions artifactをダウンロードしてチェックサムを検証する。
-3. 標準ユーザーで`eject-agent.exe list`を実行する。
-4. トレイ前方を空け、返された不透明な識別子でejectを1回だけ試す。
-5. Windowsバージョン、権限、ドライブ機種、接続方式、メディア状態、意味結果、ネイティブ
-   エラーコード、目視したトレイ動作を記録する。
-6. 自動再試行を追加せず、`STAGE-0-WINDOWS-SPIKE.md`のマトリクスを繰り返す。
-7. 証拠に基づくアダプター問題だけを修正し、閉じた能力を維持する。
-8. 狭いWindows能力契約を英語と日本語で文書化する。
+1. public eject endpointを持たないNext.js/TypeScript modular monolithをscaffoldする。
+2. 方向付きgrant、受信者pause、cooldown、rate limit、device eligibility、即時revocationの
+   pureでtest済みauthorizationを実装する。
+3. PostgreSQL向けrepository interfaceとtransactionalなcommand ID一意性を使い、commandと
+   lifecycle永続化をmodel化する。
+4. person sessionとdevice credentialを分離し、security ADR採用までdevice enrollmentを
+   保留する。
+5. protocol v1外のcommand typeやfieldを運べるnetwork pathを公開しない。
 
-任意コマンド実行なしに、この契約を実機で再現できた場合にだけStage 0の完了条件を満たします。
+authenticated pollingまたはenrollmentの前に、person auth provider、端末ごとのcredential、
+保護済みローカル保存、message integrity、revocation lookup、結果idempotency、clock handlingを
+扱う集中的なdecisionを記録します。
 
-## 実機証拠取得後のPR順序
+## 機材入手後のハードウェア作業
+
+標準ユーザーで検証キットを実行し、プライバシー限定レポートをレビューし、
+`STAGE-0-WINDOWS-SPIKE.md`のmatrixを繰り返します。証拠に基づくadapter問題だけを修正し、
+狭いWindows能力契約を文書化します。この契約を実機で再現できるまでStage 0は未完了です。
+
+## この実装からのPR順序
 
 今後の変更も小さくレビュー可能な単位に保ちます。
 
-1. **ハードウェア証拠と能力契約** — 実際のテストマトリクス、対応ケース、非対応ケース、
-   正直な結果定義を追加する。
-2. **アダプター修正** — 証拠から特定のWindows APIまたは識別問題が分かった場合だけ行い、
-   テストと英日文書を更新する。
-3. **Stage 0完了記録** — 広いハードウェア対応を示唆せず、ロードマップ状態を更新する。
-4. **Stage 1プロトコル契約** — コマンド、ライフサイクル、期限、宛先、一意性、限定結果の
-   機械可読スキーマを定義する。payloadにローカライズ文やデバイスパスを入れない。
-5. **Stage 1制御面の骨格** — Next.js/TypeScriptのモジュラーモノリス、Managed
-   PostgreSQL/認証、方向付き権限、cooldown、pause、revoke、認証済みアウトバウンド
-   ポーリングを実装する。
-6. **Windows登録とポーリング** — 保護ストレージ上の独立したデバイス資格情報、ローカル
+1. **CI検証** — 検証キットとprotocol契約の更新済み両workflowを実行する。
+2. **Stage 1制御面domain skeleton** — Next.js/TypeScript modular monolith、test済みの
+   方向付きpermission、cooldown、pause、revoke、command永続化境界を実装する。device
+   enrollmentはまだ行わない。
+3. **identity・device security ADR** — person認証、device credential、保護保存、integrity、
+   revocation、idempotency、clock規則を選ぶ。
+4. **認証済みoutbound polling** — protocol v1だけに従う発行と結果取り込みを実装する。
+5. **Windows登録とpolling** — 保護ストレージ上の独立したdevice credential、ローカル
    リプレイ防止、1回だけの実行、結果報告を実装し、インバウンドポートを開かない。
+6. **並行するハードウェア証拠** — 機材入手後、レビュー済みレポートと、証拠により狭く
+   裏付けられたadapter修正を追加する。
 
 Stage 1の登録を完了扱いにする前に、認証プロバイダーと具体的な暗号方式について、集中的な
 セキュリティ判断が必要です。

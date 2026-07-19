@@ -69,6 +69,18 @@ The command must not contain:
 The locally approved drive binding is created on the recipient's computer and
 is not chosen by the sender.
 
+Protocol v1 makes these constraints executable: commands address one exact
+device, expire within at most 60 seconds, and reject unknown fields. For a valid
+current command addressed to the device, the agent durably consumes the command
+ID before or atomically with the local attempt. It may resend the stored result
+after a transport failure but must not repeat the physical action. Consumed IDs
+survive restart for at least 24 hours.
+
+Protocol validation does not replace authenticated transport. The person
+authentication provider, per-device credential, message-integrity construction,
+revocation check, and protected local storage require a focused decision before
+device enrollment is complete.
+
 ## Abuse and physical safety
 
 - Apply a recipient-controlled cooldown after each accepted eject.
