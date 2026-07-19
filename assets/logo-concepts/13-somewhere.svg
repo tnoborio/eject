@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 320" role="img" aria-labelledby="title desc">
+  <title id="title">EJECT somewhere a tray opens logo concept</title>
+  <desc id="desc">A remote point sends a dotted signal across distance to an eject symbol, beside an EJECT wordmark.</desc>
+  <rect width="960" height="320" rx="28" fill="#111311"/>
+  <circle cx="80" cy="210" r="11" fill="#D96B43"/>
+  <path d="M104 210h114" stroke="#777B75" stroke-width="8" stroke-linecap="round" stroke-dasharray="0.1 26"/>
+  <path d="M280 106 238 174h84L280 106Z" fill="#F2F0E8"/>
+  <rect x="230" y="192" width="100" height="16" rx="8" fill="#F2F0E8"/>
+  <path d="M348 72v176" stroke="#30342F" stroke-width="2"/>
+  <g transform="translate(400 77)" fill="none" stroke="#F2F0E8" stroke-width="18" stroke-linecap="square" stroke-linejoin="miter">
+    <path d="M0 0v120M0 0h70M0 60h58M0 120h70"/>
+    <path d="M95 0h75M150 0v84q0 36-30 36-25 0-25-25"/>
+    <path d="M205 0v120M205 0h70M205 60h58M205 120h70"/>
+    <path d="M355 24Q345 0 315 0h-15q-20 0-20 20v80q0 20 20 20h15q30 0 40-24"/>
+    <path d="M390 0h85M432.5 0v120"/>
+  </g>
+  <text x="400" y="252" fill="#A9AEA7" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="22" letter-spacing="5">SOMEWHERE, A TRAY OPENS</text>
+</svg>

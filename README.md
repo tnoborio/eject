@@ -2,6 +2,8 @@
 
 [日本語](README.ja.md)
 
+![EJECT logo: a row of bit slots with a single bit ejected above, beside an EJECT wordmark](assets/logo/logo.svg)
+
 > Serious technology. Almost no purpose.
 
 EJECT is an IoT social network with almost no purpose. It lets your friends

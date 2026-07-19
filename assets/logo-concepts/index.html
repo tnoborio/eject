@@ -1,0 +1,383 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>EJECT — Logo concepts</title>
+  <style>
+    :root {
+      --ink: #111311;
+      --paper: #e9e7df;
+      --muted: #686b66;
+      --rule: #c8c6be;
+      --accent: #d96b43;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--paper);
+      color: var(--ink);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      line-height: 1.65;
+    }
+
+    main {
+      width: min(1120px, calc(100% - 40px));
+      margin: 0 auto;
+      padding: 72px 0 96px;
+    }
+
+    header {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 32px;
+      align-items: end;
+      padding-bottom: 32px;
+      border-bottom: 2px solid var(--ink);
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(42px, 8vw, 92px);
+      line-height: .9;
+      letter-spacing: -.07em;
+      font-weight: 700;
+    }
+
+    .kicker, .status, .number {
+      text-transform: uppercase;
+      letter-spacing: .14em;
+      font-size: 12px;
+    }
+
+    .kicker { margin: 0 0 18px; color: var(--muted); }
+
+    .status {
+      margin: 0;
+      padding: 7px 10px;
+      border: 1px solid var(--ink);
+      white-space: nowrap;
+    }
+
+    .intro {
+      display: grid;
+      grid-template-columns: 1.4fr 1fr;
+      gap: 64px;
+      padding: 34px 0 48px;
+    }
+
+    .intro p { margin: 0; }
+    .intro .note { color: var(--muted); font-size: 13px; }
+
+    .concepts {
+      display: grid;
+      gap: 56px;
+    }
+
+    .section-head {
+      margin: 88px 0 32px;
+      padding-top: 24px;
+      border-top: 2px solid var(--ink);
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 32px;
+      align-items: end;
+    }
+
+    .section-head h2 {
+      margin: 0;
+      font-size: clamp(30px, 5vw, 56px);
+    }
+
+    .section-head p { margin: 0; color: var(--muted); font-size: 13px; }
+
+    article {
+      display: grid;
+      grid-template-columns: 80px 1fr;
+      column-gap: 24px;
+      border-top: 1px solid var(--rule);
+      padding-top: 20px;
+    }
+
+    .number { grid-row: 1 / span 3; color: var(--muted); }
+
+    h2 {
+      margin: 0 0 18px;
+      font-size: clamp(22px, 3vw, 34px);
+      line-height: 1.1;
+      letter-spacing: -.03em;
+    }
+
+    figure { margin: 0; }
+
+    figure img {
+      display: block;
+      width: 100%;
+      height: auto;
+      border: 1px solid rgba(17, 19, 17, .12);
+    }
+
+    figcaption {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 32px;
+      margin-top: 16px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    figcaption p { margin: 0; }
+
+    .finalists {
+      margin-top: 72px;
+      padding: 28px 32px;
+      border: 2px solid var(--ink);
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 32px;
+      align-items: start;
+    }
+
+    .finalists strong { color: var(--accent); }
+    .finalists p { margin: 0; }
+
+    footer {
+      margin-top: 64px;
+      padding-top: 20px;
+      border-top: 1px solid var(--rule);
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    @media (max-width: 700px) {
+      main { width: min(100% - 24px, 1120px); padding-top: 40px; }
+      header, .intro, figcaption, .finalists, .section-head { grid-template-columns: 1fr; }
+      article { grid-template-columns: 44px 1fr; column-gap: 12px; }
+      .status { justify-self: start; }
+      .intro { gap: 16px; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div>
+        <p class="kicker">One action. Physical result.</p>
+        <h1>EJECT ⏏</h1>
+      </div>
+      <p class="status">Logo study / 2026-07-18</p>
+    </header>
+
+    <section class="intro" aria-label="About these concepts">
+      <p>GitHub READMEに載せるためのロゴ比較です。製品の単一の物理動作、デッドパンな語り口、監視しない設計を、装飾を増やさずに表現します。</p>
+      <p class="note">Working concepts, not an adopted visual identity. Each lockup is a self-contained SVG and remains legible in GitHub light and dark themes.</p>
+    </section>
+
+    <section class="concepts" aria-label="Logo concepts">
+      <article>
+        <div class="number">01</div>
+        <h2>Tray Line</h2>
+        <figure>
+          <img src="01-tray-line.svg" alt="EJECT Tray Line logo concept">
+          <figcaption>
+            <p>イジェクト記号の下線を物理トレイへ延長。最も直接的で、小サイズにも強い案。</p>
+            <p>The clearest expression of one physical action.</p>
+          </figcaption>
+        </figure>
+      </article>
+
+      <article>
+        <div class="number">02</div>
+        <h2>Drive Faceplate</h2>
+        <figure>
+          <img src="02-drive-faceplate.svg" alt="EJECT Drive Faceplate logo concept">
+          <figcaption>
+            <p>光学ドライブの前面そのものを、トレイ、ボタン、ランプだけに還元。</p>
+            <p>Immediate context, with more detail at small sizes.</p>
+          </figcaption>
+        </figure>
+      </article>
+
+      <article>
+        <div class="number">03</div>
+        <h2>Institutional Label</h2>
+        <figure>
+          <img src="03-institutional-label.svg" alt="EJECT Institutional Label logo concept">
+          <figcaption>
+            <p>研究設備や機器管理ラベルのような、事務的で意図的に乾いた構成。</p>
+            <p>The strongest expression of the deadpan voice.</p>
+          </figcaption>
+        </figure>
+      </article>
+
+      <article>
+        <div class="number">04</div>
+        <h2>Offset Eject</h2>
+        <figure>
+          <img src="04-offset-eject.svg" alt="EJECT Offset Motion logo concept">
+          <figcaption>
+            <p>三角形をトレイからずらし、簡潔な一度の動きを示す。</p>
+            <p>The orange accent is exploratory; the mark also works in one color.</p>
+          </figcaption>
+        </figure>
+      </article>
+
+      <article>
+        <div class="number">05</div>
+        <h2>EX · IACERE</h2>
+        <figure>
+          <img src="05-ex-iacere.svg" alt="EJECT EX IACERE etymology logo concept">
+          <figcaption>
+            <p>「外へ」＋「投げる」というラテン語の語根を、境界を斜めに越える形へ。</p>
+            <p>An etymological story without replacing the EJECT product name.</p>
+          </figcaption>
+        </figure>
+      </article>
+    </section>
+
+    <div class="section-head" id="etymology-studies">
+      <h2>Etymology, deformed</h2>
+      <p>Five further reductions of <em>ex</em> — out — and <em>iacere</em> — to throw. Each uses a different visual rule instead of repeating the eject triangle.</p>
+    </div>
+
+    <section class="concepts" aria-label="Deformed etymology logo concepts">
+      <article>
+        <div class="number">E1</div>
+        <h2>Thrown Point</h2>
+        <figure>
+          <img src="06-thrown-point.svg" alt="EJECT Thrown Point etymology logo concept">
+          <figcaption>
+            <p>物体を点まで、境界をL字まで還元。「外へ投げる」だけを残した最小形。</p>
+            <p>The root meaning reduced to a boundary, trajectory, and point.</p>
+          </figcaption>
+        </figure>
+      </article>
+
+      <article>
+        <div class="number">E2</div>
+        <h2>Broken EX</h2>
+        <figure>
+          <img src="07-broken-ex.svg" alt="EJECT Broken EX etymology logo concept">
+          <figcaption>
+            <p>語根EXを直接モノグラム化し、Xの一画だけを外へ飛ばす。</p>
+            <p>The most explicit connection to the Latin prefix.</p>
+          </figcaption>
+        </figure>
+      </article>
+
+      <article>
+        <div class="number">E3</div>
+        <h2>E Throws</h2>
+        <figure>
+          <img src="08-e-throws.svg" alt="EJECT E Throws etymology logo concept">
+          <figcaption>
+            <p>Eの中棒が文字から離れ、そのまま斜め上へ投げ出される。</p>
+            <p>Readable as an action before its etymological story is known.</p>
+          </figcaption>
+        </figure>
+      </article>
+
+      <article>
+        <div class="number">E4</div>
+        <h2>Iacere Arc</h2>
+        <figure>
+          <img src="09-iacere-arc.svg" alt="EJECT Iacere Arc etymology logo concept">
+          <figcaption>
+            <p>投げる動作を、物理的な基準線と一つの放物線に抽象化。</p>
+            <p>A literal cast, without using an arrow or standard eject symbol.</p>
+          </figcaption>
+        </figure>
+      </article>
+
+      <article>
+        <div class="number">E5</div>
+        <h2>Negative Exit</h2>
+        <figure>
+          <img src="10-negative-exit.svg" alt="EJECT Negative Exit etymology logo concept">
+          <figcaption>
+            <p>塊から切り取られた形が外側に再出現する、負の空間による排出。</p>
+            <p>The most abstract and ownable of the etymology studies.</p>
+          </figcaption>
+        </figure>
+      </article>
+    </section>
+
+    <div class="section-head" id="social-studies">
+      <h2>Social, one bit</h2>
+      <p>Five studies on the third axis: EJECT as a one-bit physical social network — people, consent, and remote presence, rather than hardware or Latin.</p>
+    </div>
+
+    <section class="concepts" aria-label="Social logo concepts">
+      <article>
+        <div class="number">S1</div>
+        <h2>One Bit</h2>
+        <figure>
+          <img src="11-one-bit.svg" alt="EJECT One Bit social logo concept">
+          <figcaption>
+            <p>ビット列から一つのビットだけがスロットを離れ、上へ排出される。</p>
+            <p>One action, one physical result, in the smallest unit of data.</p>
+          </figcaption>
+        </figure>
+      </article>
+
+      <article>
+        <div class="number">S2</div>
+        <h2>Eject Back</h2>
+        <figure>
+          <img src="12-eject-back.svg" alt="EJECT Eject Back social logo concept">
+          <figcaption>
+            <p>向かい合う二つのイジェクト記号。一方がejectし、もう一方がejectし返す。</p>
+            <p>The reciprocal core experience, expressed only by inverting the mark.</p>
+          </figcaption>
+        </figure>
+      </article>
+
+      <article>
+        <div class="number">S3</div>
+        <h2>Somewhere</h2>
+        <figure>
+          <img src="13-somewhere.svg" alt="EJECT Somewhere social logo concept">
+          <figcaption>
+            <p>遠くの一点から点線の信号が距離を渡り、トレイが開く。</p>
+            <p>A literal drawing of "Somewhere, a tray opens."</p>
+          </figcaption>
+        </figure>
+      </article>
+
+      <article>
+        <div class="number">S4</div>
+        <h2>Consent Gate</h2>
+        <figure>
+          <img src="14-consent-gate.svg" alt="EJECT Consent Gate social logo concept">
+          <figcaption>
+            <p>意図的に開けられた境界の隙間からだけ、形は外に出られる。</p>
+            <p>A diagram of consent before connection.</p>
+          </figcaption>
+        </figure>
+      </article>
+
+      <article>
+        <div class="number">S5</div>
+        <h2>One Press</h2>
+        <figure>
+          <img src="15-one-press.svg" alt="EJECT One Press social logo concept">
+          <figcaption>
+            <p>イジェクト記号を載せた一つのキー。友達が行う唯一の操作。</p>
+            <p>The single action, drawn from the sender's side.</p>
+          </figcaption>
+        </figure>
+      </article>
+    </section>
+
+    <aside class="finalists">
+      <span class="number">Decision</span>
+      <p><strong>One Bit</strong> (S1) has been adopted as the direction: a single bit leaves its slot and is ejected — one action, one physical result, in the smallest unit of data. Production assets (lockup, one-color variants, and a square mark for avatars) live in <a href="../logo/README.md">../logo/</a>.</p>
+    </aside>
+
+    <footer>EJECT logo exploration. No tracking, analytics, scripts, or remote assets.</footer>
+  </main>
+</body>
+</html>
