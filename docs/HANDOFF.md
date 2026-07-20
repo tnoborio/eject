@@ -16,12 +16,12 @@ the order in which work should continue.
   [#4](https://github.com/tnoborio/eject/pull/4) (hardware validation kit),
   [#5](https://github.com/tnoborio/eject/pull/5) (protocol v1),
   [#6](https://github.com/tnoborio/eject/pull/6) (handoff refresh)
-- **Current `main` base commit:** `d4824b877c21d511d2d108e1bcaf7ad49a07895e`
+- **Current `main` base commit:** `e32b0c95cfea1626d9694d0fa42c62d4aa86de3e`
 - **Verified CI on `main`:** [Windows spike run 29688104811](https://github.com/tnoborio/eject/actions/runs/29688104811),
   [protocol contract run 29688208249](https://github.com/tnoborio/eject/actions/runs/29688208249)
 - **Current product phase:** Stage 0 awaits physical evidence; Stage 1 protocol
-  v1 and the control-plane consent architecture are accepted, while control-plane
-  implementation has not started
+  v1 and control-plane architecture are accepted, and the control-plane domain
+  skeleton is implemented without a public eject endpoint
 
 ## Executive status
 
@@ -68,13 +68,14 @@ result idempotency are fixed independently. Kysely and `node-postgres` are
 selected for infrastructure repositories. Ordered, forward-only SQL migrations
 with a checksum ledger are selected as the schema source of truth, and protocol
 v1 is shared as a private workspace package used only by transport adapters.
-The control-plane CI boundary is
-also accepted: blocking static and architecture checks, pure and property
+The control-plane CI boundary is also accepted: blocking static and architecture
+checks, pure and property
 tests, a production build, and real-PostgreSQL integration and deterministic
 concurrency tests, with scheduled advisory mutation testing. Exact schema,
 migration tooling, authentication, device credentials, and billing
-implementation remain undecided. No control-plane code or public eject endpoint
-exists yet.
+implementation remain undecided. The Next.js shell, pure policy, application
+issuance boundary, protocol transport mapper, locale resources, and blocking
+local verification are implemented. No public eject endpoint exists.
 
 Stage 0 itself is **not complete**. No real Windows computer with a tray-style
 optical drive has run the executable yet. The project must not claim that it can
@@ -88,6 +89,16 @@ open a physical tray until that test evidence exists.
 
 .github/workflows/protocol-contract.yml
     Locked Node.js install and protocol Schema/semantic tests.
+
+control-plane/src/app/
+    Localized Next.js shell with no remote action endpoint.
+
+control-plane/src/modules/eject/
+    Pure authorization, exposure, and lifecycle policy; application issuance
+    boundary; and protocol-v1 transport mapper.
+
+control-plane/test/
+    Unit, property, application-boundary, and protocol-adapter tests.
 
 protocol/v1/
     Closed command, agent-result, and lifecycle Schema; reference validator;
@@ -174,6 +185,14 @@ The following facts have direct build or test evidence:
 17. The `protocol-contract` workflow passed on `main`
     ([run 29688208249](https://github.com/tnoborio/eject/actions/runs/29688208249)),
     so all eleven protocol tests also have CI evidence.
+18. The control-plane skeleton passes formatting, ESLint, strict TypeScript,
+    dependency-cruiser, and a Next.js 16.2.10 production build on Node.js 22.
+19. All 35 control-plane tests pass, including fast-check properties. Critical
+    authorization, lifecycle, exposure, and idempotency code has 100% branch,
+    function, line, and statement coverage.
+20. The production dependency audit reports zero known vulnerabilities. The
+    PostCSS 8.5.20 override removes the advisory present in Next.js's transitive
+    default.
 
 The verified `main` artifact had this checksum:
 
@@ -221,12 +240,14 @@ Record the failure and narrow the supported capability contract instead.
 - The executable has no UI, installer, code signature, update channel, device
   credential, or server connection.
 - Protocol v1 has not yet been exercised between a real control plane and agent.
-- The control plane, web client, account authentication, PostgreSQL schema,
-  device credential, and polling transport have not been implemented.
+- The control-plane shell and domain exist, but account authentication,
+  PostgreSQL persistence, device credential, and polling transport have not been
+  implemented.
 - The exact authentication provider, device credential, message-integrity
   construction, and revocation check remain security decisions.
-- The schema, migration, protocol-sharing, and test boundaries are accepted but
-  not implemented.
+- Protocol sharing and pure test boundaries are implemented. SQL migrations,
+  PostgreSQL repositories, real-database race tests, mutation testing, and the
+  control-plane CI workflow remain to be implemented.
 - Subscription prices and inbound frequency ceilings cannot be set before
   physical hardware evidence establishes a defensible safety ceiling.
 - macOS remains experimental and must not be started before Windows hardware
@@ -274,22 +295,19 @@ gh run download RUN_ID --name eject-windows-x64 --dir artifacts/github-actions
 ## Required next work while hardware is unavailable
 
 Physical validation remains a parallel requirement, but it is no longer the
-only development queue. The remaining control-plane schema, migration,
-protocol-sharing, and test boundaries are accepted. The next software change
-should implement the Stage 1 control-plane domain skeleton against protocol v1,
-ADR 0003, and ADR 0004:
+only development queue. The control-plane domain skeleton now implements the
+accepted pure policy and protocol boundary without a public eject endpoint. The
+next software change should implement ADR 0004's SQL migrations and Kysely
+repository against real PostgreSQL, then install the blocking CI workflow:
 
-1. scaffold the Next.js/TypeScript modular monolith without a public eject
-   endpoint;
-2. implement pure, tested authorization for recipient audience and sender-
-   eligibility policies, directional grants, block, pause, cooldown, rate
-   limits, device eligibility, and immediate revocation;
-3. model command and lifecycle persistence with PostgreSQL-facing repository
-   interfaces and transactional command-ID uniqueness;
-4. keep person sessions separate from device credentials and defer device
-   enrollment until its security ADR is accepted; and
-5. expose no network path that can carry a command type or field outside
-   protocol v1.
+1. add the forward-only initial SQL migration and checksum migration runner;
+2. implement the Kysely issuance repository with `SERIALIZABLE`, recipient row
+   lock, bounded retry, idempotency, command, quota, and lifecycle persistence;
+3. prove constraints, rollback, last-slot races, duplicate requests, revocation
+   races, and retry behavior against ephemeral real PostgreSQL;
+4. add blocking static, domain, PostgreSQL, concurrency, and production-build CI
+   jobs plus scheduled advisory mutation testing; and
+5. continue to expose no public eject or device-delivery endpoint.
 
 The skeleton's pull requests must block on formatting, lint, TypeScript,
 dependency rules, a Next.js production build, pure and property tests, and
@@ -314,9 +332,9 @@ incomplete until that contract is repeatable on real hardware.
 CI verification for both updated workflows is complete on `main` (see the
 snapshot links). Keep subsequent changes small and reviewable:
 
-1. **Stage 1 control-plane domain skeleton** — Next.js/TypeScript modular
-   monolith, tested directional permission, cooldown, pause, revoke, and command
-   persistence boundaries; no device enrollment yet.
+1. **Control-plane PostgreSQL and CI** — checked-in SQL migrations, Kysely
+   issuance repository, real-database race tests, and blocking workflow; no
+   public endpoint or device enrollment.
 2. **Identity and device-security ADR** — choose person authentication, device
    credential, protected storage, integrity, revocation, idempotency, and clock
    rules.

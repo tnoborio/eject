@@ -1,0 +1,9 @@
+{
+  "metadata.description": "一度の意図的な操作。一度の物理的中断。",
+  "home.eyebrow": "EJECT CONTROL PLANE",
+  "home.headline": "真剣な技術。ほとんど目的なし。",
+  "home.statement": "物理的中断。同意によって。",
+  "home.statusLabel": "状態",
+  "home.statusValue": "DOMAIN INITIALIZED",
+  "home.notice": "このbuildからremote actionは利用できません。"
+}

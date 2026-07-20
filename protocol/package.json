@@ -3,11 +3,17 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "exports": {
+    "./v1/validator": {
+      "types": "./v1/reference-validator.d.mts",
+      "default": "./v1/reference-validator.mjs"
+    },
+    "./v1/schema": "./v1/eject-protocol.schema.json"
+  },
   "scripts": {
     "test": "node --test test/*.test.mjs"
   },
-  "devDependencies": {
+  "dependencies": {
     "ajv": "8.20.0"
   }
 }
-

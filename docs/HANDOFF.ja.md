@@ -15,11 +15,12 @@
   [#4](https://github.com/tnoborio/eject/pull/4)(ハードウェア検証キット)、
   [#5](https://github.com/tnoborio/eject/pull/5)(protocol v1)、
   [#6](https://github.com/tnoborio/eject/pull/6)(handoff更新)
-- **現在の`main` base commit:** `d4824b877c21d511d2d108e1bcaf7ad49a07895e`
+- **現在の`main` base commit:** `e32b0c95cfea1626d9694d0fa42c62d4aa86de3e`
 - **`main`上の検証済みCI:** [Windows spike run 29688104811](https://github.com/tnoborio/eject/actions/runs/29688104811)、
   [protocol contract run 29688208249](https://github.com/tnoborio/eject/actions/runs/29688208249)
 - **現在のプロダクト段階:** Stage 0は物理証拠待ち。Stage 1 protocol v1とcontrol-plane
-  consent architectureは採用済みで、control-plane実装は未着手
+  architectureは採用済みで、public eject endpointを持たないcontrol-plane domain skeletonを
+  実装済み
 
 ## 現在の状態
 
@@ -65,8 +66,9 @@ migrationをschemaの正本とし、protocol v1はtransport adapterだけが使�
 packageとして共有します。control-planeのCI境界も採用済みで、blockingのstatic・
 architecture check、pure・property test、production build、実PostgreSQL integration・決定論的
 concurrency testと、定期的なadvisory mutation testingを要求します。正確なschema、migration
-tooling、authentication、device credential、billing実装は未決定です。control-plane codeも
-public eject endpointもまだありません。
+tooling、authentication、device credential、billing実装は未決定です。Next.js shell、pure
+policy、application issuance境界、protocol transport mapper、locale resource、blockingのlocal
+verificationを実装済みです。public eject endpointはありません。
 
 Stage 0自体は**未完了**です。トレイ式光学ドライブを持つ実際のWindows端末では、まだ
 実行していません。その証拠が得られるまで、物理トレイを開けられると表現してはいけません。
@@ -79,6 +81,16 @@ Stage 0自体は**未完了**です。トレイ式光学ドライブを持つ実
 
 .github/workflows/protocol-contract.yml
     locked Node.js installとprotocol Schema・意味テスト。
+
+control-plane/src/app/
+    remote action endpointを持たない、localize済みNext.js shell。
+
+control-plane/src/modules/eject/
+    pure authorization、exposure、lifecycle policy、application issuance境界、protocol v1
+    transport mapper。
+
+control-plane/test/
+    unit、property、application境界、protocol adapter test。
 
 protocol/v1/
     閉じたcommand、agent-result、lifecycle Schema、reference validator、fixture、英日両方の
@@ -158,6 +170,12 @@ docs/decisions/0003-control-plane-consent-and-exposure.md
 17. `protocol-contract` workflowは`main`上で成功した
     ([run 29688208249](https://github.com/tnoborio/eject/actions/runs/29688208249))。
     これによりprotocol test 11件にもCI証拠がある。
+18. control-plane skeletonはNode.js 22上でformat、ESLint、strict TypeScript、
+    dependency-cruiser、Next.js 16.2.10 production buildに成功する。
+19. fast-check propertyを含むcontrol-plane test 35件がすべて成功する。重要なauthorization、
+    lifecycle、exposure、idempotency codeはbranch、function、line、statement coverage 100%。
+20. production dependency auditは既知の脆弱性0件。PostCSS 8.5.20 overrideにより、Next.jsの
+    transitive defaultにあったadvisoryを除去した。
 
 検証済み`main` artifactのチェックサムは次のとおりです。
 
@@ -198,11 +216,12 @@ artifactには期限があり、後続ビルドのチェックサムは変わり
   適するが永続的なハードウェア識別子ではなく、ドライブ文字の再割り当てで変化する。
 - UI、インストーラー、コード署名、更新チャネル、デバイス資格情報、サーバー接続がない。
 - protocol v1は実際の制御面とagent間ではまだ動かしていない。
-- 制御面、Webクライアント、アカウント認証、PostgreSQL schema、device credential、polling
-  transportは未実装。
+- control-plane shellとdomainは存在するが、account authentication、PostgreSQL persistence、
+  device credential、polling transportは未実装。
 - 具体的な認証provider、device credential、message integrity方式、revocation確認は
   security decisionとして未決定。
-- schema、migration、protocol共有、test境界は採用済みだが未実装。
+- protocol共有とpure test境界は実装済み。SQL migration、PostgreSQL repository、実database
+  race test、mutation testing、control-plane CI workflowは未実装。
 - 実機証拠から説明可能なsafety ceilingが得られるまで、subscription価格とinbound frequency
   ceilingは決められない。
 - macOSは実験扱いのままであり、Windowsのハードウェア上の事実を確立する前に着手しない。
@@ -248,18 +267,19 @@ gh run download RUN_ID --name eject-windows-x64 --dir artifacts/github-actions
 
 ## ハードウェアがない間の次の必須作業
 
-物理検証は並行要件として残しますが、唯一の開発queueにはしません。残りのcontrol-plane
-schema、migration、protocol共有、test境界は採用済みです。次のsoftware changeは、protocol
-v1、ADR 0003、ADR 0004に対するStage 1制御面domain skeletonです。
+物理検証は並行要件として残しますが、唯一の開発queueにはしません。control-plane domain
+skeletonは、public eject endpointを持たず、採用済みpure policyとprotocol境界を実装しています。
+次のsoftware changeでは、ADR 0004のSQL migrationとKysely repositoryを実PostgreSQLに対して
+実装し、その後blocking CI workflowを導入します。
 
-1. public eject endpointを持たないNext.js/TypeScript modular monolithをscaffoldする。
-2. recipient audience・sender eligibility policy、方向付きgrant、block、pause、cooldown、
-   rate limit、device eligibility、即時revocationのpureでtest済みauthorizationを実装する。
-3. PostgreSQL向けrepository interfaceとtransactionalなcommand ID一意性を使い、commandと
-   lifecycle永続化をmodel化する。
-4. person sessionとdevice credentialを分離し、security ADR採用までdevice enrollmentを
-   保留する。
-5. protocol v1外のcommand typeやfieldを運べるnetwork pathを公開しない。
+1. forward-only初期SQL migrationとchecksum migration runnerを追加する。
+2. `SERIALIZABLE`、recipient row lock、bounded retry、idempotency、command、quota、lifecycle
+   persistenceを持つKysely issuance repositoryを実装する。
+3. constraint、rollback、最後の枠のrace、duplicate request、revocation race、retry動作を、
+   ephemeralな実PostgreSQLで証明する。
+4. blockingのstatic、domain、PostgreSQL、concurrency、production-build CI jobと、定期的な
+   advisory mutation testingを追加する。
+5. public eject endpointやdevice-delivery endpointを引き続き公開しない。
 
 skeletonのpull requestでは、format、lint、TypeScript、依存rule、Next.js production build、
 pure・property test、ephemeralな実PostgreSQL serviceに対するintegration・決定論的concurrency
@@ -282,9 +302,9 @@ authenticated pollingまたはenrollmentの前に、person auth provider、端�
 更新済み両workflowのCI検証は`main`上で完了しています(スナップショットのリンクを
 参照)。今後の変更も小さくレビュー可能な単位に保ちます。
 
-1. **Stage 1制御面domain skeleton** — Next.js/TypeScript modular monolith、test済みの
-   方向付きpermission、cooldown、pause、revoke、command永続化境界を実装する。device
-   enrollmentはまだ行わない。
+1. **Control-plane PostgreSQLとCI** — checked-in SQL migration、Kysely issuance repository、
+   実database race test、blocking workflowを実装する。public endpointもdevice enrollmentも
+   まだ追加しない。
 2. **identity・device security ADR** — person認証、device credential、保護保存、integrity、
    revocation、idempotency、clock規則を選ぶ。
 3. **認証済みoutbound polling** — protocol v1だけに従う発行と結果取り込みを実装する。
