@@ -27,6 +27,11 @@
 終了条件を満たさず、物理成功の主張や、ハードウェア契約前の公開remote deliveryを許可
 しません。
 
+control-plane作業では、static・architecture check、pure・property test、production build、
+ephemeralな実PostgreSQLに対するintegration・決定論的concurrency testをblockingで要求します。
+定期的なmutation testingで重要policy testを試しますが、最初からすべてのpull requestを
+遅らせることはしません。
+
 ## Stage 1 — 二人用プロトタイプ
 
 異なるネットワーク上の二つのアカウントと二台のWindowsアプリを接続します。
@@ -73,6 +78,8 @@
 - ハードウェア・サポート負担。
 - 不正利用の試行。
 - 希少性が意味を守れているか。
+- recipientが支払うexposure subscriptionが、senderの権力を販売せず、契約的な作品性を
+  強めるか。
 - EJECTを作品、ソーシャルトイ、継続プロダクトのどれとして扱うべきか。
 
 **終了条件:** 継続、縮小、保存、拡張のいずれかを明示的に決定すること。
@@ -85,14 +92,14 @@ Stage 0でWindows上の物理契約を確立した後、macOSの実機検証を�
 
 ## 保留中の問い
 
-- Webとネイティブアプリの具体的な技術スタック。
+- Stage 2 desktop UI・packagingの具体的なstack。
 - 認証プロバイダー。
 - リアルタイム通信方式。
 - コード署名・配布ベンダー。
 - 回数・クールダウンの値。
 - 関係を相互承認必須にするか。
 - 一人が複数端末を登録できるか。
-- 一般公開と収益化。
+- 一般公開、subscription価格、証拠に基づくexposure ceiling。
 - 光学ドライブ以外の物理操作。
 
 これらは忘れたのではなく、意図的に保留しています。前段階の証拠をもとに解決し、

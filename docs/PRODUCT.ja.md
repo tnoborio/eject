@@ -58,6 +58,25 @@ EJECTアプリを実行するコンピューターです。将来は複数端末
 一人から別の人の登録端末へ送られる、認可済みの一回の要求です。配信結果とローカル
 実行結果を区別して記録します。
 
+### Participation
+
+accountだけでは物理的作用権を与えません。ready participantは、認証済みagent、ローカルで
+許可済みのdrive、本人が確認したlocal setup testを持ちます。この状態は参加資格であり、
+トレイが開いたことのremote proofではありません。availability、pause、offline状態は、
+別の粗い状態として扱います。
+
+### Accessとexposure
+
+recipientは、audience、senderがready participantである必要があるか、どれだけのinbound
+activityを受け入れるかを、それぞれ選びます。privateなdefaultは、接続済みの指定された
+ready participant一人に対するdirectional grantです。将来、recipientはconnected person、
+全authenticated account、受信可能なhardwareを持たないsenderをopt-inで許可できます。
+匿名accessは引き続き除外します。
+
+Accessは**誰が**ejectできるかを、exposureは**どの頻度まで**ejectを受け入れるかを決めます。
+将来のsubscriptionは、recipientが選べるexposure最大値を拡張できますが、senderのaccessを
+広げません。recipientはplan上限より少ない値を常に選べます。
+
 ## 中心フロー
 
 1. Aliceがアカウントを作り、デスクトップアプリへサインインします。
@@ -74,9 +93,10 @@ EJECTアプリを実行するコンピューターです。将来は複数端末
 ## 受信者のコントロール
 
 - 相手ごとの権限。
+- audienceとsender eligibilityのpolicy。
 - 受信の全体一時停止。
 - おやすみ時間。
-- 回数・クールダウン制限。
+- 物理安全上限内でrecipientが選ぶ回数・クールダウン制限。
 - 即時の端末解除とトークン無効化。
 - 最近の試行と結果を確認できるローカル履歴。
 
@@ -133,3 +153,8 @@ EJECTし返す。
 
 規模、継続率、収益化は後の問いです。最初の問いは、トレイの動きが他にはない
 人間的な感覚を生むかどうかです。
+
+最初の問いに肯定的な答えが得られた場合、意図する収益化の方向はrecipient側のexposure
+契約です。高いplanは、recipientがより高いinbound limitを選ぶことを許可できます。
+senderに同意を迂回する権利を販売しません。価格と頻度上限には、実機証拠と後続の
+public experiment decisionが必要です。

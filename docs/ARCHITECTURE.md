@@ -31,6 +31,61 @@ Locally approved optical drive
 The desktop agent initiates the connection. It must not open an inbound network
 port or require router configuration.
 
+## Stage 1 control-plane shape
+
+Stage 1 uses one TypeScript and Next.js modular monolith on the Vercel Node.js
+runtime. The web UI, person-facing HTTP, and future agent-facing HTTP share one
+deployment initially, but they do not share arbitrary implementation access.
+
+```text
+Next.js transport and UI
+        |
+        v
+Application use cases
+        |
+        v
+Framework-independent domain
+        ^
+        |
+Infrastructure implements application-owned ports
+```
+
+Code is grouped by product capability before technical layer: `identity`,
+`permissions`, `devices`, `eject`, and a deferred `entitlements` boundary.
+Domain code does not depend on Next.js, React, Vercel, PostgreSQL, an ORM, or
+protocol wire objects. A composition root connects infrastructure to
+application ports.
+
+The accepted consent, participation, and exposure boundaries are recorded in
+[ADR 0003](decisions/0003-control-plane-consent-and-exposure.md). The exact
+database schema and migration source of truth remain to be decided before
+implementation. Runtime repositories use Kysely and `node-postgres`, contained
+within infrastructure.
+
+## Control-plane verification
+
+Control-plane changes pass four blocking CI layers before merge:
+
+1. formatting, lint, TypeScript, dependency-direction rules, and a production
+   Next.js build;
+2. Vitest unit tests and fast-check property tests for pure policy;
+3. migration and repository integration tests against ephemeral real
+   PostgreSQL; and
+4. deterministic, barrier-coordinated multi-connection tests for transaction
+   races and idempotency.
+
+Critical pure authorization, lifecycle, exposure, fingerprint, and eject-back
+logic requires 100% branch coverage. Repository-wide coverage is not a goal by
+itself. Scheduled mutation testing challenges these critical tests but begins
+as advisory rather than a pull-request blocker. Persistence, locking, and
+constraint guarantees are never accepted from database mocks alone.
+
+Dependency rules prohibit domain imports of Next.js, React, Kysely, `pg`,
+infrastructure, and protocol wire types; application code cannot import
+transport or infrastructure implementations. CI uses synthetic data, minimum
+permissions, full-SHA-pinned Actions, and no production credentials. See
+[ADR 0003](decisions/0003-control-plane-consent-and-exposure.md).
+
 ## Components
 
 ### Web client
@@ -74,6 +129,32 @@ eject(approved_drive_id) -> EjectResult
 
 It does not expose a generic command runner, arbitrary device path, file access,
 disc reading, or arbitrary DeviceIoControl/IOKit invocation.
+
+## Authorization and recipient exposure
+
+A pure domain policy evaluates a request from current facts supplied by an
+application use case. It considers account restrictions, the recipient's
+audience and sender-eligibility settings, relationship and directional grant
+where required, block, pause, quiet hours, cooldown, limits, device eligibility,
+and revocation. Request-time denial is separate from cancellation of a command
+that was already authorized.
+
+Recipient access has two independent axes:
+
+```text
+audience: NAMED | CONNECTED | ALL_AUTHENTICATED
+sender eligibility: READY_PARTICIPANTS_ONLY | AUTHENTICATED_ACCOUNTS
+```
+
+The default is named, ready participants. Anonymous actors are never included.
+Discoverability is separate from permission to eject. A block or safety control
+always overrides a broad scope.
+
+A future subscription may raise only the inbound exposure ceiling that a
+recipient is allowed to select. It does not grant a sender more power. The
+effective inbound limit is the minimum of the recipient-selected limit, plan
+entitlement, and evidence-backed physical safety ceiling. Billing vendors stay
+behind an entitlement port and are outside Stage 1 domain-skeleton scope.
 
 ## Command lifecycle
 
@@ -128,9 +209,12 @@ event on the recipient's machine.
 - `person`: identity, display name, locale, account status;
 - `relationship`: two people and relationship state;
 - `eject_permission`: grantor, grantee, policy, status;
+- `participation`: coarse account-only, setup, ready, or revoked eligibility;
+- `recipient_access_policy`: audience, sender eligibility, pause, and limits;
 - `device`: owner, public key or credential reference, platform, last-seen class;
 - `drive_capability`: opaque local binding and coarse capability status;
 - `eject_event`: actor, recipient, device, lifecycle state, bounded reason code;
+- `entitlement`: replaceable reference to the recipient's inbound ceiling;
 - `revocation`: revoked device or credential and effective time.
 
 Do not store media names, disc contents, file lists, arbitrary hardware

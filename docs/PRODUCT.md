@@ -58,6 +58,26 @@ grant eject permission; the recipient grants that separately.
 One authorized request from one person to another person's registered device,
 with a recorded delivery and local execution outcome.
 
+### Participation
+
+An account alone does not grant physical agency. A ready participant has an
+authenticated agent, a locally approved drive, and a user-confirmed local setup
+test. This state is eligibility to participate, not remote proof that a tray
+opened. Availability, pause, and offline state remain separate and coarse.
+
+### Access and exposure
+
+The recipient independently chooses an audience, whether senders must be ready
+participants, and how much inbound activity to accept. The private default is
+one named, connected, ready participant with a directional grant. A recipient
+may later opt in to connected people, all authenticated accounts, or senders
+without receiving-capable hardware. Anonymous access remains excluded.
+
+Access answers **who** may eject. Exposure answers **how often**. A future
+subscription may expand the maximum exposure a recipient can elect, but never
+expands a sender's access. The recipient may always select less than the plan
+allows.
+
 ## Primary flow
 
 1. Alice creates an account and signs in to the desktop agent.
@@ -74,9 +94,10 @@ with a recorded delivery and local execution outcome.
 ## Recipient controls
 
 - permission per person;
+- audience and sender-eligibility policy;
 - global receiving pause;
 - quiet hours;
-- rate and cooldown limits;
+- recipient-selected rate and cooldown limits within a physical safety ceiling;
 - immediate device unlink and token revocation;
 - a visible local history of recent attempts and outcomes.
 
@@ -133,3 +154,9 @@ interesting than an ordinary notification.
 
 Scale, retention, and monetization are later questions. The first question is
 whether the tray movement creates a distinctive human feeling.
+
+The intended monetization direction, if that first question is answered, is a
+recipient-side exposure contract: a higher plan may permit the recipient to
+choose a higher inbound limit. It does not sell a sender a right to override
+consent. Prices and frequency ceilings require physical evidence and a later
+public-experiment decision.

@@ -20,6 +20,11 @@
 
 - [Pokaboo: A networked toy for distance communication and play](https://www.researchgate.net/publication/221238352_Pokaboo_A_networked_toy_for_distance_communication_and_play) — 遠隔ソーシャルプレイに、物理的な呼びかけと応答を用いた例。
 
+## 契約・作品文脈
+
+- [Éditions de Minuit: *Présentation de Sacher-Masoch*](https://www.leseditionsdeminuit.fr/livre-Pr%C3%A9sentation_de_Sacher_Masoch-2549-1-1-0-1.html) — Gilles DeleuzeによるSacher-Masoch論の出版社書誌。
+- [Yale Iberian Connections: Gilles Deleuze](https://iberian-connections.yale.edu/workshop/gilles-deleuze/) — recipientが作成するexposureを捉える際に参照する、契約、法、作品という読みの背景。
+
 ## 解釈
 
 OSにはeject手段がありますが、APIの成功が目に見えるトレイ動作を保証するとは限り

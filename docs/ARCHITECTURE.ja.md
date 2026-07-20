@@ -30,6 +30,55 @@ EJECTコントロールプレーン
 デスクトップアプリ側から接続を開始します。外部向け待受ポートやルーター設定を
 要求しません。
 
+## Stage 1コントロールプレーンの形
+
+Stage 1では、Vercel Node.js runtime上の一つのTypeScript・Next.js modular monolithを
+使います。Web UI、person向けHTTP、将来のagent向けHTTPを、初期は一つのdeploymentに
+置きますが、実装へ任意に相互アクセスさせません。
+
+```text
+Next.js transport・UI
+        |
+        v
+Application use case
+        |
+        v
+Framework非依存domain
+        ^
+        |
+Infrastructureがapplication所有portを実装
+```
+
+コードは技術layerより先にproduct capabilityで分け、`identity`、`permissions`、
+`devices`、`eject`、保留中の`entitlements`境界を置きます。domain codeはNext.js、React、
+Vercel、PostgreSQL、ORM、protocol wire objectに依存しません。composition rootが
+infrastructureをapplication portへ接続します。
+
+採用済みの同意、participation、exposure境界は
+[ADR 0003](decisions/0003-control-plane-consent-and-exposure.ja.md)に記録しています。
+正確なdatabase schemaとmigrationの正本は、実装前のdecisionとして残します。runtime
+repositoryではKyselyと`node-postgres`を使い、infrastructure内に閉じ込めます。
+
+## Control-planeのverification
+
+control-planeの変更は、merge前に四つのblocking CI layerを通します。
+
+1. format、lint、TypeScript、依存方向rule、Next.js production build。
+2. pure policyに対するVitest unit testとfast-check property test。
+3. ephemeralな実PostgreSQLに対するmigration・repository integration test。
+4. transaction raceとidempotencyに対する、barrierで制御した決定論的な複数connection test。
+
+重要なpure authorization、lifecycle、exposure、fingerprint、eject-back logicにはbranch coverage
+100%を要求します。repository全体のcoverage自体を目的にしません。定期的なmutation testingで
+これらの重要testを試しますが、最初はpull request blockerではなくadvisoryにします。
+persistence、locking、constraintの保証をdatabase mockだけで受け入れません。
+
+依存ruleにより、domainからNext.js、React、Kysely、`pg`、infrastructure、protocol wire typeの
+importを禁止し、application codeからtransport・infrastructure implementationのimportを禁止
+します。CIはsynthetic data、最小permission、完全なSHAへ固定したActionだけを使い、production
+credentialを持ち込みません。詳細は
+[ADR 0003](decisions/0003-control-plane-consent-and-exposure.ja.md)を参照してください。
+
 ## コンポーネント
 
 ### Webクライアント
@@ -73,6 +122,28 @@ eject(approved_drive_id) -> EjectResult
 
 汎用コマンド実行、任意デバイスパス、ファイルアクセス、ディスク読み取り、任意の
 DeviceIoControl/IOKit呼び出しは公開しません。
+
+## 認可と受信者exposure
+
+pureなdomain policyが、application use caseから渡された最新の事実を使って要求を評価
+します。account restriction、受信者のaudience・sender-eligibility設定、必要な場合の
+relationshipとdirectional grant、block、pause、quiet hours、cooldown、limit、device
+eligibility、revocationを評価します。要求時の拒否と、認可済みcommandの取消は分けます。
+
+受信者accessには二つの独立した軸があります。
+
+```text
+audience: NAMED | CONNECTED | ALL_AUTHENTICATED
+sender eligibility: READY_PARTICIPANTS_ONLY | AUTHENTICATED_ACCOUNTS
+```
+
+defaultは、指定されたready participantです。匿名actorは含めません。discoverabilityと
+eject permissionは別にします。blockまたはsafety controlは、広いscopeより常に優先します。
+
+将来のsubscriptionは、受信者が選択できるinbound exposure ceilingだけを引き上げられます。
+senderへ追加の作用権を与えません。有効なinbound limitは、受信者が選んだlimit、plan
+entitlement、証拠に基づくphysical safety ceilingの最小値です。billing vendorはentitlement
+portの後ろに置き、Stage 1 domain skeletonの対象外にします。
 
 ## 命令のライフサイクル
 
@@ -126,9 +197,12 @@ ATTEMPTED
 - `person`: ID、表示名、言語、アカウント状態。
 - `relationship`: 二人と関係状態。
 - `eject_permission`: 許可者、被許可者、ポリシー、状態。
+- `participation`: account-only、setup、ready、revokedの粗いeligibility。
+- `recipient_access_policy`: audience、sender eligibility、pause、limit。
 - `device`: 所有者、公開鍵または認証情報参照、OS、最終接続の粗い分類。
 - `drive_capability`: 不透明なローカル結合と粗い能力状態。
 - `eject_event`: 実行者、受信者、端末、状態、限定された理由コード。
+- `entitlement`: 受信者のinbound ceilingへの交換可能な参照。
 - `revocation`: 無効化された端末または認証情報と有効時刻。
 
 メディア名、ディスク内容、ファイル一覧、任意のハードウェア一覧、運用上不要なIP

@@ -7,18 +7,19 @@
 
 ## スナップショット
 
-- **日付:** 2026-07-19
+- **日付:** 2026-07-20
 - **リポジトリ:** `tnoborio/eject`
 - **現在のブランチ:** `main`
 - **マージ済みPR:** [#2](https://github.com/tnoborio/eject/pull/2)(Stage 0スパイク)、
   [#3](https://github.com/tnoborio/eject/pull/3)(One Bitロゴ)、
   [#4](https://github.com/tnoborio/eject/pull/4)(ハードウェア検証キット)、
-  [#5](https://github.com/tnoborio/eject/pull/5)(protocol v1)
-- **マージコミット:** `cac982af474579e634568d0525659dad15289c6a`
+  [#5](https://github.com/tnoborio/eject/pull/5)(protocol v1)、
+  [#6](https://github.com/tnoborio/eject/pull/6)(handoff更新)
+- **現在の`main` base commit:** `d4824b877c21d511d2d108e1bcaf7ad49a07895e`
 - **`main`上の検証済みCI:** [Windows spike run 29688104811](https://github.com/tnoborio/eject/actions/runs/29688104811)、
   [protocol contract run 29688208249](https://github.com/tnoborio/eject/actions/runs/29688208249)
-- **現在のプロダクト段階:** Stage 0は物理証拠待ち。Stage 1 protocol v1は実装済みで、
-  制御面は未着手
+- **現在のプロダクト段階:** Stage 0は物理証拠待ち。Stage 1 protocol v1とcontrol-plane
+  consent architectureは採用済みで、control-plane実装は未着手
 
 ## 現在の状態
 
@@ -53,6 +54,17 @@ Stage 1 protocol v1も、閉じたJSON Schema契約、reference validator、vali
 
 ビジュアルアイデンティティはOne Bitを採用済みです。採用版アセットと利用上の注意は
 `assets/logo/`に、検討過程は`assets/logo-concepts/`にあります。
+
+Stage 1 control-planeのdeployment、module依存方向、pure authorization、recipientが作成する
+access、participation eligibility、一回限りのeject back、recipient側subscription exposureは、
+ADR 0003で採用済みです。atomicなcommand-issuance transaction、`SERIALIZABLE` isolation、
+recipient row lock、bounded retryも確定しています。person request、一回限りのeject back、
+agent resultのidempotencyは、それぞれ独立して確定しています。infrastructure repositoryには
+Kyselyと`node-postgres`を採用済みです。control-planeのCI境界も採用済みで、blockingのstatic・
+architecture check、pure・property test、production build、実PostgreSQL integration・決定論的
+concurrency testと、定期的なadvisory mutation testingを要求します。正確なschema、migration
+tooling、authentication、device credential、billing実装は未決定です。control-plane codeも
+public eject endpointもまだありません。
 
 Stage 0自体は**未完了**です。トレイ式光学ドライブを持つ実際のWindows端末では、まだ
 実行していません。その証拠が得られるまで、物理トレイを開けられると表現してはいけません。
@@ -100,6 +112,10 @@ docs/decisions/0001-implementation-stack.md
 
 docs/decisions/0002-stage-1-protocol-v1.md
     採用済みの期限、宛先、replay、結果、lifecycle、transport境界。
+
+docs/decisions/0003-control-plane-consent-and-exposure.md
+    採用済みのStage 1 deployment、module、authorization、participation、access、eject-back、
+    recipient側exposure境界。
 ```
 
 英語文書が正本です。意味を変える場合は、対応する`.ja.md`も同じ変更で更新してください。
@@ -184,6 +200,10 @@ artifactには期限があり、後続ビルドのチェックサムは変わり
   transportは未実装。
 - 具体的な認証provider、device credential、message integrity方式、revocation確認は
   security decisionとして未決定。
+- 正確なPostgreSQL schema、migrationの正本、protocol共有方法は、control-plane architecture
+  decisionとして未決定。test境界は採用済みだが未実装。
+- 実機証拠から説明可能なsafety ceilingが得られるまで、subscription価格とinbound frequency
+  ceilingは決められない。
 - macOSは実験扱いのままであり、Windowsのハードウェア上の事実を確立する前に着手しない。
 
 ## 新しい開発セッションの開始
@@ -227,17 +247,26 @@ gh run download RUN_ID --name eject-windows-x64 --dir artifacts/github-actions
 
 ## ハードウェアがない間の次の必須作業
 
-物理検証は並行要件として残しますが、唯一の開発queueにはしません。次のsoftware changeは、
-protocol v1に対するStage 1制御面domain skeletonです。
+物理検証は並行要件として残しますが、唯一の開発queueにはしません。PostgreSQL transaction
+動作、runtime persistence tooling、test境界は採用済みです。scaffold前に、正確なPostgreSQL
+schemaとmigration正本を決め、次にdomainをwire objectへcouplingせずprotocol v1を利用する方法を
+決めます。その後のsoftware changeは、protocol v1とADR 0003に対するStage 1制御面domain
+skeletonです。
 
 1. public eject endpointを持たないNext.js/TypeScript modular monolithをscaffoldする。
-2. 方向付きgrant、受信者pause、cooldown、rate limit、device eligibility、即時revocationの
-   pureでtest済みauthorizationを実装する。
+2. recipient audience・sender eligibility policy、方向付きgrant、block、pause、cooldown、
+   rate limit、device eligibility、即時revocationのpureでtest済みauthorizationを実装する。
 3. PostgreSQL向けrepository interfaceとtransactionalなcommand ID一意性を使い、commandと
    lifecycle永続化をmodel化する。
 4. person sessionとdevice credentialを分離し、security ADR採用までdevice enrollmentを
    保留する。
 5. protocol v1外のcommand typeやfieldを運べるnetwork pathを公開しない。
+
+skeletonのpull requestでは、format、lint、TypeScript、依存rule、Next.js production build、
+pure・property test、ephemeralな実PostgreSQL serviceに対するintegration・決定論的concurrency
+testをblockingにします。重要なpure policy surfaceにはbranch coverage 100%を要求します。
+定期的なmutation testingはadvisoryから始めます。database mockをtransaction、locking、
+constraintの正しさの根拠にしません。
 
 authenticated pollingまたはenrollmentの前に、person auth provider、端末ごとのcredential、
 保護済みローカル保存、message integrity、revocation lookup、結果idempotency、clock handlingを
@@ -254,15 +283,18 @@ authenticated pollingまたはenrollmentの前に、person auth provider、端�
 更新済み両workflowのCI検証は`main`上で完了しています(スナップショットのリンクを
 参照)。今後の変更も小さくレビュー可能な単位に保ちます。
 
-1. **Stage 1制御面domain skeleton** — Next.js/TypeScript modular monolith、test済みの
+1. **残りのcontrol-plane architectureの完了** — network pathを公開せず、正確なPostgreSQL
+   schema、migrationの正本、protocol共有方法を決める。transaction動作、Kysely・
+   `node-postgres`、test境界は採用済み。
+2. **Stage 1制御面domain skeleton** — Next.js/TypeScript modular monolith、test済みの
    方向付きpermission、cooldown、pause、revoke、command永続化境界を実装する。device
    enrollmentはまだ行わない。
-2. **identity・device security ADR** — person認証、device credential、保護保存、integrity、
+3. **identity・device security ADR** — person認証、device credential、保護保存、integrity、
    revocation、idempotency、clock規則を選ぶ。
-3. **認証済みoutbound polling** — protocol v1だけに従う発行と結果取り込みを実装する。
-4. **Windows登録とpolling** — 保護ストレージ上の独立したdevice credential、ローカル
+4. **認証済みoutbound polling** — protocol v1だけに従う発行と結果取り込みを実装する。
+5. **Windows登録とpolling** — 保護ストレージ上の独立したdevice credential、ローカル
    リプレイ防止、1回だけの実行、結果報告を実装し、インバウンドポートを開かない。
-5. **並行するハードウェア証拠** — 機材入手後、レビュー済みレポートと、証拠により狭く
+6. **並行するハードウェア証拠** — 機材入手後、レビュー済みレポートと、証拠により狭く
    裏付けられたadapter修正を追加する。
 
 Stage 1の登録を完了扱いにする前に、認証プロバイダーと具体的な暗号方式について、集中的な

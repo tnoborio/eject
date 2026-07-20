@@ -8,18 +8,20 @@ the order in which work should continue.
 
 ## Snapshot
 
-- **Date:** 2026-07-19
+- **Date:** 2026-07-20
 - **Repository:** `tnoborio/eject`
 - **Current branch:** `main`
 - **Merged PRs:** [#2](https://github.com/tnoborio/eject/pull/2) (Stage 0
   spike), [#3](https://github.com/tnoborio/eject/pull/3) (One Bit logo),
   [#4](https://github.com/tnoborio/eject/pull/4) (hardware validation kit),
-  [#5](https://github.com/tnoborio/eject/pull/5) (protocol v1)
-- **Merge commit:** `cac982af474579e634568d0525659dad15289c6a`
+  [#5](https://github.com/tnoborio/eject/pull/5) (protocol v1),
+  [#6](https://github.com/tnoborio/eject/pull/6) (handoff refresh)
+- **Current `main` base commit:** `d4824b877c21d511d2d108e1bcaf7ad49a07895e`
 - **Verified CI on `main`:** [Windows spike run 29688104811](https://github.com/tnoborio/eject/actions/runs/29688104811),
   [protocol contract run 29688208249](https://github.com/tnoborio/eject/actions/runs/29688208249)
 - **Current product phase:** Stage 0 awaits physical evidence; Stage 1 protocol
-  v1 is implemented and the control plane has not started
+  v1 and the control-plane consent architecture are accepted, while control-plane
+  implementation has not started
 
 ## Executive status
 
@@ -56,6 +58,20 @@ that cannot claim `OPENED`.
 
 The One Bit visual identity is adopted, with production assets and usage notes
 in `assets/logo/` and the study preserved in `assets/logo-concepts/`.
+
+Stage 1 control-plane deployment, module direction, pure authorization,
+recipient-authored access, participation eligibility, one-time eject back, and
+recipient-side subscription exposure are accepted in ADR 0003. The atomic
+command-issuance transaction, `SERIALIZABLE` isolation, recipient row lock, and
+bounded retry are also fixed. Person request, one-time eject-back, and agent-
+result idempotency are fixed independently. Kysely and `node-postgres` are
+selected for infrastructure repositories. The control-plane CI boundary is
+also accepted: blocking static and architecture checks, pure and property
+tests, a production build, and real-PostgreSQL integration and deterministic
+concurrency tests, with scheduled advisory mutation testing. Exact schema,
+migration tooling, authentication, device credentials, and billing
+implementation remain undecided. No control-plane code or public eject endpoint
+exists yet.
 
 Stage 0 itself is **not complete**. No real Windows computer with a tray-style
 optical drive has run the executable yet. The project must not claim that it can
@@ -105,6 +121,10 @@ docs/decisions/0001-implementation-stack.md
 
 docs/decisions/0002-stage-1-protocol-v1.md
     Accepted expiry, audience, replay, result, lifecycle, and transport boundary.
+
+docs/decisions/0003-control-plane-consent-and-exposure.md
+    Accepted Stage 1 deployment, module, authorization, participation, access,
+    eject-back, and recipient-side exposure boundaries.
 ```
 
 English documents are canonical. Update the corresponding `.ja.md` file in the
@@ -202,6 +222,11 @@ Record the failure and narrow the supported capability contract instead.
   device credential, and polling transport have not been implemented.
 - The exact authentication provider, device credential, message-integrity
   construction, and revocation check remain security decisions.
+- The exact PostgreSQL schema, migration source of truth, and protocol-sharing
+  mechanism remain control-plane architecture decisions. The test boundary is
+  accepted but not implemented.
+- Subscription prices and inbound frequency ceilings cannot be set before
+  physical hardware evidence establishes a defensible safety ceiling.
 - macOS remains experimental and must not be started before Windows hardware
   truth is established.
 
@@ -247,19 +272,31 @@ gh run download RUN_ID --name eject-windows-x64 --dir artifacts/github-actions
 ## Required next work while hardware is unavailable
 
 Physical validation remains a parallel requirement, but it is no longer the
-only development queue. The next software change should implement the Stage 1
-control-plane domain skeleton against protocol v1:
+only development queue. PostgreSQL transaction behavior, runtime persistence
+tooling, and the test boundary are accepted. Before scaffolding, finish the
+exact PostgreSQL schema and migration source-of-truth decision, then decide how
+protocol v1 is consumed without coupling the domain to wire objects. The next
+software change should then implement the Stage 1 control-plane domain skeleton
+against protocol v1 and ADR 0003:
 
 1. scaffold the Next.js/TypeScript modular monolith without a public eject
    endpoint;
-2. implement pure, tested authorization for directional grants, recipient
-   pause, cooldown, rate limits, device eligibility, and immediate revocation;
+2. implement pure, tested authorization for recipient audience and sender-
+   eligibility policies, directional grants, block, pause, cooldown, rate
+   limits, device eligibility, and immediate revocation;
 3. model command and lifecycle persistence with PostgreSQL-facing repository
    interfaces and transactional command-ID uniqueness;
 4. keep person sessions separate from device credentials and defer device
    enrollment until its security ADR is accepted; and
 5. expose no network path that can carry a command type or field outside
    protocol v1.
+
+The skeleton's pull requests must block on formatting, lint, TypeScript,
+dependency rules, a Next.js production build, pure and property tests, and
+integration and deterministic concurrency tests against an ephemeral real
+PostgreSQL service. Critical pure policy surfaces require 100% branch coverage.
+Scheduled mutation testing starts as advisory. Database mocks do not establish
+transaction, locking, or constraint correctness.
 
 Before authenticated polling or enrollment, record a focused decision covering
 the person auth provider, per-device credential, protected local storage,
@@ -277,18 +314,22 @@ incomplete until that contract is repeatable on real hardware.
 CI verification for both updated workflows is complete on `main` (see the
 snapshot links). Keep subsequent changes small and reviewable:
 
-1. **Stage 1 control-plane domain skeleton** — Next.js/TypeScript modular
+1. **Complete the remaining control-plane architecture** — decide the exact
+   PostgreSQL schema, migration source of truth, and protocol-sharing mechanism
+   without opening a network path. Transaction behavior, Kysely/`node-postgres`,
+   and test boundaries are already accepted.
+2. **Stage 1 control-plane domain skeleton** — Next.js/TypeScript modular
    monolith, tested directional permission, cooldown, pause, revoke, and command
    persistence boundaries; no device enrollment yet.
-2. **Identity and device-security ADR** — choose person authentication, device
+3. **Identity and device-security ADR** — choose person authentication, device
    credential, protected storage, integrity, revocation, idempotency, and clock
    rules.
-3. **Authenticated outbound polling** — implement issuance and result ingestion
+4. **Authenticated outbound polling** — implement issuance and result ingestion
    strictly against protocol v1.
-4. **Windows enrollment and polling** — separate device credential in protected
+5. **Windows enrollment and polling** — separate device credential in protected
    storage, local replay protection, one attempt, result report, and no inbound
    port.
-5. **Hardware evidence in parallel** — add reviewed reports and any narrowly
+6. **Hardware evidence in parallel** — add reviewed reports and any narrowly
    evidence-backed adapter corrections when equipment becomes available.
 
 The authentication provider and precise cryptographic scheme need a focused

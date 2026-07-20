@@ -20,6 +20,11 @@ interaction over a network. They do not replace hardware testing.
 
 - [Pokaboo: A networked toy for distance communication and play](https://www.researchgate.net/publication/221238352_Pokaboo_A_networked_toy_for_distance_communication_and_play) — an example of physical call-and-response used for remote social play.
 
+## Contractual and artistic context
+
+- [Éditions de Minuit: *Présentation de Sacher-Masoch*](https://www.leseditionsdeminuit.fr/livre-Pr%C3%A9sentation_de_Sacher_Masoch-2549-1-1-0-1.html) — publisher record for Gilles Deleuze's study of Sacher-Masoch.
+- [Yale Iberian Connections: Gilles Deleuze](https://iberian-connections.yale.edu/workshop/gilles-deleuze/) — context for the contract, law, and work-of-art reading used to frame recipient-authored exposure.
+
 ## Interpretation
 
 The operating systems provide ejection mechanisms, but an API success does not

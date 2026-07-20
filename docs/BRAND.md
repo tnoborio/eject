@@ -30,6 +30,49 @@ of the concept.
 
 > EJECT does one thing, physically, with consent.
 
+## Artistic reading
+
+EJECT may be read as a contractual artwork presented with the institutional
+surface of a serious SaaS product. The recipient authors the conditions under
+which another person may create a physical interruption: who may act, how often,
+and when. Identity, authorization, lifecycle records, and billing are therefore
+not backstage explanations of the joke. Their deliberate excess is part of the
+work.
+
+A future subscription extends the recipient's chosen capacity to be
+interrupted. It does not sell a sender additional power over somebody else.
+The billing cycle gives the consent contract a repeated, administrative form:
+a nearly useless physical event receives plans, limits, and invoices.
+
+Do not explain this reading in product UI or turn it into kink humor. The work
+should remain available to that interpretation through exact consent controls,
+institutional language, and deadpan presentation.
+
+## English copy structure
+
+Keep **Serious technology. Almost no purpose.** as the master brand line. A
+secondary campaign line for an English-speaking art context may foreground
+physical interruption, consent, contract, or billing. It should sound like an
+institutional service statement, not a punchline, and it must not imply that
+payment replaces consent.
+
+### Art-context campaign line
+
+> Physical interruption. By consent. Billed monthly.
+
+This is the canonical English campaign line for art-context presentations. It
+compresses the physical event, recipient-authored contract, and administrative
+subscription form without explaining the interpretation. Do not place it on a
+live purchase surface until monthly billing actually exists.
+
+Approved supporting copy:
+
+> Choose who may eject you, how often, and under which plan.
+
+Approved exposure-plan heading:
+
+> Choose your exposure.
+
 ## Voice
 
 The voice is:

@@ -29,6 +29,11 @@ safety boundaries. Parallel work does not satisfy the Stage 0 exit condition,
 authorize a physical-success claim, or permit public remote delivery before the
 hardware contract exists.
 
+Control-plane work proceeds only with blocking static and architecture checks,
+pure and property tests, a production build, and integration and deterministic
+concurrency tests against real ephemeral PostgreSQL. Scheduled mutation testing
+challenges critical policy tests without delaying every pull request initially.
+
 ## Stage 1 — Two-person prototype
 
 Connect two accounts and two Windows agents across separate networks.
@@ -76,6 +81,8 @@ Do not assume a public launch. Review:
 - hardware and support burden;
 - abuse attempts;
 - whether scarcity preserves meaning;
+- whether recipient-funded exposure subscriptions strengthen the contractual
+  artwork without selling sender power;
 - whether EJECT is best as an artwork, social toy, or continuing product.
 
 **Exit condition:** make an explicit continue, narrow, archive, or expand
@@ -89,14 +96,14 @@ unless it creates the intended physical result on a defined class of drive.
 
 ## Deferred questions
 
-- exact web and native implementation stacks;
+- exact Stage 2 desktop UI and packaging stack;
 - authentication provider;
 - realtime transport;
 - code-signing and distribution vendors;
 - limits and cooldown values;
 - whether relationships must be mutual;
 - whether a person may register multiple devices;
-- public launch and monetization;
+- public launch, subscription pricing, and evidence-backed exposure ceilings;
 - any physical action beyond optical-drive eject.
 
 These are intentionally deferred, not forgotten. Resolve them with evidence
