@@ -65,7 +65,10 @@ recipient-side subscription exposure are accepted in ADR 0003. The atomic
 command-issuance transaction, `SERIALIZABLE` isolation, recipient row lock, and
 bounded retry are also fixed. Person request, one-time eject-back, and agent-
 result idempotency are fixed independently. Kysely and `node-postgres` are
-selected for infrastructure repositories. The control-plane CI boundary is
+selected for infrastructure repositories. Ordered, forward-only SQL migrations
+with a checksum ledger are selected as the schema source of truth, and protocol
+v1 is shared as a private workspace package used only by transport adapters.
+The control-plane CI boundary is
 also accepted: blocking static and architecture checks, pure and property
 tests, a production build, and real-PostgreSQL integration and deterministic
 concurrency tests, with scheduled advisory mutation testing. Exact schema,
@@ -222,9 +225,8 @@ Record the failure and narrow the supported capability contract instead.
   device credential, and polling transport have not been implemented.
 - The exact authentication provider, device credential, message-integrity
   construction, and revocation check remain security decisions.
-- The exact PostgreSQL schema, migration source of truth, and protocol-sharing
-  mechanism remain control-plane architecture decisions. The test boundary is
-  accepted but not implemented.
+- The schema, migration, protocol-sharing, and test boundaries are accepted but
+  not implemented.
 - Subscription prices and inbound frequency ceilings cannot be set before
   physical hardware evidence establishes a defensible safety ceiling.
 - macOS remains experimental and must not be started before Windows hardware
@@ -272,12 +274,10 @@ gh run download RUN_ID --name eject-windows-x64 --dir artifacts/github-actions
 ## Required next work while hardware is unavailable
 
 Physical validation remains a parallel requirement, but it is no longer the
-only development queue. PostgreSQL transaction behavior, runtime persistence
-tooling, and the test boundary are accepted. Before scaffolding, finish the
-exact PostgreSQL schema and migration source-of-truth decision, then decide how
-protocol v1 is consumed without coupling the domain to wire objects. The next
-software change should then implement the Stage 1 control-plane domain skeleton
-against protocol v1 and ADR 0003:
+only development queue. The remaining control-plane schema, migration,
+protocol-sharing, and test boundaries are accepted. The next software change
+should implement the Stage 1 control-plane domain skeleton against protocol v1,
+ADR 0003, and ADR 0004:
 
 1. scaffold the Next.js/TypeScript modular monolith without a public eject
    endpoint;
@@ -314,22 +314,18 @@ incomplete until that contract is repeatable on real hardware.
 CI verification for both updated workflows is complete on `main` (see the
 snapshot links). Keep subsequent changes small and reviewable:
 
-1. **Complete the remaining control-plane architecture** — decide the exact
-   PostgreSQL schema, migration source of truth, and protocol-sharing mechanism
-   without opening a network path. Transaction behavior, Kysely/`node-postgres`,
-   and test boundaries are already accepted.
-2. **Stage 1 control-plane domain skeleton** — Next.js/TypeScript modular
+1. **Stage 1 control-plane domain skeleton** — Next.js/TypeScript modular
    monolith, tested directional permission, cooldown, pause, revoke, and command
    persistence boundaries; no device enrollment yet.
-3. **Identity and device-security ADR** — choose person authentication, device
+2. **Identity and device-security ADR** — choose person authentication, device
    credential, protected storage, integrity, revocation, idempotency, and clock
    rules.
-4. **Authenticated outbound polling** — implement issuance and result ingestion
+3. **Authenticated outbound polling** — implement issuance and result ingestion
    strictly against protocol v1.
-5. **Windows enrollment and polling** — separate device credential in protected
+4. **Windows enrollment and polling** — separate device credential in protected
    storage, local replay protection, one attempt, result report, and no inbound
    port.
-6. **Hardware evidence in parallel** — add reviewed reports and any narrowly
+5. **Hardware evidence in parallel** — add reviewed reports and any narrowly
    evidence-backed adapter corrections when equipment becomes available.
 
 The authentication provider and precise cryptographic scheme need a focused

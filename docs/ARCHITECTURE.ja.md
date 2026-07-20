@@ -56,8 +56,15 @@ infrastructureをapplication portへ接続します。
 
 採用済みの同意、participation、exposure境界は
 [ADR 0003](decisions/0003-control-plane-consent-and-exposure.ja.md)に記録しています。
-正確なdatabase schemaとmigrationの正本は、実装前のdecisionとして残します。runtime
-repositoryではKyselyと`node-postgres`を使い、infrastructure内に閉じ込めます。
+`control-plane/migrations`下の順序付きforward-only SQL fileをschemaの正本とします。
+checksum ledgerとPostgreSQL advisory lockにより、migration適用を再現可能かつ直列にします。
+runtime repositoryではKyselyと`node-postgres`を使い、infrastructure内に閉じ込めます。詳細は
+[ADR 0004](decisions/0004-control-plane-schema-and-contract-sharing.ja.md)を参照してください。
+
+protocol v1は`protocol/v1`配下の正本のまま、private workspace package
+`@eject/protocol-contract`として利用します。そのvalidator・schemaをimportするのはtransport
+adapterだけです。検証済みwire値を明示的なmapperへ通し、application・domain codeはprotocol
+wire objectをimportしません。
 
 ## Control-planeのverification
 

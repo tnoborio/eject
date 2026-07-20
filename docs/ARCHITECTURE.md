@@ -57,10 +57,17 @@ protocol wire objects. A composition root connects infrastructure to
 application ports.
 
 The accepted consent, participation, and exposure boundaries are recorded in
-[ADR 0003](decisions/0003-control-plane-consent-and-exposure.md). The exact
-database schema and migration source of truth remain to be decided before
-implementation. Runtime repositories use Kysely and `node-postgres`, contained
-within infrastructure.
+[ADR 0003](decisions/0003-control-plane-consent-and-exposure.md). Ordered,
+forward-only SQL files under `control-plane/migrations` are the schema source of
+truth. A checksum ledger and PostgreSQL advisory lock make migration application
+reproducible and serialized. Runtime repositories use Kysely and
+`node-postgres`, contained within infrastructure. See
+[ADR 0004](decisions/0004-control-plane-schema-and-contract-sharing.md).
+
+Protocol v1 remains canonical under `protocol/v1` and is consumed as the
+private workspace package `@eject/protocol-contract`. Only transport adapters
+import its validator or schema. Validated wire values cross an explicit mapper;
+application and domain code never import protocol wire objects.
 
 ## Control-plane verification
 

@@ -60,7 +60,9 @@ access、participation eligibility、一回限りのeject back、recipient側sub
 ADR 0003で採用済みです。atomicなcommand-issuance transaction、`SERIALIZABLE` isolation、
 recipient row lock、bounded retryも確定しています。person request、一回限りのeject back、
 agent resultのidempotencyは、それぞれ独立して確定しています。infrastructure repositoryには
-Kyselyと`node-postgres`を採用済みです。control-planeのCI境界も採用済みで、blockingのstatic・
+Kyselyと`node-postgres`を採用済みです。checksum ledgerを持つ順序付きforward-only SQL
+migrationをschemaの正本とし、protocol v1はtransport adapterだけが使うprivate workspace
+packageとして共有します。control-planeのCI境界も採用済みで、blockingのstatic・
 architecture check、pure・property test、production build、実PostgreSQL integration・決定論的
 concurrency testと、定期的なadvisory mutation testingを要求します。正確なschema、migration
 tooling、authentication、device credential、billing実装は未決定です。control-plane codeも
@@ -200,8 +202,7 @@ artifactには期限があり、後続ビルドのチェックサムは変わり
   transportは未実装。
 - 具体的な認証provider、device credential、message integrity方式、revocation確認は
   security decisionとして未決定。
-- 正確なPostgreSQL schema、migrationの正本、protocol共有方法は、control-plane architecture
-  decisionとして未決定。test境界は採用済みだが未実装。
+- schema、migration、protocol共有、test境界は採用済みだが未実装。
 - 実機証拠から説明可能なsafety ceilingが得られるまで、subscription価格とinbound frequency
   ceilingは決められない。
 - macOSは実験扱いのままであり、Windowsのハードウェア上の事実を確立する前に着手しない。
@@ -247,11 +248,9 @@ gh run download RUN_ID --name eject-windows-x64 --dir artifacts/github-actions
 
 ## ハードウェアがない間の次の必須作業
 
-物理検証は並行要件として残しますが、唯一の開発queueにはしません。PostgreSQL transaction
-動作、runtime persistence tooling、test境界は採用済みです。scaffold前に、正確なPostgreSQL
-schemaとmigration正本を決め、次にdomainをwire objectへcouplingせずprotocol v1を利用する方法を
-決めます。その後のsoftware changeは、protocol v1とADR 0003に対するStage 1制御面domain
-skeletonです。
+物理検証は並行要件として残しますが、唯一の開発queueにはしません。残りのcontrol-plane
+schema、migration、protocol共有、test境界は採用済みです。次のsoftware changeは、protocol
+v1、ADR 0003、ADR 0004に対するStage 1制御面domain skeletonです。
 
 1. public eject endpointを持たないNext.js/TypeScript modular monolithをscaffoldする。
 2. recipient audience・sender eligibility policy、方向付きgrant、block、pause、cooldown、
@@ -283,18 +282,15 @@ authenticated pollingまたはenrollmentの前に、person auth provider、端�
 更新済み両workflowのCI検証は`main`上で完了しています(スナップショットのリンクを
 参照)。今後の変更も小さくレビュー可能な単位に保ちます。
 
-1. **残りのcontrol-plane architectureの完了** — network pathを公開せず、正確なPostgreSQL
-   schema、migrationの正本、protocol共有方法を決める。transaction動作、Kysely・
-   `node-postgres`、test境界は採用済み。
-2. **Stage 1制御面domain skeleton** — Next.js/TypeScript modular monolith、test済みの
+1. **Stage 1制御面domain skeleton** — Next.js/TypeScript modular monolith、test済みの
    方向付きpermission、cooldown、pause、revoke、command永続化境界を実装する。device
    enrollmentはまだ行わない。
-3. **identity・device security ADR** — person認証、device credential、保護保存、integrity、
+2. **identity・device security ADR** — person認証、device credential、保護保存、integrity、
    revocation、idempotency、clock規則を選ぶ。
-4. **認証済みoutbound polling** — protocol v1だけに従う発行と結果取り込みを実装する。
-5. **Windows登録とpolling** — 保護ストレージ上の独立したdevice credential、ローカル
+3. **認証済みoutbound polling** — protocol v1だけに従う発行と結果取り込みを実装する。
+4. **Windows登録とpolling** — 保護ストレージ上の独立したdevice credential、ローカル
    リプレイ防止、1回だけの実行、結果報告を実装し、インバウンドポートを開かない。
-6. **並行するハードウェア証拠** — 機材入手後、レビュー済みレポートと、証拠により狭く
+5. **並行するハードウェア証拠** — 機材入手後、レビュー済みレポートと、証拠により狭く
    裏付けられたadapter修正を追加する。
 
 Stage 1の登録を完了扱いにする前に、認証プロバイダーと具体的な暗号方式について、集中的な
