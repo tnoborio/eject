@@ -19,16 +19,20 @@ the order in which work should continue.
   [#7](https://github.com/tnoborio/eject/pull/7) (Kysely issuance),
   [#8](https://github.com/tnoborio/eject/pull/8) (PostgreSQL races),
   [#9](https://github.com/tnoborio/eject/pull/9) (mutation testing),
-  [#10](https://github.com/tnoborio/eject/pull/10) (identity/device security)
-- **Current `main` base commit:** `c7acf08`
+  [#10](https://github.com/tnoborio/eject/pull/10) (identity/device security),
+  [#11](https://github.com/tnoborio/eject/pull/11) (authenticated agent
+  polling), [#12](https://github.com/tnoborio/eject/pull/12) (cloud database
+  environment)
+- **Current verified implementation:** PR #12 on `main`
 - **Verified CI on `main`:** [Windows spike run 29688104811](https://github.com/tnoborio/eject/actions/runs/29688104811),
   [protocol contract run 29688208249](https://github.com/tnoborio/eject/actions/runs/29688208249),
   [control-plane run 29813234824](https://github.com/tnoborio/eject/actions/runs/29813234824)
 - **Current product phase:** Stage 0 awaits physical evidence; Stage 1 protocol,
   control-plane, and identity/device-security architecture are accepted. The
   control plane is implemented through authenticated agent polling and result
-  ingestion, but delivery is disabled by default and no Windows agent is
-  connected.
+  ingestion. A dedicated managed PostgreSQL environment and Vercel project now
+  exist under Sasara operational ownership, but delivery is disabled at every
+  gate and no Windows agent is connected.
 
 ## Executive status
 
@@ -90,6 +94,11 @@ rules. No public eject endpoint exists. The authenticated poll and result
 routes, device key and nonce checks, signed responses, result idempotency, and
 fail-closed environment and database delivery gates are now implemented. Device
 enrollment, person-facing auth routes, and Windows polling remain incomplete.
+The EJECT-specific Supabase PostgreSQL 17 project is provisioned in Tokyo with
+SSL enforcement, both migrations, zero application rows, and delivery disabled.
+The `sasara/eject` Vercel project is connected to GitHub, runs Next.js on Node.js
+22 in Tokyo, with production-only protected database access and no database
+credential in Preview.
 
 Stage 0 itself is **not complete**. No real Windows computer with a tray-style
 optical drive has run the executable yet. The project must not claim that it can
@@ -132,6 +141,14 @@ control-plane/test/
 
 control-plane/migrations/
     Ordered forward-only PostgreSQL schema migrations with checksum validation.
+
+control-plane/scripts/verify-cloud-database.ts
+    Credential-redacting cloud schema, TLS configuration, and safety-state
+    verification.
+
+docs/CLOUD-DATABASE.md
+    Paired operational ownership, protected environment, migration, rotation,
+    recovery, and enablement runbook.
 
 protocol/v1/
     Closed command, agent-result, and lifecycle Schema; reference validator;
@@ -227,7 +244,7 @@ The following facts have direct build or test evidence:
     so all eleven protocol tests also have CI evidence.
 18. The control-plane skeleton passes formatting, ESLint, strict TypeScript,
     dependency-cruiser, and a Next.js 16.2.10 production build on Node.js 22.
-19. All 45 control-plane tests pass, including fast-check properties, P-256
+19. All 49 control-plane tests pass, including fast-check properties, P-256
     request and response integrity, closed HTTP handling, protocol result
     mapping, and the default-disabled route. Critical
     authorization, lifecycle, exposure, and idempotency code has 100% branch,
@@ -255,6 +272,23 @@ The following facts have direct build or test evidence:
     Unit tests prove they return `404 DELIVERY_DISABLED` unless the environment
     gate is explicitly true; PostgreSQL independently blocks or cancels
     delivery when its global gate is false.
+26. The authenticated polling change passed all control-plane and protocol
+    checks before merge ([control-plane run 29815220933](https://github.com/tnoborio/eject/actions/runs/29815220933),
+    [protocol run 29815220953](https://github.com/tnoborio/eject/actions/runs/29815220953)).
+27. On 2026-07-21, the dedicated EJECT Supabase project reported
+    `ACTIVE_HEALTHY`, PostgreSQL 17 in `ap-northeast-1`, and database SSL
+    enforcement enabled. The repository verifier proved exact checksums for
+    both migrations, a pinned-CA and hostname-verified connection, disabled
+    delivery, no physical ceiling, and zero EJECT application rows.
+28. The `sasara/eject` Vercel project is configured with the `control-plane`
+    workspace root, Next.js, Node.js 22, Tokyo `hnd1` compute, and the GitHub
+    repository. `DATABASE_URL` and the pinned CA exist only as sensitive
+    Production values. Delivery is explicitly false in Production, Preview,
+    and Development; Preview has no production database credential.
+29. Protected deployment `dpl_G6pHisFuPVmausakV6PXxzrGtZYi` reached `Ready`
+    with its Next.js Functions in `hnd1`. An authenticated deployment check
+    received HTTP 200 from the shell and `404 DELIVERY_DISABLED` from the
+    deployed poll route.
 
 The verified `main` artifact had this checksum:
 
@@ -305,6 +339,9 @@ Record the failure and narrow the supported capability contract instead.
 - PostgreSQL issuance and authenticated poll/result transport are implemented,
   but person-facing Supabase authentication, device enrollment, Windows CNG key
   creation, and the Windows polling client have not been implemented.
+- The cloud environment is provisioned and migration-verified, but no person,
+  device, command, result, signing key, or private event has been added. It is
+  infrastructure readiness, not a live service.
 - ADR 0005 fixes the authentication provider, device credential, integrity,
   replay, revocation, idempotency, and clock construction. It has not received
   independent security review or standard-user Windows CNG validation.
@@ -358,18 +395,22 @@ gh run download RUN_ID --name eject-windows-x64 --dir artifacts/github-actions
 ## Required next work while hardware is unavailable
 
 Physical validation remains a parallel requirement, but it is no longer the
-only development queue. The initial SQL migration, blocking control-plane CI,
-Kysely issuance repository, and deterministic transaction races against real
-PostgreSQL, scheduled advisory mutation testing, ADR 0005, and the disabled-by-
-default authenticated poll/result control-plane transport are implemented. The
-next software change should provision a separate cloud database environment
-under sasara.io operational ownership without committing credentials:
+only development queue. SQL migrations, blocking CI, Kysely issuance,
+deterministic PostgreSQL races, advisory mutation testing, ADR 0005,
+authenticated poll/result transport, and the dedicated cloud database
+environment are implemented. The next software sequence is:
 
-1. create the EJECT managed PostgreSQL project and apply both migrations;
-2. configure preview and production Vercel variables through protected provider
-   settings, never repository files; and
-3. prove migration and connectivity with delivery still disabled and synthetic
-   data only.
+1. define and implement the person-session adapter for Supabase Auth without
+   trusting browser-supplied identity;
+2. implement the short-lived, one-use device-enrollment ceremony and immediate
+   revocation route with closed HTTP contracts and PostgreSQL race tests;
+3. validate non-exportable P-256 Windows CNG creation as a standard user on real
+   Windows before accepting enrollment as complete; and
+4. add outbound Windows polling, durable replay consumption, and result resend
+   without adding any generic command or inbound port.
+
+Keep both delivery gates false and do not configure the server response-signing
+private key in Vercel during the person-auth and enrollment work.
 
 The skeleton's pull requests must block on formatting, lint, TypeScript,
 dependency rules, a Next.js production build, pure and property tests, and
@@ -404,10 +445,14 @@ snapshot links). Keep subsequent changes small and reviewable:
 3. **Authenticated outbound polling** — implemented on the control plane with
    exact-byte P-256 authentication, signed responses, nonce replay prevention,
    result idempotency, and two fail-closed delivery gates.
-4. **Windows enrollment and polling** — separate device credential in protected
+4. **Dedicated cloud environment** — implemented with an isolated managed
+   PostgreSQL 17 project, SSL enforcement, protected production-only database
+   access, exact migration verification, Git-connected Vercel deployment, and
+   delivery disabled.
+5. **Person auth and Windows enrollment/polling** — separate device credential in protected
    storage, local replay protection, one attempt, result report, and no inbound
    port.
-5. **Hardware evidence in parallel** — add reviewed reports and any narrowly
+6. **Hardware evidence in parallel** — add reviewed reports and any narrowly
    evidence-backed adapter corrections when equipment becomes available.
 
 The selected construction still needs independent security review and real

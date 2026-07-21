@@ -49,7 +49,8 @@ The tray—not the screen—is the primary interface.
 - **Signature:** EJECT by sasra
 - **Platform direction:** Windows first; macOS experimental
 - **Initial locales:** English and Japanese
-- **Current phase:** concept and product design; no production implementation yet
+- **Current phase:** Stage 0 software and a disabled cloud control plane exist;
+  physical tray behavior remains unverified
 
 ## Principles in brief
 
@@ -77,6 +78,7 @@ Read the complete [design principles](PRINCIPLES.md).
 - [Roadmap](docs/ROADMAP.md) / [日本語](docs/ROADMAP.ja.md)
 - [Stage 0 Windows spike](docs/STAGE-0-WINDOWS-SPIKE.md) / [日本語](docs/STAGE-0-WINDOWS-SPIKE.ja.md)
 - [Stage 1 protocol v1](protocol/v1/README.md) / [日本語](protocol/v1/README.ja.md)
+- [Cloud database operations](docs/CLOUD-DATABASE.md) / [日本語](docs/CLOUD-DATABASE.ja.md)
 - [Implementation handoff](docs/HANDOFF.md) / [日本語](docs/HANDOFF.ja.md)
 - [References](docs/REFERENCES.md) / [日本語](docs/REFERENCES.ja.md)
 

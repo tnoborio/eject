@@ -48,7 +48,7 @@ Kazがあなたをejectしました。
 - **表記:** EJECT by sasra
 - **対応方針:** Windows first / macOS experimental
 - **初期言語:** 英語・日本語
-- **現在の段階:** コンセプト・プロダクト設計。プロダクション実装は未着手
+- **現在の段階:** Stage 0 softwareと無効化済みcloud control planeは存在するが、物理tray動作は未検証
 
 ## 設計原則の要約
 
@@ -76,6 +76,7 @@ Kazがあなたをejectしました。
 - [ロードマップ](docs/ROADMAP.ja.md) / [English](docs/ROADMAP.md)
 - [Stage 0 Windowsスパイク](docs/STAGE-0-WINDOWS-SPIKE.ja.md) / [English](docs/STAGE-0-WINDOWS-SPIKE.md)
 - [Stage 1プロトコルv1](protocol/v1/README.ja.md) / [English](protocol/v1/README.md)
+- [クラウドデータベース運用](docs/CLOUD-DATABASE.ja.md) / [English](docs/CLOUD-DATABASE.md)
 - [実装ハンドオフ](docs/HANDOFF.ja.md) / [English](docs/HANDOFF.md)
 - [参考資料](docs/REFERENCES.ja.md) / [English](docs/REFERENCES.md)
 

@@ -1,0 +1,15 @@
+/.claude
+/.github
+/artifacts
+/assets
+/docs
+/scripts
+/src
+/tests
+/control-plane/.next
+/control-plane/.stryker-tmp
+/control-plane/coverage
+/control-plane/reports
+/*.slnx
+/Directory.Build.props
+/global.json

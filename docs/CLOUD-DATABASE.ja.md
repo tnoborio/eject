@@ -1,0 +1,142 @@
+# クラウドデータベース運用
+
+[English](CLOUD-DATABASE.md)
+
+このrunbookは、EJECT専用managed databaseとdeployment境界を記録します。provider識別子と
+再現可能な確認方法は含めますが、credential、署名素材、device token、user dataは含めません。
+
+## 作成済み環境
+
+2026-07-21時点で、Sasaraの運用管理下に次の環境があります。
+
+| Component               | 設定                              |
+| ----------------------- | --------------------------------- |
+| Supabase project        | `EJECT` (`twmmpmwmlegqlaoalolv`)  |
+| Database region         | Tokyo、`ap-northeast-1`           |
+| Database engine         | PostgreSQL 17                     |
+| Vercel project          | `sasara/eject`                    |
+| Vercel application root | npm workspace内の`control-plane`  |
+| Vercel runtime          | Next.js、Node.js 22、Tokyo `hnd1` |
+| Git source              | `tnoborio/eject`                  |
+
+Supabase projectはEJECT専用です。`sasara-hub`内のdatabaseではなく、他のSasara serviceと
+application schemaやcredentialを共有しません。
+
+repositoryのmigration 2件は適用済みです。PostgreSQLはTLSを使わない外部接続を拒否します。
+singleton delivery gateは`false`、physical hourly ceilingは未設定で、初期状態のEJECT application
+tableにはperson、device、command、result、private eventがありません。
+
+## Environment境界
+
+Vercelはrepository外に設定を保存します。
+
+| Variable                       | Production | Preview | Development |
+| ------------------------------ | ---------- | ------- | ----------- |
+| `DATABASE_URL`                 | sensitive  | なし    | なし        |
+| `EJECT_DATABASE_SSL_CA_B64`    | sensitive  | なし    | なし        |
+| `EJECT_AGENT_DELIVERY_ENABLED` | `false`    | `false` | `false`     |
+
+Productionはport 6543のSupavisor transaction poolerを使います。Preview buildにはproduction
+database credentialを渡しません。shellのbuildとrenderはできますが、agent routeは利用できない
+ままです。Developmentはdownloadしたproduction secretではなく、operatorが指定したlocal database
+URLを使います。
+
+Vercelにserver response-signing private keyは設定していません。environment delivery flagを誤って
+変更しても、必要なsigning keyがないためagent transport compositionはfail closedになります。
+独立したdatabase delivery gateも無効のままです。
+
+## TLS trust
+
+applicationは、Supabase hostnameに対してbase64 encodeしたX.509 CAを
+`EJECT_DATABASE_SSL_CA_B64`に必須とします。`DATABASE_URL`内のTLS optionを拒否し、certificateを
+検証して、Supabase Root 2021 CAのSHA-256 fingerprintをpinします。
+
+```text
+80:70:25:AD:50:D4:ED:21:9D:2C:9C:7D:29:9C:00:4F:82:4E:B0:0C:F7:F6:5A:FE:F6:07:D0:7B:72:E6:CA:FA
+```
+
+これにより、暗号化はするが検証しない接続ではなく、CAとhostnameの検証を維持します。
+SupabaseはDashboardからCAを配布し、[SSL guide](https://supabase.com/docs/guides/platform/ssl-enforcement)で
+`verify-full`を最も強いmodeとして説明しています。
+
+## Migration適用
+
+`control-plane/migrations/`の英語SQL fileを、EJECT schemaの唯一の正本として維持します。
+provider dashboardでdatabase schemaを編集してはいけません。
+
+operator sessionでは、database passwordと現在のSupabase CAをprovider controlから取得し、
+repositoryへ書き込まないでください。migrationにはport 5432のsession poolerを使い、次を実行します。
+
+```sh
+cd control-plane
+npm run migrate
+npm run verify:cloud-database -- --expect-empty
+```
+
+そのprocess environmentに`DATABASE_URL`と`EJECT_DATABASE_SSL_CA_B64`が設定済みである必要が
+あります。migration runnerはPostgreSQL advisory lockを取得し、各fileをtransaction内で適用し、
+適用済みmigrationをskipする前に保存済みSHA-256 checksumを検証します。
+
+実accountが存在するようになった後は`--expect-empty`を外します。その場合もverifierは次を必須とします。
+
+- repositoryと完全一致するmigration名・checksum
+- PostgreSQL major version 17
+- pin済みTLS CAと検証済み接続の成功
+- `delivery_enabled = false`
+- `physical_hourly_ceiling IS NULL`
+
+出力するのは限定された運用上の事実とEJECT rowの合計数だけです。connection string、host credential、
+row内容、event識別子は出力しません。
+
+## Deployment動作
+
+Vercel projectはGitHubへ接続済みです。pull requestにはproduction databaseへaccessできないPreview
+deploymentが作られます。`main`へのmergeではprotected database variableを持つProduction deploymentが
+作られ得ますが、agent deliveryは引き続き`404 DELIVERY_DISABLED`を返します。
+
+次のすべてが完了するまでresponse-signing keyを設定せず、どちらのdelivery gateも有効にしません。
+
+1. device enrollmentとrevocationを実装する
+2. Windows agentがresponse keyをpinし、signed responseを検証する
+3. standard-user CNG動作について実Windows証拠を得る
+4. Stage 0で実際のtray式optical drive証拠を得る
+5. 独立security reviewで構成が受理される
+6. rollback・incident手順を含む意図的なenablement changeを行う
+
+## Rotationとrecovery
+
+- Supabaseでdatabase passwordをrotateし、Productionの`DATABASE_URL` sensitive valueを置き換え、
+  redeploy・verifyしてから以前のcredentialを無効化します。Previewへcopyしてはいけません。
+- SupabaseがCAをrotateする場合は、公式provider channelで新しいcertificateを検証し、pinしたfingerprintと
+  Production CAを同時に更新し、full test suiteを実行してreview済みchangeとしてdeployします。
+- database accessが疑わしい場合はdeliveryを無効のままにし、credentialをrotateし、影響するsession・
+  deviceをrevokeし、限定されたsecurity evidenceだけを保持します。
+- checked-inのforward-only migrationからschemaを復元します。provider backupはrecovery materialであり、
+  schema source of truthの代わりではありません。
+- provider project administratorはdatabase passwordをresetできます。project作成時の一時passwordは
+  repositoryやrunbookに保存しません。
+
+## Provisioning証拠
+
+2026-07-21にrepository verifierで次を確認しました。
+
+```json
+{
+  "database": "postgres",
+  "postgres_major": 17,
+  "tls": "CA_AND_HOSTNAME_VERIFIED",
+  "migrations": [
+    "0001_initial_control_plane.sql",
+    "0002_agent_transport_security.sql"
+  ],
+  "delivery_enabled": false,
+  "physical_hourly_ceiling": null,
+  "application_rows": 0
+}
+```
+
+これはcloud schemaとconnectivityの証拠です。物理trayが開いた証拠ではなく、Stage 0を完了させません。
+
+最初のprotected Vercel deployment (`dpl_G6pHisFuPVmausakV6PXxzrGtZYi`)は2026-07-21に`Ready`へ
+到達しました。Next.js Functionは`hnd1`へ配置され、認証付きdeployment checkで`/`からHTTP 200、
+`POST /api/agent/v1/poll`からsemantic body `{"error":"DELIVERY_DISABLED"}`を持つHTTP 404を確認しました。
