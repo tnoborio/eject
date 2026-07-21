@@ -7,21 +7,24 @@
 
 ## スナップショット
 
-- **日付:** 2026-07-20
+- **日付:** 2026-07-21
 - **リポジトリ:** `tnoborio/eject`
 - **現在のブランチ:** `main`
 - **マージ済みPR:** [#2](https://github.com/tnoborio/eject/pull/2)(Stage 0スパイク)、
   [#3](https://github.com/tnoborio/eject/pull/3)(One Bitロゴ)、
   [#4](https://github.com/tnoborio/eject/pull/4)(ハードウェア検証キット)、
   [#5](https://github.com/tnoborio/eject/pull/5)(protocol v1)、
-  [#6](https://github.com/tnoborio/eject/pull/6)(handoff更新)
-- **現在の`main` base commit:** `93d035b8419058b0bd7e13d9b4e01fc90fff504e`
+  [#6](https://github.com/tnoborio/eject/pull/6)(handoff更新)、
+  [#7](https://github.com/tnoborio/eject/pull/7)(Kysely issuance)、
+  [#8](https://github.com/tnoborio/eject/pull/8)(PostgreSQL race)、
+  [#9](https://github.com/tnoborio/eject/pull/9)(mutation testing)
+- **現在の`main` base commit:** `491fcd5`
 - **`main`上の検証済みCI:** [Windows spike run 29688104811](https://github.com/tnoborio/eject/actions/runs/29688104811)、
   [protocol contract run 29688208249](https://github.com/tnoborio/eject/actions/runs/29688208249)、
-  [control-plane run 29802928858](https://github.com/tnoborio/eject/actions/runs/29802928858)
-- **現在のプロダクト段階:** Stage 0は物理証拠待ち。Stage 1 protocol v1とcontrol-plane
-  architectureは採用済みで、public eject endpointを持たないcontrol-plane domain skeletonを
-  実装済み
+  [control-plane run 29813234824](https://github.com/tnoborio/eject/actions/runs/29813234824)
+- **現在のプロダクト段階:** Stage 0は物理証拠待ち。Stage 1 protocol、control-plane、
+  identity・device-security architectureは採用済み。control planeはpersistenceとverificationまで
+  実装済みで、有効なpublic eject・device endpointはない。
 
 ## 現在の状態
 
@@ -66,11 +69,13 @@ Kyselyと`node-postgres`を採用済みです。checksum ledgerを持つ順序�
 migrationをschemaの正本とし、protocol v1はtransport adapterだけが使うprivate workspace
 packageとして共有します。control-planeのCI境界も採用済みで、blockingのstatic・
 architecture check、pure・property test、production build、実PostgreSQL integration・決定論的
-concurrency testと、定期的なadvisory mutation testingを要求します。正確なschema、migration
-tooling、authentication、device credential、billing実装は未決定です。初期SQL schema、checksum
-migration runner、PostgreSQL 17 migration test、4 jobのcontrol-plane CIは実装済みです。Next.js shell、pure
-policy、application issuance境界、protocol transport mapper、locale resource、blockingのlocal
-verificationを実装済みです。public eject endpointはありません。
+concurrency testと、定期的なadvisory mutation testingを要求します。初期SQL schema、checksum
+migration runner、Kysely issuance repository、決定論的PostgreSQL 17 race test、4 jobのcontrol-plane
+CI、定期Stryker workflowは実装済みです。Next.js shell、pure policy、application issuance境界、
+protocol transport mapper、locale resource、blocking local verificationも実装済みです。ADR 0005で
+Supabase Auth、端末ごとのnon-exportableなWindows CNG ECDSA P-256 key、署名済みrequest・response
+構成、replay・revocation確認、result idempotency、clock規則を選択しました。transportとenrollment
+実装は未完了です。有効なpublic eject・device endpointはありません。
 
 Stage 0自体は**未完了**です。トレイ式光学ドライブを持つ実際のWindows端末では、まだ
 実行していません。その証拠が得られるまで、物理トレイを開けられると表現してはいけません。
@@ -84,6 +89,12 @@ Stage 0自体は**未完了**です。トレイ式光学ドライブを持つ実
 .github/workflows/protocol-contract.yml
     locked Node.js installとprotocol Schema・意味テスト。
 
+.github/workflows/control-plane.yml
+    PostgreSQL 17を含む4 jobのblocking control-plane verification。
+
+.github/workflows/control-plane-mutation.yml
+    週次および手動実行可能なadvisory Stryker mutation testing。
+
 control-plane/src/app/
     remote action endpointを持たない、localize済みNext.js shell。
 
@@ -92,7 +103,10 @@ control-plane/src/modules/eject/
     transport mapper。
 
 control-plane/test/
-    unit、property、application境界、protocol adapter test。
+    unit、property、application境界、protocol adapter、migration、repository、決定論的concurrency test。
+
+control-plane/migrations/
+    checksum検証を持つ順序付きforward-only PostgreSQL schema migration。
 
 protocol/v1/
     閉じたcommand、agent-result、lifecycle Schema、reference validator、fixture、英日両方の
@@ -132,6 +146,13 @@ docs/decisions/0002-stage-1-protocol-v1.md
 docs/decisions/0003-control-plane-consent-and-exposure.md
     採用済みのStage 1 deployment、module、authorization、participation、access、eject-back、
     recipient側exposure境界。
+
+docs/decisions/0004-control-plane-schema-and-contract-sharing.md
+    採用済みのmigration、Kysely、PostgreSQL schema、protocol共有rule。
+
+docs/decisions/0005-identity-and-device-security.md
+    採用済みのperson auth、device key、enrollment、integrity、replay、revocation、result idempotency、
+    clock構成。
 ```
 
 英語文書が正本です。意味を変える場合は、対応する`.ja.md`も同じ変更で更新してください。
@@ -179,8 +200,9 @@ docs/decisions/0003-control-plane-consent-and-exposure.md
 20. production dependency auditは既知の脆弱性0件。PostCSS 8.5.20 overrideにより、Next.jsの
     transitive defaultにあったadvisoryを除去した。
 21. `main`上のcontrol-plane workflowで、static・architecture、critical coverage 100%の
-    domain・protocol、PostgreSQL 17 migration test、production buildの4 jobがすべて成功した
-    ([run 29802928858](https://github.com/tnoborio/eject/actions/runs/29802928858))。
+    domain・protocol、PostgreSQL 17 migration・repository・concurrency test 12件、production
+    buildの4 jobがすべて成功した
+    ([run 29813234824](https://github.com/tnoborio/eject/actions/runs/29813234824))。
 22. atomicなKysely issuance、idempotent replay、command・quotaを残さないrejection、migration、
     checksum drift、安全側default、database constraintを含むPostgreSQL test 7件がlocalで成功する。
 23. 決定論的なtransaction concurrency test 5件がPostgreSQL 17に対して成功する。行lockの
@@ -229,10 +251,10 @@ artifactには期限があり、後続ビルドのチェックサムは変わり
   適するが永続的なハードウェア識別子ではなく、ドライブ文字の再割り当てで変化する。
 - UI、インストーラー、コード署名、更新チャネル、デバイス資格情報、サーバー接続がない。
 - protocol v1は実際の制御面とagent間ではまだ動かしていない。
-- control-plane shell、domain、PostgreSQL issuance persistenceは実装済みだが、account
-  authentication、device credential、polling transportは未実装。
-- 具体的な認証provider、device credential、message integrity方式、revocation確認は
-  security decisionとして未決定。
+- PostgreSQL issuance persistenceは実装済みだが、person authentication、device enrollment・
+  protected key storage、署名済みpolling transport、result ingestionは未実装。
+- ADR 0005でauthentication provider、device credential、integrity、replay、revocation、
+  idempotency、clock構成を確定した。独立security reviewとstandard-user Windows CNG検証は未実施。
 - protocol共有、pure test境界、SQL migration、PostgreSQL issuance repository、実database
   race test、blocking control-plane CIは実装済み。定期的なadvisory mutation testingも実装済み。
 - 実機証拠から説明可能なsafety ceilingが得られるまで、subscription価格とinbound frequency
@@ -282,12 +304,13 @@ gh run download RUN_ID --name eject-windows-x64 --dir artifacts/github-actions
 
 物理検証は並行要件として残しますが、唯一の開発queueにはしません。初期SQL migration、
 blocking control-plane CI、Kysely issuance repository、実PostgreSQLに対する決定論的transaction
-race、定期的なadvisory mutation testingは実装済みです。次のsoftware changeではidentityと
-device securityの判断を記録します。
+race、定期的なadvisory mutation testingは実装済みです。ADR 0005でidentity・device securityの
+判断も記録済みです。次のsoftware changeではphysical deliveryをdefaultで有効にせず、認証済み
+outbound pollingを実装します。
 
-1. person認証と端末ごとのcredential lifecycleを選択する。
-2. 保護保存、integrity、revocation、結果idempotency、clock規則を定義する。
-3. public eject endpointやdevice-delivery endpointを引き続き公開しない。
+1. device key、nonce、result idempotency、revocation schemaを追加する。
+2. protocol v1の外側だけに正確なbytesのrequest検証とsigned responseを実装・testする。
+3. 明示的なenvironment・database gateの後ろでdeliveryをfail-closedに保つ。
 
 skeletonのpull requestでは、format、lint、TypeScript、依存rule、Next.js production build、
 pure・property test、ephemeralな実PostgreSQL serviceに対するintegration・決定論的concurrency
@@ -295,9 +318,9 @@ testをblockingにします。重要なpure policy surfaceにはbranch coverage 
 定期的なmutation testingはadvisoryから始めます。database mockをtransaction、locking、
 constraintの正しさの根拠にしません。
 
-authenticated pollingまたはenrollmentの前に、person auth provider、端末ごとのcredential、
-保護済みローカル保存、message integrity、revocation lookup、結果idempotency、clock handlingを
-扱う集中的なdecisionを記録します。
+authenticated pollingとenrollmentはADR 0005へ従います。algorithm、header construction、
+key-storage fallback、replay windowを変える場合は、実装shortcutではなく明示的なsecurity
+decisionが必要です。
 
 ## 機材入手後のハードウェア作業
 
@@ -313,16 +336,18 @@ authenticated pollingまたはenrollmentの前に、person auth provider、端�
 1. **Control-plane PostgreSQLとCI** — checked-in SQL migration、Kysely issuance repository、
    実database race test、blocking workflow、定期的なadvisory mutation testingは実装済み。
    public endpointもdevice enrollmentもまだ追加しない。
-2. **identity・device security ADR** — person認証、device credential、保護保存、integrity、
-   revocation、idempotency、clock規則を選ぶ。
-3. **認証済みoutbound polling** — protocol v1だけに従う発行と結果取り込みを実装する。
+2. **identity・device security ADR** — ADR 0005で採用済み。Supabase person identity、分離した
+   CNG device key、protected storage、正確なbytesのintegrity、replay、revocation、result
+   idempotency、clock規則。
+3. **認証済みoutbound polling** — 次の作業。protocol v1の外側にcommand pollingとresult ingestionを
+   実装し、defaultでは無効にする。
 4. **Windows登録とpolling** — 保護ストレージ上の独立したdevice credential、ローカル
    リプレイ防止、1回だけの実行、結果報告を実装し、インバウンドポートを開かない。
 5. **並行するハードウェア証拠** — 機材入手後、レビュー済みレポートと、証拠により狭く
    裏付けられたadapter修正を追加する。
 
-Stage 1の登録を完了扱いにする前に、認証プロバイダーと具体的な暗号方式について、集中的な
-セキュリティ判断が必要です。
+Stage 1 enrollmentを完了扱いにする前に、採用済み構成の独立security reviewと、実際の
+standard-user Windows CNG証拠が必要です。
 
 ## 次回ハンドオフの完了条件
 
