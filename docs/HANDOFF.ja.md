@@ -15,9 +15,10 @@
   [#4](https://github.com/tnoborio/eject/pull/4)(ハードウェア検証キット)、
   [#5](https://github.com/tnoborio/eject/pull/5)(protocol v1)、
   [#6](https://github.com/tnoborio/eject/pull/6)(handoff更新)
-- **現在の`main` base commit:** `e32b0c95cfea1626d9694d0fa42c62d4aa86de3e`
+- **現在の`main` base commit:** `93d035b8419058b0bd7e13d9b4e01fc90fff504e`
 - **`main`上の検証済みCI:** [Windows spike run 29688104811](https://github.com/tnoborio/eject/actions/runs/29688104811)、
-  [protocol contract run 29688208249](https://github.com/tnoborio/eject/actions/runs/29688208249)
+  [protocol contract run 29688208249](https://github.com/tnoborio/eject/actions/runs/29688208249)、
+  [control-plane run 29802928858](https://github.com/tnoborio/eject/actions/runs/29802928858)
 - **現在のプロダクト段階:** Stage 0は物理証拠待ち。Stage 1 protocol v1とcontrol-plane
   architectureは採用済みで、public eject endpointを持たないcontrol-plane domain skeletonを
   実装済み
@@ -66,7 +67,8 @@ migrationをschemaの正本とし、protocol v1はtransport adapterだけが使�
 packageとして共有します。control-planeのCI境界も採用済みで、blockingのstatic・
 architecture check、pure・property test、production build、実PostgreSQL integration・決定論的
 concurrency testと、定期的なadvisory mutation testingを要求します。正確なschema、migration
-tooling、authentication、device credential、billing実装は未決定です。Next.js shell、pure
+tooling、authentication、device credential、billing実装は未決定です。初期SQL schema、checksum
+migration runner、PostgreSQL 17 migration test、4 jobのcontrol-plane CIは実装済みです。Next.js shell、pure
 policy、application issuance境界、protocol transport mapper、locale resource、blockingのlocal
 verificationを実装済みです。public eject endpointはありません。
 
@@ -176,6 +178,9 @@ docs/decisions/0003-control-plane-consent-and-exposure.md
     lifecycle、exposure、idempotency codeはbranch、function、line、statement coverage 100%。
 20. production dependency auditは既知の脆弱性0件。PostCSS 8.5.20 overrideにより、Next.jsの
     transitive defaultにあったadvisoryを除去した。
+21. `main`上のcontrol-plane workflowで、static・architecture、critical coverage 100%の
+    domain・protocol、PostgreSQL 17 migration test、production buildの4 jobがすべて成功した
+    ([run 29802928858](https://github.com/tnoborio/eject/actions/runs/29802928858))。
 
 検証済み`main` artifactのチェックサムは次のとおりです。
 
@@ -267,19 +272,16 @@ gh run download RUN_ID --name eject-windows-x64 --dir artifacts/github-actions
 
 ## ハードウェアがない間の次の必須作業
 
-物理検証は並行要件として残しますが、唯一の開発queueにはしません。control-plane domain
-skeletonは、public eject endpointを持たず、採用済みpure policyとprotocol境界を実装しています。
-次のsoftware changeでは、ADR 0004のSQL migrationとKysely repositoryを実PostgreSQLに対して
-実装し、その後blocking CI workflowを導入します。
+物理検証は並行要件として残しますが、唯一の開発queueにはしません。初期SQL migrationと
+blocking control-plane CIは実装済みです。次のsoftware changeでは、Kysely issuance repositoryと
+決定論的transaction raceを実PostgreSQLに対して実装します。
 
-1. forward-only初期SQL migrationとchecksum migration runnerを追加する。
-2. `SERIALIZABLE`、recipient row lock、bounded retry、idempotency、command、quota、lifecycle
+1. `SERIALIZABLE`、recipient row lock、bounded retry、idempotency、command、quota、lifecycle
    persistenceを持つKysely issuance repositoryを実装する。
-3. constraint、rollback、最後の枠のrace、duplicate request、revocation race、retry動作を、
+2. rollback、最後の枠のrace、duplicate request、revocation race、retry動作を、
    ephemeralな実PostgreSQLで証明する。
-4. blockingのstatic、domain、PostgreSQL、concurrency、production-build CI jobと、定期的な
-   advisory mutation testingを追加する。
-5. public eject endpointやdevice-delivery endpointを引き続き公開しない。
+3. 定期的なadvisory mutation testingを追加する。
+4. public eject endpointやdevice-delivery endpointを引き続き公開しない。
 
 skeletonのpull requestでは、format、lint、TypeScript、依存rule、Next.js production build、
 pure・property test、ephemeralな実PostgreSQL serviceに対するintegration・決定論的concurrency

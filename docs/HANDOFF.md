@@ -16,9 +16,10 @@ the order in which work should continue.
   [#4](https://github.com/tnoborio/eject/pull/4) (hardware validation kit),
   [#5](https://github.com/tnoborio/eject/pull/5) (protocol v1),
   [#6](https://github.com/tnoborio/eject/pull/6) (handoff refresh)
-- **Current `main` base commit:** `e32b0c95cfea1626d9694d0fa42c62d4aa86de3e`
+- **Current `main` base commit:** `93d035b8419058b0bd7e13d9b4e01fc90fff504e`
 - **Verified CI on `main`:** [Windows spike run 29688104811](https://github.com/tnoborio/eject/actions/runs/29688104811),
-  [protocol contract run 29688208249](https://github.com/tnoborio/eject/actions/runs/29688208249)
+  [protocol contract run 29688208249](https://github.com/tnoborio/eject/actions/runs/29688208249),
+  [control-plane run 29802928858](https://github.com/tnoborio/eject/actions/runs/29802928858)
 - **Current product phase:** Stage 0 awaits physical evidence; Stage 1 protocol
   v1 and control-plane architecture are accepted, and the control-plane domain
   skeleton is implemented without a public eject endpoint
@@ -73,7 +74,9 @@ checks, pure and property
 tests, a production build, and real-PostgreSQL integration and deterministic
 concurrency tests, with scheduled advisory mutation testing. Exact schema,
 migration tooling, authentication, device credentials, and billing
-implementation remain undecided. The Next.js shell, pure policy, application
+implementation remain undecided. The initial SQL schema, checksum migration
+runner, PostgreSQL 17 migration tests, and four-job control-plane CI are
+implemented. The Next.js shell, pure policy, application
 issuance boundary, protocol transport mapper, locale resources, and blocking
 local verification are implemented. No public eject endpoint exists.
 
@@ -193,6 +196,10 @@ The following facts have direct build or test evidence:
 20. The production dependency audit reports zero known vulnerabilities. The
     PostCSS 8.5.20 override removes the advisory present in Next.js's transitive
     default.
+21. The control-plane workflow passed all four jobs on `main`: static and
+    architecture, domain and protocol with 100% critical coverage, PostgreSQL 17
+    migration tests, and the production build
+    ([run 29802928858](https://github.com/tnoborio/eject/actions/runs/29802928858)).
 
 The verified `main` artifact had this checksum:
 
@@ -295,19 +302,16 @@ gh run download RUN_ID --name eject-windows-x64 --dir artifacts/github-actions
 ## Required next work while hardware is unavailable
 
 Physical validation remains a parallel requirement, but it is no longer the
-only development queue. The control-plane domain skeleton now implements the
-accepted pure policy and protocol boundary without a public eject endpoint. The
-next software change should implement ADR 0004's SQL migrations and Kysely
-repository against real PostgreSQL, then install the blocking CI workflow:
+only development queue. The initial SQL migration and blocking control-plane CI
+are implemented. The next software change should implement the Kysely issuance
+repository and deterministic transaction races against real PostgreSQL:
 
-1. add the forward-only initial SQL migration and checksum migration runner;
-2. implement the Kysely issuance repository with `SERIALIZABLE`, recipient row
+1. implement the Kysely issuance repository with `SERIALIZABLE`, recipient row
    lock, bounded retry, idempotency, command, quota, and lifecycle persistence;
-3. prove constraints, rollback, last-slot races, duplicate requests, revocation
+2. prove rollback, last-slot races, duplicate requests, revocation
    races, and retry behavior against ephemeral real PostgreSQL;
-4. add blocking static, domain, PostgreSQL, concurrency, and production-build CI
-   jobs plus scheduled advisory mutation testing; and
-5. continue to expose no public eject or device-delivery endpoint.
+3. add scheduled advisory mutation testing; and
+4. continue to expose no public eject or device-delivery endpoint.
 
 The skeleton's pull requests must block on formatting, lint, TypeScript,
 dependency rules, a Next.js production build, pure and property tests, and
