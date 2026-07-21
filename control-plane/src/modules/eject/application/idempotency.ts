@@ -16,5 +16,5 @@ export function semanticRequestFingerprint(request: SemanticRequest): string {
     request.replyToCommandId ?? "",
   ].join("\n");
 
-  return createHash("sha256").update(canonical, "utf8").digest("hex");
+  return createHash("sha256").update(canonical).digest("hex");
 }

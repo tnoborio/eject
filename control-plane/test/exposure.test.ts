@@ -9,7 +9,7 @@ describe("effectiveExposureLimit", () => {
         planEntitlement: 1,
         physicalSafety: 1,
       }),
-    ).toThrow(RangeError);
+    ).toThrow("Exposure ceilings must be non-negative safe integers");
     expect(() =>
       effectiveExposureLimit({
         recipientSelected: 1.5,

@@ -11,7 +11,7 @@ const request = {
 describe("semanticRequestFingerprint", () => {
   it("is stable for identical semantics", () => {
     expect(semanticRequestFingerprint(request)).toBe(
-      semanticRequestFingerprint({ ...request }),
+      "876fc8e8d6a9b7c8659df25d83685b07bf36b8a04a161a0e24ac23b1d8722014",
     );
   });
 
