@@ -27,6 +27,7 @@ the order in which work should continue.
 - **Verified CI on `main`:** [Windows spike run 29688104811](https://github.com/tnoborio/eject/actions/runs/29688104811),
   [protocol contract run 29688208249](https://github.com/tnoborio/eject/actions/runs/29688208249),
   [control-plane run 29813234824](https://github.com/tnoborio/eject/actions/runs/29813234824)
+- **Verified CI for PR #12:** [control-plane run 29839496511](https://github.com/tnoborio/eject/actions/runs/29839496511)
 - **Current product phase:** Stage 0 awaits physical evidence; Stage 1 protocol,
   control-plane, and identity/device-security architecture are accepted. The
   control plane is implemented through authenticated agent polling and result
@@ -289,6 +290,8 @@ The following facts have direct build or test evidence:
     with its Next.js Functions in `hnd1`. An authenticated deployment check
     received HTTP 200 from the shell and `404 DELIVERY_DISABLED` from the
     deployed poll route.
+30. PR #12 passed all four blocking control-plane jobs and both Vercel checks
+    ([run 29839496511](https://github.com/tnoborio/eject/actions/runs/29839496511)).
 
 The verified `main` artifact had this checksum:
 

@@ -25,6 +25,7 @@
 - **`main`上の検証済みCI:** [Windows spike run 29688104811](https://github.com/tnoborio/eject/actions/runs/29688104811)、
   [protocol contract run 29688208249](https://github.com/tnoborio/eject/actions/runs/29688208249)、
   [control-plane run 29813234824](https://github.com/tnoborio/eject/actions/runs/29813234824)
+- **PR #12の検証済みCI:** [control-plane run 29839496511](https://github.com/tnoborio/eject/actions/runs/29839496511)
 - **現在のプロダクト段階:** Stage 0は物理証拠待ち。Stage 1 protocol、control-plane、
   identity・device-security architectureは採用済み。control planeは認証済みagent pollingとresult
   ingestionまで実装済み。Sasaraの運用管理下に専用managed PostgreSQL環境とVercel projectも
@@ -251,6 +252,8 @@ docs/decisions/0005-identity-and-device-security.md
 29. protected deployment `dpl_G6pHisFuPVmausakV6PXxzrGtZYi`はNext.js Functionを`hnd1`に配置して
     `Ready`へ到達した。認証付きdeployment checkでshellからHTTP 200、deployed poll routeから
     `404 DELIVERY_DISABLED`を確認した。
+30. PR #12はblocking control-plane job 4件とVercel check 2件にすべて成功した
+    ([run 29839496511](https://github.com/tnoborio/eject/actions/runs/29839496511))。
 
 検証済み`main` artifactのチェックサムは次のとおりです。
 
