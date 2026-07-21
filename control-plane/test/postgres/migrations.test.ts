@@ -43,6 +43,7 @@ describe("control-plane migrations", () => {
     );
     expect(result.rows).toEqual([
       { filename: "0001_initial_control_plane.sql", checksum_length: 64 },
+      { filename: "0002_agent_transport_security.sql", checksum_length: 64 },
     ]);
   });
 
@@ -107,7 +108,7 @@ describe("control-plane migrations", () => {
       FROM information_schema.columns
       WHERE table_schema = 'public'
         AND table_name <> 'schema_migrations'
-        AND column_name ~ '(password|secret|credential|email|disc|filename|device_path)'
+        AND column_name ~ '(password|secret|credential|private|email|disc|filename|device_path)'
     `);
     expect(result.rows).toEqual([]);
   });

@@ -18,15 +18,17 @@ the order in which work should continue.
   [#6](https://github.com/tnoborio/eject/pull/6) (handoff refresh),
   [#7](https://github.com/tnoborio/eject/pull/7) (Kysely issuance),
   [#8](https://github.com/tnoborio/eject/pull/8) (PostgreSQL races),
-  [#9](https://github.com/tnoborio/eject/pull/9) (mutation testing)
-- **Current `main` base commit:** `491fcd5`
+  [#9](https://github.com/tnoborio/eject/pull/9) (mutation testing),
+  [#10](https://github.com/tnoborio/eject/pull/10) (identity/device security)
+- **Current `main` base commit:** `c7acf08`
 - **Verified CI on `main`:** [Windows spike run 29688104811](https://github.com/tnoborio/eject/actions/runs/29688104811),
   [protocol contract run 29688208249](https://github.com/tnoborio/eject/actions/runs/29688208249),
   [control-plane run 29813234824](https://github.com/tnoborio/eject/actions/runs/29813234824)
 - **Current product phase:** Stage 0 awaits physical evidence; Stage 1 protocol,
   control-plane, and identity/device-security architecture are accepted. The
-  control plane is implemented through persistence and verification without an
-  enabled public eject or device endpoint.
+  control plane is implemented through authenticated agent polling and result
+  ingestion, but delivery is disabled by default and no Windows agent is
+  connected.
 
 ## Executive status
 
@@ -84,8 +86,10 @@ boundary, protocol transport mapper, locale resources, and blocking local
 verification are implemented. ADR 0005 now selects Supabase Auth, per-device
 non-exportable Windows CNG ECDSA P-256 keys, signed request and response
 constructions, replay and revocation checks, result idempotency, and clock
-rules. Their transport and enrollment implementation is not yet complete. No
-public eject or device endpoint is enabled.
+rules. No public eject endpoint exists. The authenticated poll and result
+routes, device key and nonce checks, signed responses, result idempotency, and
+fail-closed environment and database delivery gates are now implemented. Device
+enrollment, person-facing auth routes, and Windows polling remain incomplete.
 
 Stage 0 itself is **not complete**. No real Windows computer with a tray-style
 optical drive has run the executable yet. The project must not claim that it can
@@ -111,7 +115,16 @@ control-plane/src/app/
 
 control-plane/src/modules/eject/
     Pure authorization, exposure, and lifecycle policy; application issuance
-    boundary; and protocol-v1 transport mapper.
+    and agent result boundaries; PostgreSQL issuance and agent-transport stores;
+    and protocol-v1 transport mappers.
+
+control-plane/src/modules/devices/
+    Device request authentication ports, Node P-256 crypto, bounded HTTP parsing,
+    and signed poll/result response handlers.
+
+control-plane/src/app/api/agent/v1/
+    Fixed poll and result POST routes, unavailable unless the environment gate
+    is explicitly enabled.
 
 control-plane/test/
     Unit, property, application-boundary, protocol-adapter, migration,
@@ -214,7 +227,9 @@ The following facts have direct build or test evidence:
     so all eleven protocol tests also have CI evidence.
 18. The control-plane skeleton passes formatting, ESLint, strict TypeScript,
     dependency-cruiser, and a Next.js 16.2.10 production build on Node.js 22.
-19. All 35 control-plane tests pass, including fast-check properties. Critical
+19. All 45 control-plane tests pass, including fast-check properties, P-256
+    request and response integrity, closed HTTP handling, protocol result
+    mapping, and the default-disabled route. Critical
     authorization, lifecycle, exposure, and idempotency code has 100% branch,
     function, line, and statement coverage.
 20. The production dependency audit reports zero known vulnerabilities. The
@@ -225,15 +240,21 @@ The following facts have direct build or test evidence:
     PostgreSQL 17 migration, repository, and concurrency tests, and the
     production build
     ([run 29813234824](https://github.com/tnoborio/eject/actions/runs/29813234824)).
-22. Seven PostgreSQL tests pass locally, including atomic Kysely issuance,
-    idempotent replay, rejection without command or quota use, migrations,
-    checksum drift, safe defaults, and database constraints.
+22. Seventeen PostgreSQL tests pass locally, including atomic Kysely issuance,
+    idempotent replay, deterministic races, two forward-only migrations, agent
+    nonce replay, key revocation, fail-closed delivery, result idempotency,
+    truthful lifecycle recording, checksum drift, safe defaults, and database
+    constraints.
 23. Five deterministic transaction-concurrency tests pass against PostgreSQL 17. Row-lock barriers prove final-slot serialization and retry, concurrent
     idempotent replay, all-write rollback after a constraint failure, grant
     revocation re-evaluation, and exactly one eject-back per source command.
 24. Stryker 9.6.1 kills all 136 enabled mutants across authorization, exposure,
     lifecycle, and semantic idempotency policy. A weekly and manually
     dispatchable advisory workflow retains HTML and JSON reports for 14 days.
+25. The Next.js production build includes fixed Node.js poll and result routes.
+    Unit tests prove they return `404 DELIVERY_DISABLED` unless the environment
+    gate is explicitly true; PostgreSQL independently blocks or cancels
+    delivery when its global gate is false.
 
 The verified `main` artifact had this checksum:
 
@@ -281,9 +302,9 @@ Record the failure and narrow the supported capability contract instead.
 - The executable has no UI, installer, code signature, update channel, device
   credential, or server connection.
 - Protocol v1 has not yet been exercised between a real control plane and agent.
-- PostgreSQL issuance persistence is implemented, but person authentication,
-  device enrollment and protected key storage, signed polling transport, and
-  result ingestion have not been implemented.
+- PostgreSQL issuance and authenticated poll/result transport are implemented,
+  but person-facing Supabase authentication, device enrollment, Windows CNG key
+  creation, and the Windows polling client have not been implemented.
 - ADR 0005 fixes the authentication provider, device credential, integrity,
   replay, revocation, idempotency, and clock construction. It has not received
   independent security review or standard-user Windows CNG validation.
@@ -339,15 +360,16 @@ gh run download RUN_ID --name eject-windows-x64 --dir artifacts/github-actions
 Physical validation remains a parallel requirement, but it is no longer the
 only development queue. The initial SQL migration, blocking control-plane CI,
 Kysely issuance repository, and deterministic transaction races against real
-PostgreSQL and scheduled advisory mutation testing are implemented. ADR 0005
-records the identity and device-security decision. The next software change
-should implement authenticated outbound polling without enabling physical
-delivery by default:
+PostgreSQL, scheduled advisory mutation testing, ADR 0005, and the disabled-by-
+default authenticated poll/result control-plane transport are implemented. The
+next software change should provision a separate cloud database environment
+under sasara.io operational ownership without committing credentials:
 
-1. add the device-key, nonce, result-idempotency, and revocation schema;
-2. implement and test exact-byte request verification and signed responses
-   strictly around protocol v1; and
-3. keep delivery fail-closed behind explicit environment and database gates.
+1. create the EJECT managed PostgreSQL project and apply both migrations;
+2. configure preview and production Vercel variables through protected provider
+   settings, never repository files; and
+3. prove migration and connectivity with delivery still disabled and synthetic
+   data only.
 
 The skeleton's pull requests must block on formatting, lint, TypeScript,
 dependency rules, a Next.js production build, pure and property tests, and
@@ -379,8 +401,9 @@ snapshot links). Keep subsequent changes small and reviewable:
 2. **Identity and device-security ADR** — accepted in ADR 0005: Supabase person
    identity, separate CNG device keys, protected storage, exact-byte integrity,
    replay, revocation, result idempotency, and clock rules.
-3. **Authenticated outbound polling** — next; implement command polling and
-   result ingestion strictly around protocol v1, disabled by default.
+3. **Authenticated outbound polling** — implemented on the control plane with
+   exact-byte P-256 authentication, signed responses, nonce replay prevention,
+   result idempotency, and two fail-closed delivery gates.
 4. **Windows enrollment and polling** — separate device credential in protected
    storage, local replay protection, one attempt, result report, and no inbound
    port.
