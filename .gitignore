@@ -17,3 +17,5 @@ build/
 bin/
 obj/
 artifacts/
+**/supabase/.temp/
+.vercel

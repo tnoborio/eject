@@ -18,14 +18,18 @@
   [#7](https://github.com/tnoborio/eject/pull/7)(Kysely issuance)、
   [#8](https://github.com/tnoborio/eject/pull/8)(PostgreSQL race)、
   [#9](https://github.com/tnoborio/eject/pull/9)(mutation testing)、
-  [#10](https://github.com/tnoborio/eject/pull/10)(identity・device security)
-- **現在の`main` base commit:** `c7acf08`
+  [#10](https://github.com/tnoborio/eject/pull/10)(identity・device security)、
+  [#11](https://github.com/tnoborio/eject/pull/11)(認証済みagent polling)、
+  [#12](https://github.com/tnoborio/eject/pull/12)(cloud database environment)
+- **現在の検証済み実装:** `main`上のPR #12
 - **`main`上の検証済みCI:** [Windows spike run 29688104811](https://github.com/tnoborio/eject/actions/runs/29688104811)、
   [protocol contract run 29688208249](https://github.com/tnoborio/eject/actions/runs/29688208249)、
   [control-plane run 29813234824](https://github.com/tnoborio/eject/actions/runs/29813234824)
+- **PR #12の検証済みCI:** [control-plane run 29839496511](https://github.com/tnoborio/eject/actions/runs/29839496511)
 - **現在のプロダクト段階:** Stage 0は物理証拠待ち。Stage 1 protocol、control-plane、
   identity・device-security architectureは採用済み。control planeは認証済みagent pollingとresult
-  ingestionまで実装済みだが、deliveryはdefaultで無効で、Windows agentは未接続。
+  ingestionまで実装済み。Sasaraの運用管理下に専用managed PostgreSQL環境とVercel projectも
+  存在するが、すべてのgateでdeliveryは無効で、Windows agentは未接続。
 
 ## 現在の状態
 
@@ -78,7 +82,10 @@ Supabase Auth、端末ごとのnon-exportableなWindows CNG ECDSA P-256 key、�
 構成、replay・revocation確認、result idempotency、clock規則を選択しました。public eject endpointは
 ありません。認証済みpoll・result route、device key・nonce確認、signed response、result idempotency、
 fail-closedなenvironment・database delivery gateは実装済みです。device enrollment、person向けauth
-route、Windows pollingは未完了です。
+route、Windows pollingは未完了です。EJECT専用Supabase PostgreSQL 17 projectはTokyoに作成済みで、
+SSL enforcement、migration 2件、application row 0件、delivery無効を確認済みです。`sasara/eject`
+Vercel projectはGitHubへ接続し、TokyoでNode.js 22のNext.jsを実行します。database accessは
+Productionだけに保護して設定し、Previewにはdatabase credentialを渡していません。
 
 Stage 0自体は**未完了**です。トレイ式光学ドライブを持つ実際のWindows端末では、まだ
 実行していません。その証拠が得られるまで、物理トレイを開けられると表現してはいけません。
@@ -117,6 +124,12 @@ control-plane/test/
 
 control-plane/migrations/
     checksum検証を持つ順序付きforward-only PostgreSQL schema migration。
+
+control-plane/scripts/verify-cloud-database.ts
+    credentialを出力しないcloud schema、TLS設定、安全状態の検証。
+
+docs/CLOUD-DATABASE.md
+    運用owner、protected environment、migration、rotation、recovery、enablementの英日runbook。
 
 protocol/v1/
     閉じたcommand、agent-result、lifecycle Schema、reference validator、fixture、英日両方の
@@ -206,7 +219,7 @@ docs/decisions/0005-identity-and-device-security.md
 18. control-plane skeletonはNode.js 22上でformat、ESLint、strict TypeScript、
     dependency-cruiser、Next.js 16.2.10 production buildに成功する。
 19. fast-check property、P-256 request・response integrity、closed HTTP handling、protocol result
-    mapping、default-disabled routeを含むcontrol-plane test 45件がすべて成功する。重要なauthorization、
+    mapping、default-disabled routeを含むcontrol-plane test 49件がすべて成功する。重要なauthorization、
     lifecycle、exposure、idempotency codeはbranch、function、line、statement coverage 100%。
 20. production dependency auditは既知の脆弱性0件。PostCSS 8.5.20 overrideにより、Next.jsの
     transitive defaultにあったadvisoryを除去した。
@@ -226,6 +239,21 @@ docs/decisions/0005-identity-and-device-security.md
 25. Next.js production buildは固定されたNode.js poll・result routeを含む。environment gateを明示的に
     trueにしない限り`404 DELIVERY_DISABLED`を返すことをunit testで証明し、PostgreSQLのglobal gateが
     falseの場合も独立してdeliveryをblockまたはcancelする。
+26. 認証済みpolling changeはmerge前にcontrol-planeとprotocolの全checkを通過した
+    ([control-plane run 29815220933](https://github.com/tnoborio/eject/actions/runs/29815220933)、
+    [protocol run 29815220953](https://github.com/tnoborio/eject/actions/runs/29815220953))。
+27. 2026-07-21にEJECT専用Supabase projectは`ACTIVE_HEALTHY`、`ap-northeast-1`のPostgreSQL 17、
+    database SSL enforcement有効と報告した。repository verifierでmigration 2件のchecksum完全一致、
+    pin済みCA・hostname検証済み接続、delivery無効、physical ceilingなし、EJECT application row 0件を証明した。
+28. `sasara/eject` Vercel projectは`control-plane` workspace root、Next.js、Node.js 22、Tokyo `hnd1`
+    compute、GitHub repositoryを設定済み。`DATABASE_URL`とpin済みCAはsensitiveなProduction valueだけに
+    存在する。Production、Preview、Developmentすべてでdeliveryは明示的にfalseで、Previewにはproduction
+    database credentialがない。
+29. protected deployment `dpl_G6pHisFuPVmausakV6PXxzrGtZYi`はNext.js Functionを`hnd1`に配置して
+    `Ready`へ到達した。認証付きdeployment checkでshellからHTTP 200、deployed poll routeから
+    `404 DELIVERY_DISABLED`を確認した。
+30. PR #12はblocking control-plane job 4件とVercel check 2件にすべて成功した
+    ([run 29839496511](https://github.com/tnoborio/eject/actions/runs/29839496511))。
 
 検証済み`main` artifactのチェックサムは次のとおりです。
 
@@ -268,6 +296,8 @@ artifactには期限があり、後続ビルドのチェックサムは変わり
 - protocol v1は実際の制御面とagent間ではまだ動かしていない。
 - PostgreSQL issuanceと認証済みpoll・result transportは実装済みだが、person向けSupabase
   authentication、device enrollment、Windows CNG key作成、Windows polling clientは未実装。
+- cloud environmentは作成・migration検証済みだが、person、device、command、result、signing key、
+  private eventは一件も追加していない。これはinfrastructure readinessでありlive serviceではない。
 - ADR 0005でauthentication provider、device credential、integrity、replay、revocation、
   idempotency、clock構成を確定した。独立security reviewとstandard-user Windows CNG検証は未実施。
 - protocol共有、pure test境界、SQL migration、PostgreSQL issuance repository、実database
@@ -317,15 +347,19 @@ gh run download RUN_ID --name eject-windows-x64 --dir artifacts/github-actions
 
 ## ハードウェアがない間の次の必須作業
 
-物理検証は並行要件として残しますが、唯一の開発queueにはしません。初期SQL migration、
-blocking control-plane CI、Kysely issuance repository、実PostgreSQLに対する決定論的transaction
-race、定期的なadvisory mutation testing、ADR 0005、default-disabledな認証済みpoll・result
-control-plane transportは実装済みです。次のsoftware changeではcredentialをcommitせず、sasara.ioの
-運用管理下に独立したcloud database environmentを作ります。
+物理検証は並行要件として残しますが、唯一の開発queueにはしません。SQL migration、blocking CI、
+Kysely issuance、決定論的PostgreSQL race、advisory mutation testing、ADR 0005、認証済みpoll・result
+transport、専用cloud database environmentは実装済みです。次のsoftware順序は次のとおりです。
 
-1. EJECT managed PostgreSQL projectを作成し、migration 2件を適用する。
-2. preview・production Vercel variableをrepository fileではなくprotected provider settingsで設定する。
-3. deliveryを無効のまま、synthetic dataだけでmigrationとconnectivityを証明する。
+1. browserが渡すidentityを信頼せず、Supabase Auth用person-session adapterを定義・実装する。
+2. 短命・one-useのdevice enrollment ceremonyと即時revocation routeを、closed HTTP contractと
+   PostgreSQL race test付きで実装する。
+3. enrollment完了扱いにする前に、standard userでnon-exportable P-256 Windows CNG key作成を実機検証する。
+4. generic commandやinbound portを追加せず、outbound Windows polling、durable replay consumption、
+   result resendを追加する。
+
+person-authとenrollment作業中は両delivery gateをfalseのままにし、Vercelにserver response-signing
+private keyを設定しません。
 
 skeletonのpull requestでは、format、lint、TypeScript、依存rule、Next.js production build、
 pure・property test、ephemeralな実PostgreSQL serviceに対するintegration・決定論的concurrency
@@ -356,9 +390,11 @@ decisionが必要です。
    idempotency、clock規則。
 3. **認証済みoutbound polling** — control plane側を実装済み。正確なbytesのP-256 authentication、
    signed response、nonce replay防止、result idempotency、二つのfail-closed delivery gateを持つ。
-4. **Windows登録とpolling** — 保護ストレージ上の独立したdevice credential、ローカル
+4. **専用cloud environment** — 独立managed PostgreSQL 17 project、SSL enforcement、protectedな
+   Production-only database access、migration完全一致検証、Git接続済みVercel deployment、delivery無効で実装済み。
+5. **person auth・Windows登録とpolling** — 保護ストレージ上の独立したdevice credential、ローカル
    リプレイ防止、1回だけの実行、結果報告を実装し、インバウンドポートを開かない。
-5. **並行するハードウェア証拠** — 機材入手後、レビュー済みレポートと、証拠により狭く
+6. **並行するハードウェア証拠** — 機材入手後、レビュー済みレポートと、証拠により狭く
    裏付けられたadapter修正を追加する。
 
 Stage 1 enrollmentを完了扱いにする前に、採用済み構成の独立security reviewと、実際の

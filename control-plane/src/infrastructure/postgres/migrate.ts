@@ -3,6 +3,7 @@ import { readdir, readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { Pool, type PoolClient } from "pg";
+import { postgresPoolConfigFromEnvironment } from "./pool-config";
 
 const MIGRATION_LOCK_ID = 1_845_322_301;
 const migrationPattern = /^\d{4}_[a-z0-9_]+\.sql$/;
@@ -72,12 +73,7 @@ async function applyMigration(
 }
 
 async function main(): Promise<void> {
-  const connectionString = process.env.DATABASE_URL;
-  if (connectionString === undefined) {
-    throw new Error("DATABASE_URL is required");
-  }
-
-  const pool = new Pool({ connectionString });
+  const pool = new Pool(postgresPoolConfigFromEnvironment(process.env, 1));
   try {
     await migrate(pool, resolve(process.cwd(), "migrations"));
   } finally {
