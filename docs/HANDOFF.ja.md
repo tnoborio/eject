@@ -183,6 +183,9 @@ docs/decisions/0003-control-plane-consent-and-exposure.md
     ([run 29802928858](https://github.com/tnoborio/eject/actions/runs/29802928858))。
 22. atomicなKysely issuance、idempotent replay、command・quotaを残さないrejection、migration、
     checksum drift、安全側default、database constraintを含むPostgreSQL test 7件がlocalで成功する。
+23. 決定論的なtransaction concurrency test 5件がPostgreSQL 17に対して成功する。行lockの
+    barrierにより、最後の1枠の直列化とretry、同時idempotent replay、constraint failure後の
+    全write rollback、grant取消の再評価、source commandごとに1回だけのeject-backを証明する。
 
 検証済み`main` artifactのチェックサムは次のとおりです。
 
@@ -227,8 +230,8 @@ artifactには期限があり、後続ビルドのチェックサムは変わり
   authentication、device credential、polling transportは未実装。
 - 具体的な認証provider、device credential、message integrity方式、revocation確認は
   security decisionとして未決定。
-- protocol共有とpure test境界は実装済み。SQL migration、PostgreSQL repository、実database
-  race test、mutation testing、control-plane CI workflowは未実装。
+- protocol共有、pure test境界、SQL migration、PostgreSQL issuance repository、実database
+  race test、blocking control-plane CIは実装済み。定期的なmutation testingは未実装。
 - 実機証拠から説明可能なsafety ceilingが得られるまで、subscription価格とinbound frequency
   ceilingは決められない。
 - macOSは実験扱いのままであり、Windowsのハードウェア上の事実を確立する前に着手しない。
@@ -274,13 +277,12 @@ gh run download RUN_ID --name eject-windows-x64 --dir artifacts/github-actions
 
 ## ハードウェアがない間の次の必須作業
 
-物理検証は並行要件として残しますが、唯一の開発queueにはしません。初期SQL migrationと
-blocking control-plane CIとKysely issuance repositoryは実装済みです。次のsoftware changeでは、
-決定論的transaction raceを実PostgreSQLに対して証明します。
+物理検証は並行要件として残しますが、唯一の開発queueにはしません。初期SQL migration、
+blocking control-plane CI、Kysely issuance repository、実PostgreSQLに対する決定論的transaction
+raceは実装済みです。次のsoftware changeではmutation testingを追加します。
 
-1. rollback、最後の枠のrace、duplicate request、revocation race、retry動作を、
-   ephemeralな実PostgreSQLで証明する。
-2. 定期的なadvisory mutation testingを追加する。
+1. 重要なpure policy surfaceへ定期的なadvisory mutation testingを追加する。
+2. PostgreSQL concurrency testをblockingのまま維持する。
 3. public eject endpointやdevice-delivery endpointを引き続き公開しない。
 
 skeletonのpull requestでは、format、lint、TypeScript、依存rule、Next.js production build、
@@ -305,8 +307,8 @@ authenticated pollingまたはenrollmentの前に、person auth provider、端�
 参照)。今後の変更も小さくレビュー可能な単位に保ちます。
 
 1. **Control-plane PostgreSQLとCI** — checked-in SQL migration、Kysely issuance repository、
-   実database race test、blocking workflowを実装する。public endpointもdevice enrollmentも
-   まだ追加しない。
+   実database race test、blocking workflowは実装済み。次は定期的なadvisory mutation testingで、
+   public endpointもdevice enrollmentもまだ追加しない。
 2. **identity・device security ADR** — person認証、device credential、保護保存、integrity、
    revocation、idempotency、clock規則を選ぶ。
 3. **認証済みoutbound polling** — protocol v1だけに従う発行と結果取り込みを実装する。

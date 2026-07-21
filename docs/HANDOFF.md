@@ -203,6 +203,10 @@ The following facts have direct build or test evidence:
 22. Seven PostgreSQL tests pass locally, including atomic Kysely issuance,
     idempotent replay, rejection without command or quota use, migrations,
     checksum drift, safe defaults, and database constraints.
+23. Five deterministic transaction-concurrency tests pass against PostgreSQL
+    17. Row-lock barriers prove final-slot serialization and retry, concurrent
+    idempotent replay, all-write rollback after a constraint failure, grant
+    revocation re-evaluation, and exactly one eject-back per source command.
 
 The verified `main` artifact had this checksum:
 
@@ -255,9 +259,9 @@ Record the failure and narrow the supported capability contract instead.
   device credential, and polling transport have not been implemented.
 - The exact authentication provider, device credential, message-integrity
   construction, and revocation check remain security decisions.
-- Protocol sharing and pure test boundaries are implemented. SQL migrations,
-  PostgreSQL repositories, real-database race tests, mutation testing, and the
-  control-plane CI workflow remain to be implemented.
+- Protocol sharing, pure test boundaries, SQL migrations, the PostgreSQL
+  issuance repository, real-database race tests, and blocking control-plane CI
+  are implemented. Scheduled mutation testing remains to be implemented.
 - Subscription prices and inbound frequency ceilings cannot be set before
   physical hardware evidence establishes a defensible safety ceiling.
 - macOS remains experimental and must not be started before Windows hardware
@@ -305,13 +309,13 @@ gh run download RUN_ID --name eject-windows-x64 --dir artifacts/github-actions
 ## Required next work while hardware is unavailable
 
 Physical validation remains a parallel requirement, but it is no longer the
-only development queue. The initial SQL migration and blocking control-plane CI
-and the Kysely issuance repository are implemented. The next software change
-should prove deterministic transaction races against real PostgreSQL:
+only development queue. The initial SQL migration, blocking control-plane CI,
+Kysely issuance repository, and deterministic transaction races against real
+PostgreSQL are implemented. The next software change should add mutation
+testing:
 
-1. prove rollback, last-slot races, duplicate requests, revocation
-   races, and retry behavior against ephemeral real PostgreSQL;
-2. add scheduled advisory mutation testing; and
+1. add scheduled advisory mutation testing for critical pure policy surfaces;
+2. keep PostgreSQL concurrency tests blocking; and
 3. continue to expose no public eject or device-delivery endpoint.
 
 The skeleton's pull requests must block on formatting, lint, TypeScript,
@@ -338,8 +342,9 @@ CI verification for both updated workflows is complete on `main` (see the
 snapshot links). Keep subsequent changes small and reviewable:
 
 1. **Control-plane PostgreSQL and CI** — checked-in SQL migrations, Kysely
-   issuance repository, real-database race tests, and blocking workflow; no
-   public endpoint or device enrollment.
+   issuance repository, real-database race tests, and blocking workflow are
+   implemented; scheduled advisory mutation testing is next, with no public
+   endpoint or device enrollment.
 2. **Identity and device-security ADR** — choose person authentication, device
    credential, protected storage, integrity, revocation, idempotency, and clock
    rules.
