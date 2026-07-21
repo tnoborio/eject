@@ -63,6 +63,10 @@ truth. A checksum ledger and PostgreSQL advisory lock make migration application
 reproducible and serialized. Runtime repositories use Kysely and
 `node-postgres`, contained within infrastructure. See
 [ADR 0004](decisions/0004-control-plane-schema-and-contract-sharing.md).
+Person identity uses Supabase Auth, while each Windows device has a separate
+non-exportable CNG ECDSA P-256 key. Authenticated outbound requests and signed
+server responses bind exact body bytes and replay-resistant nonces. See
+[ADR 0005](decisions/0005-identity-and-device-security.md).
 
 Protocol v1 remains canonical under `protocol/v1` and is consumed as the
 private workspace package `@eject/protocol-contract`. Only transport adapters
@@ -116,7 +120,8 @@ permissions, full-SHA-pinned Actions, and no production credentials. See
 
 ### Desktop agent
 
-- authenticates as one registered device;
+- authenticates as one registered device with a protected per-device key, never
+  a person session;
 - maintains an outbound secure connection or polling channel;
 - discovers compatible optical drives locally;
 - lets the owner approve a drive;
@@ -124,6 +129,13 @@ permissions, full-SHA-pinned Actions, and no production credentials. See
 - maps only the approved product operation to a platform adapter;
 - reports a bounded result code;
 - shows a localized native notification and local pause control.
+
+The agent signs each fixed-path HTTPS request with a timestamp, random nonce,
+and exact body hash. It verifies a response signature bound to that request
+before parsing the closed transport wrapper and protocol-v1 message. PostgreSQL
+checks device and key revocation on every request and consumes replay nonces for
+a bounded period. These authentication steps do not broaden the adapter's one
+physical capability.
 
 ### Platform adapter
 

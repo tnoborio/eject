@@ -74,9 +74,11 @@ protocol v1は、これらの制約を実行可能にします。コマンドは
 transport失敗後に保存済み結果を再送できますが、物理操作を繰り返してはいけません。消費済み
 IDは再起動後も24時間以上保持します。
 
-protocol検証は認証済みtransportの代わりではありません。person認証provider、端末ごとの
-credential、message integrity方式、revocation確認、保護済みローカル保存は、device
-enrollment完了前に集中的なdecisionが必要です。
+protocol検証は認証済みtransportの代わりではありません。ADR 0005ではperson identityに
+Supabase Authを採用し、各deviceにはそれと分離したnon-exportableなWindows CNG ECDSA P-256
+keyを採用します。poll・result requestはdevice、key、timestamp、random nonce、method、正確な
+path、正確なbody hashを署名構成へbindします。認証済みresponseもrequest nonce、status、正確な
+body hashへbindして別途署名し、agentはprotocol parse前にresponse integrityを検証します。
 
 ## 不正利用と物理安全
 
@@ -92,14 +94,16 @@ enrollment完了前に集中的なdecisionが必要です。
 ## 認証情報と通信
 
 - 通信中は現代的な認証付き暗号を使用する。
-- 端末ごとに取り消し可能な認証情報または鍵ペアを与える。
-- OSの保護ストレージが利用できる場合は更新用認証情報をそこへ保存する。
+- person sessionとは分離した、取り消し可能なECDSA P-256 key pairを端末ごとに与える。
+- Windows private keyはCNG protected storage内でnon-exportableにする。plaintextまたはexportable
+  keyへfallbackせず、保護できなければenrollmentを失敗させる。
 - URL、ログ、分析、通知文に端末認証情報を含めない。
 - サーバー秘密情報をローテーションし、端末セッションを即時無効化できるようにする。
 - 一般公開前に、配布アプリと更新へ署名し検証する。
 
-具体的な暗号方式は実装時に選定し、独立したレビューを行います。この文書では必要な
-性質を定義します。
+enrollment、signature、replay、revocation、result idempotency、clockの完全な構成は
+[ADR 0005](decisions/0005-identity-and-device-security.ja.md)で定義します。public利用前に独立reviewと
+standard-userによる実Windows検証が必要です。
 
 ## プライバシーとデータ最小化
 

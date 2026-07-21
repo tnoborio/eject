@@ -60,6 +60,10 @@ infrastructureをapplication portへ接続します。
 checksum ledgerとPostgreSQL advisory lockにより、migration適用を再現可能かつ直列にします。
 runtime repositoryではKyselyと`node-postgres`を使い、infrastructure内に閉じ込めます。詳細は
 [ADR 0004](decisions/0004-control-plane-schema-and-contract-sharing.ja.md)を参照してください。
+person identityにはSupabase Authを使い、各Windows deviceには分離されたnon-exportableなCNG
+ECDSA P-256 keyを持たせます。認証済みoutbound requestと署名済みserver responseは、正確なbody
+bytesとreplay-resistant nonceへbindします。詳細は
+[ADR 0005](decisions/0005-identity-and-device-security.ja.md)を参照してください。
 
 protocol v1は`protocol/v1`配下の正本のまま、private workspace package
 `@eject/protocol-contract`として利用します。そのvalidator・schemaをimportするのはtransport
@@ -109,7 +113,7 @@ credentialを持ち込みません。詳細は
 
 ### デスクトップアプリ
 
-- 一台の登録端末として認証。
+- person sessionではなく、保護された端末ごとのkeyで一台の登録端末として認証。
 - 安全な外向き接続またはポーリングの維持。
 - 対応光学ドライブのローカル検出。
 - 所有者によるドライブ許可。
@@ -117,6 +121,11 @@ credentialを持ち込みません。詳細は
 - 許可した一つの操作だけをプラットフォームアダプターへ渡す。
 - 制限された結果コードの報告。
 - ローカライズしたネイティブ通知と一時停止操作の提供。
+
+agentは固定pathのHTTPS requestごとにtimestamp、random nonce、正確なbody hashを署名します。
+閉じたtransport wrapperとprotocol v1 messageをparseする前に、そのrequestへbindされたresponse
+signatureを検証します。PostgreSQLはrequestごとにdevice・key revocationを確認し、replay nonceを
+限定期間消費します。これらのauthentication手順はadapterの一つのphysical capabilityを広げません。
 
 ### プラットフォームアダプター
 

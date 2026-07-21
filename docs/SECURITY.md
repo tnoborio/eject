@@ -76,10 +76,13 @@ ID before or atomically with the local attempt. It may resend the stored result
 after a transport failure but must not repeat the physical action. Consumed IDs
 survive restart for at least 24 hours.
 
-Protocol validation does not replace authenticated transport. The person
-authentication provider, per-device credential, message-integrity construction,
-revocation check, and protected local storage require a focused decision before
-device enrollment is complete.
+Protocol validation does not replace authenticated transport. ADR 0005 selects
+Supabase Auth for person identity and a separate, non-exportable Windows CNG
+ECDSA P-256 key for each device. Poll and result requests bind the device, key,
+timestamp, random nonce, method, exact path, and exact body hash in a signed
+construction. Authenticated responses are separately signed and bound to the
+request nonce, status, and exact body hash. The agent verifies response
+integrity before protocol parsing.
 
 ## Abuse and physical safety
 
@@ -95,15 +98,18 @@ device enrollment is complete.
 ## Credentials and transport
 
 - Use modern authenticated encryption in transit.
-- Give each device its own revocable credential or key pair.
-- Store refresh credentials with operating-system protected storage when
-  available.
+- Give each device its own revocable ECDSA P-256 key pair, separate from person
+  sessions.
+- Keep the Windows private key non-exportable in CNG protected storage. Fail
+  enrollment instead of falling back to plaintext or an exportable key.
 - Never place device credentials in URLs, logs, analytics, or notification text.
 - Rotate server secrets and support immediate device-session revocation.
 - Sign and verify distributable agent binaries and updates before public use.
 
-The precise cryptographic scheme should be selected during implementation and
-reviewed independently; this document defines the required properties.
+The complete enrollment, signature, replay, revocation, result-idempotency, and
+clock construction is in
+[ADR 0005](decisions/0005-identity-and-device-security.md). It still requires an
+independent review and real standard-user Windows validation before public use.
 
 ## Privacy and data minimization
 
