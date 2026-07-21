@@ -12,8 +12,10 @@
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit",
     "architecture": "depcruise src --config dependency-cruiser.config.cjs",
+    "migrate": "tsx src/infrastructure/postgres/migrate.ts",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
+    "test:postgres": "vitest run --config vitest.postgres.config.ts",
     "dev": "next dev",
     "start": "next start"
   },
