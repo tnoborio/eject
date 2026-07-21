@@ -12,6 +12,9 @@
   "overrides": {
     "postcss": "8.5.20"
   },
+  "optionalDependencies": {
+    "@rolldown/binding-linux-x64-gnu": "1.1.5"
+  },
   "scripts": {
     "build": "npm run build --workspace @eject/control-plane",
     "check": "npm run check --workspace @eject/control-plane",
