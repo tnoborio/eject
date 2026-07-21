@@ -116,9 +116,13 @@ Schemaにはcredential、実行ファイルURL、transport命令を含めませ�
 開始する、認証・暗号化済みoutbound接続を使う必要があります。agentは、認証済み制御面の
 identityと自身のdevice credentialを`device_id`宛先検証に結びつけます。
 
-具体的なdevice credential、message integrity方式、revocation確認、polling endpointは、
-集中的なsecurity decisionまで意図的に保留します。enrollment完了前に決定する必要があり、
-このSchemaへ任意fieldを追加することは代替になりません。
+[ADR 0005](../../docs/decisions/0005-identity-and-device-security.ja.md)は、この変更しないSchemaの
+外側にtransportを確定します。Windows deviceは分離された
+non-exportableなCNG ECDSA P-256 keyを使います。固定pathのPOST requestはdevice・key ID、
+timestamp、random nonce、method、path、正確なbody hashを署名します。responseはrequest nonce、
+status、正確なbody hashへ署名し、このprotocol messageをparseする前に検証します。PostgreSQLは
+pollまたはresult stateとatomicにkey revocationを再確認し、nonceを消費します。これらはtransport
+metadataのままとし、protocol v1 messageへ追加してはいけません。
 
 ## 国際化とプライバシー
 

@@ -2,15 +2,7 @@ import {
   MAX_COMMAND_TTL_MS,
   validateMessage,
 } from "@eject/protocol-contract/v1/validator";
-
-export interface QueuedCommandProjection {
-  readonly commandId: string;
-  readonly deviceId: string;
-  readonly actorId: string;
-  readonly actorDisplayName: string;
-  readonly issuedAt: Date;
-  readonly expiresAt: Date;
-}
+import type { QueuedCommandProjection } from "../application/agent-polling";
 
 export interface ProtocolV1Command {
   readonly protocol_version: 1;

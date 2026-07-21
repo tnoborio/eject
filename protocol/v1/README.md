@@ -126,10 +126,15 @@ Messages must use an authenticated encrypted outbound connection initiated by
 the agent. The agent must bind the authenticated control-plane identity and its
 own device credential to the `device_id` audience check.
 
-The exact device credential, message-integrity construction, revocation check,
-and polling endpoint are deliberately deferred to a focused security decision.
-They must be settled before enrollment is considered complete; adding arbitrary
-payload fields to this Schema is not a substitute.
+[ADR 0005](../../docs/decisions/0005-identity-and-device-security.md) fixes the
+transport around this unchanged Schema. A Windows device
+uses a separate non-exportable CNG ECDSA P-256 key. Fixed-path POST requests
+sign the device and key IDs, timestamp, random nonce, method, path, and exact
+body hash. Responses are signed over the request nonce, status, and exact body
+hash, and are verified before this protocol message is parsed. PostgreSQL
+rechecks key revocation and consumes the nonce atomically with poll or result
+state. These values remain transport metadata and must not be added to protocol
+v1 messages.
 
 ## Internationalization and privacy
 

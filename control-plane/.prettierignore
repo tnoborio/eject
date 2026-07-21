@@ -1,4 +1,5 @@
 .next/
+.stryker-tmp/
 coverage/
 reports/mutation/
 node_modules/
