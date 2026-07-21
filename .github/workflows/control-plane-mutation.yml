@@ -1,0 +1,36 @@
+name: Control-plane mutation testing
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "23 18 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: control-plane-mutation
+  cancel-in-progress: false
+
+jobs:
+  mutation:
+    name: Advisory Stryker run
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run test:mutation --workspace @eject/control-plane
+      - name: Upload mutation report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: control-plane-mutation-report
+          path: control-plane/reports/mutation/
+          if-no-files-found: warn
+          retention-days: 14

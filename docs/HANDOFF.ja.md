@@ -186,6 +186,9 @@ docs/decisions/0003-control-plane-consent-and-exposure.md
 23. 決定論的なtransaction concurrency test 5件がPostgreSQL 17に対して成功する。行lockの
     barrierにより、最後の1枠の直列化とretry、同時idempotent replay、constraint failure後の
     全write rollback、grant取消の再評価、source commandごとに1回だけのeject-backを証明する。
+24. Stryker 9.6.1はauthorization、exposure、lifecycle、semantic idempotency policyに対して
+    有効なmutant 136件をすべてkillする。週次および手動実行可能なadvisory workflowはHTMLと
+    JSON reportを14日間保存する。
 
 検証済み`main` artifactのチェックサムは次のとおりです。
 
@@ -231,7 +234,7 @@ artifactには期限があり、後続ビルドのチェックサムは変わり
 - 具体的な認証provider、device credential、message integrity方式、revocation確認は
   security decisionとして未決定。
 - protocol共有、pure test境界、SQL migration、PostgreSQL issuance repository、実database
-  race test、blocking control-plane CIは実装済み。定期的なmutation testingは未実装。
+  race test、blocking control-plane CIは実装済み。定期的なadvisory mutation testingも実装済み。
 - 実機証拠から説明可能なsafety ceilingが得られるまで、subscription価格とinbound frequency
   ceilingは決められない。
 - macOSは実験扱いのままであり、Windowsのハードウェア上の事実を確立する前に着手しない。
@@ -279,10 +282,11 @@ gh run download RUN_ID --name eject-windows-x64 --dir artifacts/github-actions
 
 物理検証は並行要件として残しますが、唯一の開発queueにはしません。初期SQL migration、
 blocking control-plane CI、Kysely issuance repository、実PostgreSQLに対する決定論的transaction
-raceは実装済みです。次のsoftware changeではmutation testingを追加します。
+race、定期的なadvisory mutation testingは実装済みです。次のsoftware changeではidentityと
+device securityの判断を記録します。
 
-1. 重要なpure policy surfaceへ定期的なadvisory mutation testingを追加する。
-2. PostgreSQL concurrency testをblockingのまま維持する。
+1. person認証と端末ごとのcredential lifecycleを選択する。
+2. 保護保存、integrity、revocation、結果idempotency、clock規則を定義する。
 3. public eject endpointやdevice-delivery endpointを引き続き公開しない。
 
 skeletonのpull requestでは、format、lint、TypeScript、依存rule、Next.js production build、
@@ -307,7 +311,7 @@ authenticated pollingまたはenrollmentの前に、person auth provider、端�
 参照)。今後の変更も小さくレビュー可能な単位に保ちます。
 
 1. **Control-plane PostgreSQLとCI** — checked-in SQL migration、Kysely issuance repository、
-   実database race test、blocking workflowは実装済み。次は定期的なadvisory mutation testingで、
+   実database race test、blocking workflow、定期的なadvisory mutation testingは実装済み。
    public endpointもdevice enrollmentもまだ追加しない。
 2. **identity・device security ADR** — person認証、device credential、保護保存、integrity、
    revocation、idempotency、clock規則を選ぶ。

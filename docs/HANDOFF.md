@@ -207,6 +207,9 @@ The following facts have direct build or test evidence:
     17. Row-lock barriers prove final-slot serialization and retry, concurrent
     idempotent replay, all-write rollback after a constraint failure, grant
     revocation re-evaluation, and exactly one eject-back per source command.
+24. Stryker 9.6.1 kills all 136 enabled mutants across authorization, exposure,
+    lifecycle, and semantic idempotency policy. A weekly and manually
+    dispatchable advisory workflow retains HTML and JSON reports for 14 days.
 
 The verified `main` artifact had this checksum:
 
@@ -261,7 +264,7 @@ Record the failure and narrow the supported capability contract instead.
   construction, and revocation check remain security decisions.
 - Protocol sharing, pure test boundaries, SQL migrations, the PostgreSQL
   issuance repository, real-database race tests, and blocking control-plane CI
-  are implemented. Scheduled mutation testing remains to be implemented.
+  are implemented. Scheduled advisory mutation testing is also implemented.
 - Subscription prices and inbound frequency ceilings cannot be set before
   physical hardware evidence establishes a defensible safety ceiling.
 - macOS remains experimental and must not be started before Windows hardware
@@ -311,11 +314,12 @@ gh run download RUN_ID --name eject-windows-x64 --dir artifacts/github-actions
 Physical validation remains a parallel requirement, but it is no longer the
 only development queue. The initial SQL migration, blocking control-plane CI,
 Kysely issuance repository, and deterministic transaction races against real
-PostgreSQL are implemented. The next software change should add mutation
-testing:
+PostgreSQL and scheduled advisory mutation testing are implemented. The next
+software change should record the identity and device-security decision:
 
-1. add scheduled advisory mutation testing for critical pure policy surfaces;
-2. keep PostgreSQL concurrency tests blocking; and
+1. choose person authentication and the per-device credential lifecycle;
+2. specify protected storage, integrity, revocation, result idempotency, and
+   clock rules; and
 3. continue to expose no public eject or device-delivery endpoint.
 
 The skeleton's pull requests must block on formatting, lint, TypeScript,
@@ -342,9 +346,9 @@ CI verification for both updated workflows is complete on `main` (see the
 snapshot links). Keep subsequent changes small and reviewable:
 
 1. **Control-plane PostgreSQL and CI** — checked-in SQL migrations, Kysely
-   issuance repository, real-database race tests, and blocking workflow are
-   implemented; scheduled advisory mutation testing is next, with no public
-   endpoint or device enrollment.
+    issuance repository, real-database race tests, and blocking workflow are
+   implemented, as is scheduled advisory mutation testing; there is still no
+   public endpoint or device enrollment.
 2. **Identity and device-security ADR** — choose person authentication, device
    credential, protected storage, integrity, revocation, idempotency, and clock
    rules.
