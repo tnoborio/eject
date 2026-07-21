@@ -200,6 +200,9 @@ The following facts have direct build or test evidence:
     architecture, domain and protocol with 100% critical coverage, PostgreSQL 17
     migration tests, and the production build
     ([run 29802928858](https://github.com/tnoborio/eject/actions/runs/29802928858)).
+22. Seven PostgreSQL tests pass locally, including atomic Kysely issuance,
+    idempotent replay, rejection without command or quota use, migrations,
+    checksum drift, safe defaults, and database constraints.
 
 The verified `main` artifact had this checksum:
 
@@ -248,8 +251,8 @@ Record the failure and narrow the supported capability contract instead.
   credential, or server connection.
 - Protocol v1 has not yet been exercised between a real control plane and agent.
 - The control-plane shell and domain exist, but account authentication,
-  PostgreSQL persistence, device credential, and polling transport have not been
-  implemented.
+  PostgreSQL issuance persistence is implemented; account authentication,
+  device credential, and polling transport have not been implemented.
 - The exact authentication provider, device credential, message-integrity
   construction, and revocation check remain security decisions.
 - Protocol sharing and pure test boundaries are implemented. SQL migrations,
@@ -303,15 +306,13 @@ gh run download RUN_ID --name eject-windows-x64 --dir artifacts/github-actions
 
 Physical validation remains a parallel requirement, but it is no longer the
 only development queue. The initial SQL migration and blocking control-plane CI
-are implemented. The next software change should implement the Kysely issuance
-repository and deterministic transaction races against real PostgreSQL:
+and the Kysely issuance repository are implemented. The next software change
+should prove deterministic transaction races against real PostgreSQL:
 
-1. implement the Kysely issuance repository with `SERIALIZABLE`, recipient row
-   lock, bounded retry, idempotency, command, quota, and lifecycle persistence;
-2. prove rollback, last-slot races, duplicate requests, revocation
+1. prove rollback, last-slot races, duplicate requests, revocation
    races, and retry behavior against ephemeral real PostgreSQL;
-3. add scheduled advisory mutation testing; and
-4. continue to expose no public eject or device-delivery endpoint.
+2. add scheduled advisory mutation testing; and
+3. continue to expose no public eject or device-delivery endpoint.
 
 The skeleton's pull requests must block on formatting, lint, TypeScript,
 dependency rules, a Next.js production build, pure and property tests, and
