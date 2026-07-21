@@ -43,6 +43,8 @@ export interface IssuanceTransaction {
   loadAuthorizationFacts(input: IssueEjectInput): Promise<AuthorizationFacts>;
   recordRejection(input: {
     readonly requestId: string;
+    readonly requestedEventId: string;
+    readonly rejectedEventId: string;
     readonly issue: IssueEjectInput;
     readonly fingerprint: string;
     readonly reason: RejectionReason;
@@ -50,6 +52,9 @@ export interface IssuanceTransaction {
   recordQueued(input: {
     readonly requestId: string;
     readonly commandId: string;
+    readonly requestedEventId: string;
+    readonly authorizedEventId: string;
+    readonly queuedEventId: string;
     readonly issue: IssueEjectInput;
     readonly fingerprint: string;
     readonly effectiveExposureLimit: number;
@@ -96,6 +101,8 @@ export function createIssueEject(dependencies: {
         if (!decision.authorized) {
           return transaction.recordRejection({
             requestId,
+            requestedEventId: dependencies.ids.newId(),
+            rejectedEventId: dependencies.ids.newId(),
             issue: input,
             fingerprint,
             reason: decision.reason,
@@ -105,6 +112,9 @@ export function createIssueEject(dependencies: {
         return transaction.recordQueued({
           requestId,
           commandId: dependencies.ids.newId(),
+          requestedEventId: dependencies.ids.newId(),
+          authorizedEventId: dependencies.ids.newId(),
+          queuedEventId: dependencies.ids.newId(),
           issue: input,
           fingerprint,
           effectiveExposureLimit: decision.effectiveExposureLimit,

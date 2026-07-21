@@ -181,6 +181,8 @@ docs/decisions/0003-control-plane-consent-and-exposure.md
 21. `main`上のcontrol-plane workflowで、static・architecture、critical coverage 100%の
     domain・protocol、PostgreSQL 17 migration test、production buildの4 jobがすべて成功した
     ([run 29802928858](https://github.com/tnoborio/eject/actions/runs/29802928858))。
+22. atomicなKysely issuance、idempotent replay、command・quotaを残さないrejection、migration、
+    checksum drift、安全側default、database constraintを含むPostgreSQL test 7件がlocalで成功する。
 
 検証済み`main` artifactのチェックサムは次のとおりです。
 
@@ -221,8 +223,8 @@ artifactには期限があり、後続ビルドのチェックサムは変わり
   適するが永続的なハードウェア識別子ではなく、ドライブ文字の再割り当てで変化する。
 - UI、インストーラー、コード署名、更新チャネル、デバイス資格情報、サーバー接続がない。
 - protocol v1は実際の制御面とagent間ではまだ動かしていない。
-- control-plane shellとdomainは存在するが、account authentication、PostgreSQL persistence、
-  device credential、polling transportは未実装。
+- control-plane shell、domain、PostgreSQL issuance persistenceは実装済みだが、account
+  authentication、device credential、polling transportは未実装。
 - 具体的な認証provider、device credential、message integrity方式、revocation確認は
   security decisionとして未決定。
 - protocol共有とpure test境界は実装済み。SQL migration、PostgreSQL repository、実database
@@ -273,15 +275,13 @@ gh run download RUN_ID --name eject-windows-x64 --dir artifacts/github-actions
 ## ハードウェアがない間の次の必須作業
 
 物理検証は並行要件として残しますが、唯一の開発queueにはしません。初期SQL migrationと
-blocking control-plane CIは実装済みです。次のsoftware changeでは、Kysely issuance repositoryと
-決定論的transaction raceを実PostgreSQLに対して実装します。
+blocking control-plane CIとKysely issuance repositoryは実装済みです。次のsoftware changeでは、
+決定論的transaction raceを実PostgreSQLに対して証明します。
 
-1. `SERIALIZABLE`、recipient row lock、bounded retry、idempotency、command、quota、lifecycle
-   persistenceを持つKysely issuance repositoryを実装する。
-2. rollback、最後の枠のrace、duplicate request、revocation race、retry動作を、
+1. rollback、最後の枠のrace、duplicate request、revocation race、retry動作を、
    ephemeralな実PostgreSQLで証明する。
-3. 定期的なadvisory mutation testingを追加する。
-4. public eject endpointやdevice-delivery endpointを引き続き公開しない。
+2. 定期的なadvisory mutation testingを追加する。
+3. public eject endpointやdevice-delivery endpointを引き続き公開しない。
 
 skeletonのpull requestでは、format、lint、TypeScript、依存rule、Next.js production build、
 pure・property test、ephemeralな実PostgreSQL serviceに対するintegration・決定論的concurrency
