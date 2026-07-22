@@ -29,6 +29,7 @@ public sealed class WindowsCngDeviceKeyStore : IDeviceKeyStore
 {
     private const string KeyNamePrefix = "EJECT-device-";
 
+    [SupportedOSPlatform("windows")]
     public DevicePublicKey Create(Guid keyId)
     {
         if (!OperatingSystem.IsWindows())
@@ -46,6 +47,7 @@ public sealed class WindowsCngDeviceKeyStore : IDeviceKeyStore
         return PreferPlatformProvider(provider => Create(keyId, keyName, provider));
     }
 
+    [SupportedOSPlatform("windows")]
     public DevicePublicKey GetPublicKey(Guid keyId)
     {
         if (!OperatingSystem.IsWindows())
@@ -58,6 +60,7 @@ public sealed class WindowsCngDeviceKeyStore : IDeviceKeyStore
         return ExportPublicKey(keyId, key);
     }
 
+    [SupportedOSPlatform("windows")]
     public byte[] Sign(Guid keyId, ReadOnlySpan<byte> data)
     {
         if (!OperatingSystem.IsWindows())
