@@ -40,6 +40,8 @@ Vercel stores configuration outside the repository:
 | `EJECT_DATABASE_SSL_CA_B64`       | sensitive  | absent  | absent      |
 | `EJECT_AGENT_DELIVERY_ENABLED`    | `false`    | `false` | `false`     |
 | `EJECT_DEVICE_ENROLLMENT_ENABLED` | absent     | absent  | absent      |
+| `EJECT_PERSON_AUTH_ENABLED`        | absent     | absent  | absent      |
+| `EJECT_SUPABASE_PUBLISHABLE_KEY`   | absent     | absent  | absent      |
 
 Production uses the Supavisor transaction pooler on port 6543. Preview builds
 do not receive the production database credential. They can build and render
@@ -50,7 +52,8 @@ No server response-signing private key is configured in Vercel. Even if the
 environment delivery flag were changed accidentally, agent transport
 composition would fail closed without the required signing key. The independent
 database delivery gate also remains disabled. Device enrollment is independently
-fail-closed because its opt-in environment variable is absent.
+fail-closed because its opt-in environment variable is absent. Person auth is
+also fail-closed because both its opt-in and provider publishable key are absent.
 
 ## TLS trust
 

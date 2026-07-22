@@ -15,6 +15,7 @@ export default defineConfig({
         "src/modules/eject/domain/**/*.ts",
         "src/modules/eject/application/idempotency.ts",
         "src/modules/identity/application/authenticate-person-session.ts",
+        "src/modules/identity/application/manage-person-session.ts",
         "src/modules/identity/infrastructure/supabase-person-token-verifier.ts",
         "src/modules/identity/transport/person-session-cookie.ts",
         "src/modules/devices/application/device-enrollment.ts",
