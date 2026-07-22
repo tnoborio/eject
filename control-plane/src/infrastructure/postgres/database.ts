@@ -1,7 +1,7 @@
 import { Kysely, PostgresDialect } from "kysely";
 import type { Pool } from "pg";
 
-interface PersonTable {
+export interface PersonTable {
   person_id: string;
   display_name: string;
   account_status: string;

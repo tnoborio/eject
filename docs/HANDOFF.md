@@ -8,7 +8,7 @@ the order in which work should continue.
 
 ## Snapshot
 
-- **Date:** 2026-07-21
+- **Date:** 2026-07-22
 - **Repository:** `tnoborio/eject`
 - **Current branch:** `main`
 - **Merged PRs:** [#2](https://github.com/tnoborio/eject/pull/2) (Stage 0
@@ -23,7 +23,8 @@ the order in which work should continue.
   [#11](https://github.com/tnoborio/eject/pull/11) (authenticated agent
   polling), [#12](https://github.com/tnoborio/eject/pull/12) (cloud database
   environment)
-- **Current verified implementation:** PR #12 on `main`
+- **Current verified implementation:** PR #12 on `main`, plus a locally
+  verified person-session adapter in the current checkout pending CI
 - **Verified CI on `main`:** [Windows spike run 29688104811](https://github.com/tnoborio/eject/actions/runs/29688104811),
   [protocol contract run 29688208249](https://github.com/tnoborio/eject/actions/runs/29688208249),
   [control-plane run 29813234824](https://github.com/tnoborio/eject/actions/runs/29813234824)
@@ -31,9 +32,10 @@ the order in which work should continue.
 - **Current product phase:** Stage 0 awaits physical evidence; Stage 1 protocol,
   control-plane, and identity/device-security architecture are accepted. The
   control plane is implemented through authenticated agent polling and result
-  ingestion. A dedicated managed PostgreSQL environment and Vercel project now
-  exist under Sasara operational ownership, but delivery is disabled at every
-  gate and no Windows agent is connected.
+  ingestion. The person-session boundary now verifies Supabase asymmetric JWTs
+  and rechecks current EJECT account status. A dedicated managed PostgreSQL
+  environment and Vercel project now exist under Sasara operational ownership,
+  but delivery is disabled at every gate and no Windows agent is connected.
 
 ## Executive status
 
@@ -93,8 +95,11 @@ non-exportable Windows CNG ECDSA P-256 keys, signed request and response
 constructions, replay and revocation checks, result idempotency, and clock
 rules. No public eject endpoint exists. The authenticated poll and result
 routes, device key and nonce checks, signed responses, result idempotency, and
-fail-closed environment and database delivery gates are now implemented. Device
-enrollment, person-facing auth routes, and Windows polling remain incomplete.
+fail-closed environment and database delivery gates are now implemented. The
+person-session adapter accepts identity only from a Supabase JWT with an exact
+issuer and audience, valid expiry, and UUID subject, then rechecks the current
+EJECT account status. Device enrollment, server-owned PKCE cookie issuance and
+refresh routes, and Windows polling remain incomplete.
 The EJECT-specific Supabase PostgreSQL 17 project is provisioned in Tokyo with
 SSL enforcement, both migrations, zero application rows, and delivery disabled.
 The `sasara/eject` Vercel project is connected to GitHub, runs Next.js on Node.js
@@ -131,6 +136,11 @@ control-plane/src/modules/eject/
 control-plane/src/modules/devices/
     Device request authentication ports, Node P-256 crypto, bounded HTTP parsing,
     and signed poll/result response handlers.
+
+control-plane/src/modules/identity/
+    Application-owned person-session and account-status ports, a fixed
+    host-only access-cookie reader, Supabase JWKS JWT verification, and the
+    PostgreSQL current-account-status adapter.
 
 control-plane/src/app/api/agent/v1/
     Fixed poll and result POST routes, unavailable unless the environment gate
@@ -250,7 +260,8 @@ The following facts have direct build or test evidence:
     mapping, and the default-disabled route. Critical
     authorization, lifecycle, exposure, and idempotency code has 100% branch,
     function, line, and statement coverage.
-20. The production dependency audit reports zero known vulnerabilities. The
+20. The 2026-07-21 production dependency audit reported zero known
+    vulnerabilities. The
     PostCSS 8.5.20 override removes the advisory present in Next.js's transitive
     default.
 21. The control-plane workflow passed all four jobs on `main`: static and
@@ -292,6 +303,25 @@ The following facts have direct build or test evidence:
     deployed poll route.
 30. PR #12 passed all four blocking control-plane jobs and both Vercel checks
     ([run 29839496511](https://github.com/tnoborio/eject/actions/runs/29839496511)).
+31. On 2026-07-22, the person-session adapter passed 58 control-plane unit
+    tests. Its critical application, Supabase JWT, and fixed-cookie surfaces are
+    included in the blocking 100% branch, function, line, and statement
+    coverage boundary.
+32. The JWT adapter accepts only ES256 or RS256 signatures resolved through the
+    configured Supabase JWKS, exact issuer and audience, a required expiry, and
+    a lowercase UUID subject. Tests reject wrong claims, expiry, signatures,
+    malformed or oversized tokens, and non-UUID subjects without exposing
+    email or provider identity to application code.
+33. Eighteen PostgreSQL 17 tests pass locally. The added real-database test
+    proves that a person changes from `ACTIVE` to `RESTRICTED` between requests
+    and the next session authentication observes the restriction.
+34. The current checkout passes locked `npm ci`, all eleven protocol tests, the
+    control-plane static and architecture checks, the production build, and all
+    ten .NET 10 tests. The new `jose` dependency is exact-pinned at 6.2.4.
+35. A new `fast-uri` advisory discovered during this session is resolved with
+    compatible 3.1.4 lockfiles, and the standalone protocol production audit is
+    clean. The root production audit still reports the new Sharp/libvips
+    advisory described under known limitations.
 
 The verified `main` artifact had this checksum:
 
@@ -339,15 +369,24 @@ Record the failure and narrow the supported capability contract instead.
 - The executable has no UI, installer, code signature, update channel, device
   credential, or server connection.
 - Protocol v1 has not yet been exercised between a real control plane and agent.
-- PostgreSQL issuance and authenticated poll/result transport are implemented,
-  but person-facing Supabase authentication, device enrollment, Windows CNG key
-  creation, and the Windows polling client have not been implemented.
+- PostgreSQL issuance, authenticated poll/result transport, and the
+  person-session verification boundary are implemented, but server-owned
+  Supabase magic-link/OTP PKCE cookie issuance and refresh routes, device
+  enrollment, Windows CNG key creation, and the Windows polling client have not
+  been implemented.
+- The person JWT adapter has been verified with local asymmetric JWKS fixtures,
+  not against the provisioned Supabase Auth issuer or a live rotated key set.
 - The cloud environment is provisioned and migration-verified, but no person,
   device, command, result, signing key, or private event has been added. It is
   infrastructure readiness, not a live service.
 - ADR 0005 fixes the authentication provider, device credential, integrity,
   replay, revocation, idempotency, and clock construction. It has not received
   independent security review or standard-user Windows CNG validation.
+- As of 2026-07-22, `npm audit --omit=dev` reports a high-severity inherited
+  libvips advisory through Next.js's optional Sharp 0.34.5 dependency. The
+  current latest stable Next.js still declares `sharp ^0.34.5`, while the audit
+  fix requires Sharp 0.35 or later. Do not force an unsupported major override;
+  update through a compatible Next.js release or an explicit reviewed decision.
 - Protocol sharing, pure test boundaries, SQL migrations, the PostgreSQL
   issuance repository, real-database race tests, and blocking control-plane CI
   are implemented. Scheduled advisory mutation testing is also implemented.
@@ -401,12 +440,14 @@ Physical validation remains a parallel requirement, but it is no longer the
 only development queue. SQL migrations, blocking CI, Kysely issuance,
 deterministic PostgreSQL races, advisory mutation testing, ADR 0005,
 authenticated poll/result transport, and the dedicated cloud database
-environment are implemented. The next software sequence is:
+environment and person-session adapter are implemented. The next software
+sequence is:
 
-1. define and implement the person-session adapter for Supabase Auth without
-   trusting browser-supplied identity;
-2. implement the short-lived, one-use device-enrollment ceremony and immediate
-   revocation route with closed HTTP contracts and PostgreSQL race tests;
+1. implement the short-lived, one-use device-enrollment ceremony and immediate
+   revocation route with closed HTTP contracts and PostgreSQL race tests, using
+   the person-session adapter for owner identity;
+2. add the server-owned magic-link/OTP PKCE cookie lifecycle needed for
+   interactive sign-in without changing the application identity port;
 3. validate non-exportable P-256 Windows CNG creation as a standard user on real
    Windows before accepting enrollment as complete; and
 4. add outbound Windows polling, durable replay consumption, and result resend
@@ -452,9 +493,10 @@ snapshot links). Keep subsequent changes small and reviewable:
    PostgreSQL 17 project, SSL enforcement, protected production-only database
    access, exact migration verification, Git-connected Vercel deployment, and
    delivery disabled.
-5. **Person auth and Windows enrollment/polling** — separate device credential in protected
-   storage, local replay protection, one attempt, result report, and no inbound
-   port.
+5. **Person auth and Windows enrollment/polling** — the person-session adapter is
+   locally implemented; server-owned PKCE cookie routes, a separate device
+   credential in protected storage, enrollment and revocation, local replay
+   protection, one attempt, result report, and outbound-only polling remain.
 6. **Hardware evidence in parallel** — add reviewed reports and any narrowly
    evidence-backed adapter corrections when equipment becomes available.
 

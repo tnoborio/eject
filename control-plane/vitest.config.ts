@@ -14,6 +14,9 @@ export default defineConfig({
       include: [
         "src/modules/eject/domain/**/*.ts",
         "src/modules/eject/application/idempotency.ts",
+        "src/modules/identity/application/authenticate-person-session.ts",
+        "src/modules/identity/infrastructure/supabase-person-token-verifier.ts",
+        "src/modules/identity/transport/person-session-cookie.ts",
       ],
       thresholds: {
         branches: 100,
