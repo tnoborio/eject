@@ -24,11 +24,11 @@ the order in which work should continue.
   polling), [#12](https://github.com/tnoborio/eject/pull/12) (cloud database
   environment), [#13](https://github.com/tnoborio/eject/pull/13) (person-session
   authentication), [#14](https://github.com/tnoborio/eject/pull/14) (device
-  enrollment and revocation)
-- **Current verified implementation:** PR #14 on `main` plus locally verified,
-  default-disabled person PKCE session routes in the current checkout; all three
-  repository migrations are applied and checksum-verified in the protected
-  cloud database
+  enrollment and revocation), [#15](https://github.com/tnoborio/eject/pull/15)
+  (protected migration evidence), and
+  [#16](https://github.com/tnoborio/eject/pull/16) (person PKCE sessions)
+- **Current verified implementation:** PR #16 on `main`; all three repository
+  migrations are applied and checksum-verified in the protected cloud database
 - **Verified CI on `main`:** [Windows spike run 29688104811](https://github.com/tnoborio/eject/actions/runs/29688104811),
   [protocol contract run 29688208249](https://github.com/tnoborio/eject/actions/runs/29688208249),
   [control-plane run 29813234824](https://github.com/tnoborio/eject/actions/runs/29813234824)
@@ -36,14 +36,15 @@ the order in which work should continue.
 - **Verified CI for PR #13:** [control-plane run 29895265935](https://github.com/tnoborio/eject/actions/runs/29895265935),
   [protocol run 29895265928](https://github.com/tnoborio/eject/actions/runs/29895265928)
 - **Verified CI for PR #14:** [control-plane run 29896627535](https://github.com/tnoborio/eject/actions/runs/29896627535)
+- **Verified CI for PR #16:** [control-plane run 29898326094](https://github.com/tnoborio/eject/actions/runs/29898326094)
 - **Current product phase:** Stage 0 awaits physical evidence; Stage 1 protocol,
   control-plane, and identity/device-security architecture are accepted. The
   control plane is implemented through authenticated agent polling and result
   ingestion. The person-session boundary now verifies Supabase asymmetric JWTs
   and rechecks current EJECT account status. Default-disabled one-use device
-  enrollment and owner revocation are implemented on `main`. The current
-  checkout adds a default-disabled server-owned PKCE cookie lifecycle. A dedicated
-  managed PostgreSQL environment and Vercel project exist under Sasara
+  enrollment and owner revocation are implemented on `main`, together with a
+  default-disabled server-owned PKCE cookie lifecycle. A dedicated managed
+  PostgreSQL environment and Vercel project exist under Sasara
   operational ownership, but delivery is disabled at every gate and no Windows
   agent is connected.
 
@@ -113,10 +114,10 @@ ten-minute, one-use enrollment ceremony and idempotent owner revocation. It
 stores only enrollment-secret digests, accepts only canonical P-256
 SubjectPublicKeyInfo, keeps enrollment creation disabled by default, and
 atomically revokes device keys and undelivered commands. Live Supabase sign-in,
-standard-user Windows CNG evidence, and Windows polling remain incomplete. The
-current checkout adds fixed existing-user magic-link, PKCE callback, email OTP,
-refresh, and local-logout routes with S256 state binding and separate host-only
-cookies; provider configuration and UI remain absent.
+standard-user Windows CNG evidence, and Windows polling remain incomplete. Fixed
+existing-user magic-link, PKCE callback, email OTP, refresh, and local-logout
+routes are implemented with S256 state binding and separate host-only cookies;
+provider configuration and UI remain absent.
 The EJECT-specific Supabase PostgreSQL 17 project is provisioned in Tokyo with
 SSL enforcement, all three migrations, zero application rows, and delivery
 disabled.
@@ -378,7 +379,7 @@ The following facts have direct build or test evidence:
     polling and `ENROLLMENT_DISABLED` from agent enrollment. The enrollment
     environment opt-in and response-signing private key remain absent; no
     person, device, secret, command, result, or private event was created.
-44. The current checkout passes 92 control-plane unit tests. The person-session
+44. PR #16 passes 92 control-plane unit tests. The person-session
     lifecycle joins the blocking critical boundary, which remains at 100%
     branch, function, line, and statement coverage.
 45. Closed HTTP tests bind magic-link initiation, OTP verification, refresh, and
@@ -394,6 +395,8 @@ The following facts have direct build or test evidence:
     `PERSON_AUTH_DISABLED` before provider initialization unless the independent
     opt-in is exactly true; no auth setting or publishable key is configured in
     Vercel.
+48. PR #16 passed all four control-plane jobs and both Vercel checks before
+    merge ([control-plane run 29898326094](https://github.com/tnoborio/eject/actions/runs/29898326094)).
 
 The verified `main` artifact had this checksum:
 
@@ -443,8 +446,8 @@ Record the failure and narrow the supported capability contract instead.
 - Protocol v1 has not yet been exercised between a real control plane and agent.
 - PostgreSQL issuance, authenticated poll/result transport, person-session
   verification, and the server enrollment/revocation boundary are implemented,
-  and the server-owned Supabase magic-link/OTP PKCE cookie lifecycle is locally
-  implemented but disabled and unconfigured. A sign-in UI, live-provider
+  and the server-owned Supabase magic-link/OTP PKCE cookie lifecycle is on
+  `main` but disabled and unconfigured. A sign-in UI, live-provider
   end-to-end evidence, Windows CNG key creation, and the Windows polling client
   have not been implemented.
 - The person JWT adapter has been verified with local asymmetric JWKS fixtures,
@@ -568,7 +571,7 @@ snapshot links). Keep subsequent changes small and reviewable:
 5. **Person auth and Windows enrollment/polling** — person-session verification
    and the default-disabled server enrollment/revocation boundary are on `main`,
    and their third migration is applied and verified in the protected cloud
-   database. Server-owned PKCE cookie routes are locally implemented and
+   database. Server-owned PKCE cookie routes are also on `main` and
    default-disabled. Sign-in UI and live-provider evidence, protected Windows
    key creation, local replay protection, one attempt, result report, and
    outbound-only polling remain.
