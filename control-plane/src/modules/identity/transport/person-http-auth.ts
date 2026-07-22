@@ -15,38 +15,64 @@ export type ParsedPersonPostRequest =
         | "PAYLOAD_TOO_LARGE";
     };
 
+export type ParsedPersonOriginPostRequest =
+  | { readonly valid: true; readonly body: Uint8Array }
+  | {
+      readonly valid: false;
+      readonly reason:
+        "INVALID_REQUEST" | "ORIGIN_NOT_ALLOWED" | "PAYLOAD_TOO_LARGE";
+    };
+
 export async function parsePersonPostRequest(
   request: Request,
   expectedPath: string,
   expectedOrigin: string,
   maximumBodyBytes: number,
 ): Promise<ParsedPersonPostRequest> {
+  const parsed = await parsePersonOriginPostRequest(
+    request,
+    expectedPath,
+    expectedOrigin,
+    maximumBodyBytes,
+  );
+  if (!parsed.valid) return invalid(parsed.reason);
+  const accessToken = readPersonAccessToken(request);
+  return accessToken === null
+    ? invalid("AUTHENTICATION_REQUIRED")
+    : { valid: true, accessToken, body: parsed.body };
+}
+
+export async function parsePersonOriginPostRequest(
+  request: Request,
+  expectedPath: string,
+  expectedOrigin: string,
+  maximumBodyBytes: number,
+): Promise<ParsedPersonOriginPostRequest> {
   const url = new URL(request.url);
+  const contentType = request.headers.get("content-type");
   if (
     request.method !== "POST" ||
     url.pathname !== expectedPath ||
     url.search !== "" ||
-    !request.headers.get("content-type")?.startsWith("application/json")
+    contentType?.split(";", 1)[0]?.trim().toLowerCase() !== "application/json"
   ) {
-    return invalid("INVALID_REQUEST");
+    return originInvalid("INVALID_REQUEST");
   }
   if (request.headers.get("origin") !== expectedOrigin) {
-    return invalid("ORIGIN_NOT_ALLOWED");
+    return originInvalid("ORIGIN_NOT_ALLOWED");
   }
-  const accessToken = readPersonAccessToken(request);
-  if (accessToken === null) return invalid("AUTHENTICATION_REQUIRED");
 
   const contentLength = request.headers.get("content-length");
   if (
     contentLength !== null &&
     (!/^\d+$/.test(contentLength) || Number(contentLength) > maximumBodyBytes)
   ) {
-    return invalid("PAYLOAD_TOO_LARGE");
+    return originInvalid("PAYLOAD_TOO_LARGE");
   }
   const body = await readBoundedBody(request, maximumBodyBytes);
   return body === null
-    ? invalid("PAYLOAD_TOO_LARGE")
-    : { valid: true, accessToken, body };
+    ? originInvalid("PAYLOAD_TOO_LARGE")
+    : { valid: true, body };
 }
 
 export function parseExpectedOrigin(value: string): string {
@@ -100,5 +126,14 @@ async function readBoundedBody(
 function invalid(
   reason: Exclude<ParsedPersonPostRequest, { readonly valid: true }>["reason"],
 ): ParsedPersonPostRequest {
+  return { valid: false, reason };
+}
+
+function originInvalid(
+  reason: Exclude<
+    ParsedPersonOriginPostRequest,
+    { readonly valid: true }
+  >["reason"],
+): ParsedPersonOriginPostRequest {
   return { valid: false, reason };
 }

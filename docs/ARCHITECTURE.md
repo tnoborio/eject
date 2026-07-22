@@ -68,6 +68,14 @@ non-exportable CNG ECDSA P-256 key. Authenticated outbound requests and signed
 server responses bind exact body bytes and replay-resistant nonces. See
 [ADR 0005](decisions/0005-identity-and-device-security.md).
 
+The server-owned person-auth boundary contains fixed routes for existing-user
+email magic-link initiation, PKCE callback exchange, email OTP verification,
+refresh rotation, and local-session logout. It generates S256 verifier and state
+cookies, keeps access and refresh material in separate Secure, HttpOnly,
+SameSite cookies, rejects arbitrary redirect targets, and re-verifies every
+provider-issued access JWT before installing it. Person auth is independently
+disabled by default before provider configuration is initialized.
+
 The control plane now contains fixed Node.js POST routes for agent enrollment,
 polling, and results, plus person-authenticated device-enrollment creation and
 revocation. Enrollment creation is independently disabled by default before

@@ -36,6 +36,8 @@ Vercelはrepository外に設定を保存します。
 | `EJECT_DATABASE_SSL_CA_B64`       | sensitive  | なし    | なし        |
 | `EJECT_AGENT_DELIVERY_ENABLED`    | `false`    | `false` | `false`     |
 | `EJECT_DEVICE_ENROLLMENT_ENABLED` | なし       | なし    | なし        |
+| `EJECT_PERSON_AUTH_ENABLED`        | なし       | なし    | なし        |
+| `EJECT_SUPABASE_PUBLISHABLE_KEY`   | なし       | なし    | なし        |
 
 Productionはport 6543のSupavisor transaction poolerを使います。Preview buildにはproduction
 database credentialを渡しません。shellのbuildとrenderはできますが、agent routeは利用できない
@@ -45,7 +47,8 @@ URLを使います。
 Vercelにserver response-signing private keyは設定していません。environment delivery flagを誤って
 変更しても、必要なsigning keyがないためagent transport compositionはfail closedになります。
 独立したdatabase delivery gateも無効のままです。device enrollmentもopt-in environment variableが
-存在しないため、独立してfail closedです。
+存在しないため、独立してfail closedです。person authもopt-inとprovider publishable keyの両方が
+存在しないためfail closedです。
 
 ## TLS trust
 

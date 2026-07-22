@@ -23,8 +23,9 @@
   [#12](https://github.com/tnoborio/eject/pull/12)(cloud database environment)、
   [#13](https://github.com/tnoborio/eject/pull/13)(person-session authentication)、
   [#14](https://github.com/tnoborio/eject/pull/14)(device enrollment・revocation)
-- **現在の検証済み実装:** `main`上のPR #14。repositoryのmigration 3件はすべてprotected cloud
-  databaseへ適用し、checksumを検証済み
+- **現在の検証済み実装:** `main`上のPR #14と、現在のcheckoutでlocal検証済み・default-disabledの
+  person PKCE session route。repositoryのmigration 3件はすべてprotected cloud databaseへ適用し、
+  checksumを検証済み
 - **`main`上の検証済みCI:** [Windows spike run 29688104811](https://github.com/tnoborio/eject/actions/runs/29688104811)、
   [protocol contract run 29688208249](https://github.com/tnoborio/eject/actions/runs/29688208249)、
   [control-plane run 29813234824](https://github.com/tnoborio/eject/actions/runs/29813234824)
@@ -36,7 +37,8 @@
   identity・device-security architectureは採用済み。control planeは認証済みagent pollingとresult
   ingestionまで実装済み。person-session境界はSupabase asymmetric JWTを検証し、現在のEJECT
   account statusを再確認する。default-disabledのone-use device enrollmentとowner revocationは
-  `main`へ実装済み。Sasaraの運用管理下に専用managed PostgreSQL環境とVercel projectも
+  `main`へ実装済み。現在のcheckoutはdefault-disabledのserver管理PKCE cookie lifecycleを追加する。
+  Sasaraの運用管理下に専用managed PostgreSQL環境とVercel projectも
   存在するが、すべてのgateでdeliveryは無効で、Windows agentは未接続。
 
 ## 現在の状態
@@ -95,7 +97,9 @@ EJECT account statusを再確認します。repositoryには10分・one-use enro
 idempotentなowner revocationを追加します。enrollment secretはdigestだけを保存し、canonical P-256
 SubjectPublicKeyInfoだけを受理し、enrollment作成はdefault-disabledのまま、device keyとundelivered
 commandをatomicに取消します。live Supabase sign-in、standard-user Windows CNG証拠、Windows pollingは
-未完了です。EJECT専用Supabase PostgreSQL 17 projectはTokyoに作成済みで、
+未完了です。現在のcheckoutは、既存user向けmagic-link、PKCE callback、email OTP、refresh、local logoutの
+固定routeをS256 state bindingと分離したhost-only cookieで追加します。provider設定とUIは未設定です。
+EJECT専用Supabase PostgreSQL 17 projectはTokyoに作成済みで、
 SSL enforcement、migration 3件、application row 0件、delivery無効を確認済みです。`sasara/eject`
 Vercel projectはGitHubへ接続し、TokyoでNode.js 22のNext.jsを実行します。database accessは
 Productionだけに保護して設定し、Previewにはdatabase credentialを渡していません。
@@ -316,6 +320,16 @@ docs/decisions/0005-identity-and-device-security.md
 43. 現在のProduction deploymentはagent pollingで`DELIVERY_DISABLED`、agent enrollmentで
     `ENROLLMENT_DISABLED`を返した。enrollmentのenvironment opt-inとresponse-signing private keyは
     未設定のままで、person、device、secret、command、result、private eventは作成していない。
+44. 現在のcheckoutはcontrol-plane unit test 92件に成功する。person-session lifecycleをblockingの
+    critical境界へ追加し、branch・function・line・statement coverageは100%を維持する。
+45. closed HTTP testはmagic-link開始、OTP検証、refresh、local logoutを正確なPOST pathとHTTPS Originへ
+    bindする。callbackは同じbrowserの32-byte stateと一つだけのcodeを受理し、open redirectを持たず、
+    one-time PKCE cookieを消去し、`private, no-store`・`no-referrer` response policyを適用する。
+46. Supabase adapterはPKCE S256、`create_user = false`、server側だけのpublishable key、bounded provider
+    response、refresh token rotation、local-scope logoutを使い、access・refresh cookieを設定する前に
+    asymmetric JWT検証を必須にする。
+47. production buildはperson-auth固定route 5件を含む。独立opt-inが正確にtrueでない限りprovider初期化前に
+    `PERSON_AUTH_DISABLED`を返す。Vercelにはauth設定もpublishable keyも設定していない。
 
 検証済み`main` artifactのチェックサムは次のとおりです。
 
@@ -357,8 +371,9 @@ artifactには期限があり、後続ビルドのチェックサムは変わり
 - UI、インストーラー、コード署名、更新チャネル、デバイス資格情報、サーバー接続がない。
 - protocol v1は実際の制御面とagent間ではまだ動かしていない。
 - PostgreSQL issuance、認証済みpoll・result transport、person-session検証、server enrollment・
-  revocation境界は実装済みだが、server管理のSupabase magic-link/OTP PKCE cookie発行・refresh route、
-  Windows CNG key作成、Windows polling clientは未実装。
+  revocation境界は実装済みで、server管理のSupabase magic-link/OTP PKCE cookie lifecycleもlocal実装済みだが、
+  disabled・未設定である。sign-in UI、live providerのend-to-end証拠、Windows CNG key作成、Windows polling
+  clientは未実装。
 - person JWT adapterはlocal asymmetric JWKS fixtureで検証済みだが、作成済みSupabase Auth issuerや
   liveなrotated key setに対しては未検証。
 - cloud environmentはmigration 3件をすべて適用・検証済みだが、person、device、enrollment secret、
@@ -421,12 +436,10 @@ gh run download RUN_ID --name eject-windows-x64 --dir artifacts/github-actions
 Kysely issuance、決定論的PostgreSQL race、advisory mutation testing、ADR 0005、認証済みpoll・result
 transport、専用cloud database environment、person-session adapter、server enrollment・revocation境界は
 実装済みで、migration 3件はすべてprotected cloud databaseへ適用済みです。次のsoftware順序は
-次のとおりです。
+次のとおりです。person PKCE cookie lifecycleはlocal実装済みです。
 
-1. application identity portを変えず、interactive sign-inに必要なserver管理のmagic-link/OTP PKCE
-   cookie lifecycleを追加する。
-2. enrollment完了扱いにする前に、standard userでnon-exportable P-256 Windows CNG key作成を実機検証する。
-3. generic commandやinbound portを追加せず、outbound Windows polling、durable replay consumption、
+1. enrollment完了扱いにする前に、standard userでnon-exportable P-256 Windows CNG key作成を実機検証する。
+2. generic commandやinbound portを追加せず、outbound Windows polling、durable replay consumption、
    result resendを追加する。
 
 person-authとenrollment作業中はenrollment opt-inを未設定、両delivery gateをfalseのままにし、
@@ -465,8 +478,9 @@ decisionが必要です。
    Production-only database access、migration完全一致検証、Git接続済みVercel deployment、delivery無効で実装済み。
 5. **person auth・Windows登録とpolling** — person-session検証とdefault-disabledのserver enrollment・
    revocation境界は`main`へ実装済みで、3件目のmigrationもprotected cloud databaseへ適用・検証済み。
-   server管理のPKCE cookie route、protected Windows key作成、ローカルreplay防止、1回だけの実行、
-   result report、outbound-only pollingは未実装。
+   server管理のPKCE cookie routeはlocal実装済み・default-disabled。sign-in UIとlive provider証拠、
+   protected Windows key作成、ローカルreplay防止、1回だけの実行、result report、outbound-only pollingは
+   未実装。
 6. **並行するハードウェア証拠** — 機材入手後、レビュー済みレポートと、証拠により狭く
    裏付けられたadapter修正を追加する。
 

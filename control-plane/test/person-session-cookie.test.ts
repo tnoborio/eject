@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { readPersonAccessToken } from "../src/modules/identity/transport/person-session-cookie";
+import {
+  readPersonAccessToken,
+  readPersonPkceChallenge,
+  readPersonRefreshToken,
+} from "../src/modules/identity/transport/person-session-cookie";
 
 const token = "header.payload.signature";
 
@@ -27,6 +31,31 @@ describe("person session cookie", () => {
     for (const cookie of cases) {
       expect(readPersonAccessToken(requestWithCookie(cookie))).toBeNull();
     }
+  });
+
+  it("reads only bounded fixed refresh and PKCE cookies", () => {
+    const verifier = "v".repeat(43);
+    const state = "s".repeat(43);
+    const request = requestWithCookie(
+      `__Host-eject-refresh=refresh-token-value-1234; __Host-eject-pkce-verifier=${verifier}; __Host-eject-pkce-state=${state}`,
+    );
+    expect(readPersonRefreshToken(request)).toBe("refresh-token-value-1234");
+    expect(readPersonPkceChallenge(request)).toEqual({ verifier, state });
+
+    expect(
+      readPersonRefreshToken(
+        requestWithCookie(
+          "__Host-eject-refresh=refresh-token-value-1234; __Host-eject-refresh=refresh-token-value-1234",
+        ),
+      ),
+    ).toBeNull();
+    expect(
+      readPersonPkceChallenge(
+        requestWithCookie(
+          `__Host-eject-pkce-verifier=${verifier}; __Host-eject-pkce-state=short`,
+        ),
+      ),
+    ).toBeNull();
   });
 });
 

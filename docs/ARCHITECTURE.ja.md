@@ -65,6 +65,12 @@ ECDSA P-256 keyを持たせます。認証済みoutbound requestと署名済みs
 bytesとreplay-resistant nonceへbindします。詳細は
 [ADR 0005](decisions/0005-identity-and-device-security.ja.md)を参照してください。
 
+server管理のperson-auth境界には、既存user向けemail magic-link開始、PKCE callback交換、email OTP検証、
+refresh rotation、local-session logoutの固定routeがあります。S256 verifier・state cookieを生成し、
+access・refresh materialを分離したSecure、HttpOnly、SameSite cookieへ保存し、任意redirect targetを拒否して、
+providerが発行したaccess JWTをcookieへ設定する前に再検証します。person authはprovider設定を初期化する前の
+独立gateでdefault disabledです。
+
 control planeにはagent enrollment・poll・result用の固定Node.js POST routeと、person認証済みの
 device-enrollment作成・revocation routeがあります。enrollment作成は独立したgateでdefault disabled
 となり、databaseやperson authの初期化前に停止します。poll・result deliveryは別のenvironment gateを
