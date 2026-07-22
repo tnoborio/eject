@@ -23,21 +23,23 @@ the order in which work should continue.
   [#11](https://github.com/tnoborio/eject/pull/11) (authenticated agent
   polling), [#12](https://github.com/tnoborio/eject/pull/12) (cloud database
   environment), [#13](https://github.com/tnoborio/eject/pull/13) (person-session
-  authentication)
-- **Current verified implementation:** PR #13 on `main`, plus locally verified
-  device enrollment and revocation in the current checkout pending CI
+  authentication), [#14](https://github.com/tnoborio/eject/pull/14) (device
+  enrollment and revocation)
+- **Current verified implementation:** PR #14 on `main`; all three repository
+  migrations are applied and checksum-verified in the protected cloud database
 - **Verified CI on `main`:** [Windows spike run 29688104811](https://github.com/tnoborio/eject/actions/runs/29688104811),
   [protocol contract run 29688208249](https://github.com/tnoborio/eject/actions/runs/29688208249),
   [control-plane run 29813234824](https://github.com/tnoborio/eject/actions/runs/29813234824)
 - **Verified CI for PR #12:** [control-plane run 29839496511](https://github.com/tnoborio/eject/actions/runs/29839496511)
 - **Verified CI for PR #13:** [control-plane run 29895265935](https://github.com/tnoborio/eject/actions/runs/29895265935),
   [protocol run 29895265928](https://github.com/tnoborio/eject/actions/runs/29895265928)
+- **Verified CI for PR #14:** [control-plane run 29896627535](https://github.com/tnoborio/eject/actions/runs/29896627535)
 - **Current product phase:** Stage 0 awaits physical evidence; Stage 1 protocol,
   control-plane, and identity/device-security architecture are accepted. The
   control plane is implemented through authenticated agent polling and result
   ingestion. The person-session boundary now verifies Supabase asymmetric JWTs
-  and rechecks current EJECT account status. The current checkout adds
-  default-disabled one-use device enrollment and owner revocation. A dedicated
+  and rechecks current EJECT account status. Default-disabled one-use device
+  enrollment and owner revocation are implemented on `main`. A dedicated
   managed PostgreSQL environment and Vercel project exist under Sasara
   operational ownership, but delivery is disabled at every gate and no Windows
   agent is connected.
@@ -103,14 +105,15 @@ routes, device key and nonce checks, signed responses, result idempotency, and
 fail-closed environment and database delivery gates are now implemented. The
 person-session adapter accepts identity only from a Supabase JWT with an exact
 issuer and audience, valid expiry, and UUID subject, then rechecks the current
-EJECT account status. The current checkout adds the server side of the
+EJECT account status. The repository includes the server side of the
 ten-minute, one-use enrollment ceremony and idempotent owner revocation. It
 stores only enrollment-secret digests, accepts only canonical P-256
 SubjectPublicKeyInfo, keeps enrollment creation disabled by default, and
 atomically revokes device keys and undelivered commands. Live Supabase sign-in,
 standard-user Windows CNG evidence, and Windows polling remain incomplete.
 The EJECT-specific Supabase PostgreSQL 17 project is provisioned in Tokyo with
-SSL enforcement, both migrations, zero application rows, and delivery disabled.
+SSL enforcement, all three migrations, zero application rows, and delivery
+disabled.
 The `sasara/eject` Vercel project is connected to GitHub, runs Next.js on Node.js
 22 in Tokyo, with production-only protected database access and no database
 credential in Preview.
@@ -357,6 +360,18 @@ The following facts have direct build or test evidence:
     `ENROLLMENT_DISABLED` before database or person-auth initialization unless
     its independent environment gate is explicitly true; revocation remains a
     separate authenticated safety path.
+41. PR #14 merged as `f08d090` after all four control-plane jobs and both Vercel
+    checks passed ([control-plane run 29896627535](https://github.com/tnoborio/eject/actions/runs/29896627535)).
+42. On 2026-07-22, migration 0003 was applied to the dedicated protected
+    Supabase PostgreSQL 17 database in one advisory-locked transaction. A
+    separate read-only query verified all three repository checksums, both new
+    indexes and metadata columns, removal of the old owner uniqueness
+    constraint, `delivery_enabled = false`, an unset physical ceiling, and zero
+    aggregate application rows.
+43. The current Production deployment returned `DELIVERY_DISABLED` from agent
+    polling and `ENROLLMENT_DISABLED` from agent enrollment. The enrollment
+    environment opt-in and response-signing private key remain absent; no
+    person, device, secret, command, result, or private event was created.
 
 The verified `main` artifact had this checksum:
 
@@ -409,15 +424,12 @@ Record the failure and narrow the supported capability contract instead.
   but server-owned Supabase magic-link/OTP PKCE cookie issuance and refresh
   routes, Windows CNG key creation, and the Windows polling client have not been
   implemented.
-- The third enrollment migration is checked in and verified against ephemeral
-  PostgreSQL 17 but is not yet applied to or checksum-verified against the
-  protected Supabase database. Enrollment remains disabled in every deployed
-  environment.
 - The person JWT adapter has been verified with local asymmetric JWKS fixtures,
   not against the provisioned Supabase Auth issuer or a live rotated key set.
-- The cloud environment is provisioned and migration-verified, but no person,
-  device, command, result, signing key, or private event has been added. It is
-  infrastructure readiness, not a live service.
+- The cloud environment has all three migrations applied and verified, but no
+  person, device, enrollment secret, command, result, signing key, or private
+  event has been added. Enrollment remains disabled. This is infrastructure
+  readiness, not a live service.
 - ADR 0005 fixes the authentication provider, device credential, integrity,
   replay, revocation, idempotency, and clock construction. It has not received
   independent security review or standard-user Windows CNG validation.
@@ -480,19 +492,19 @@ only development queue. SQL migrations, blocking CI, Kysely issuance,
 deterministic PostgreSQL races, advisory mutation testing, ADR 0005,
 authenticated poll/result transport, and the dedicated cloud database
 environment, person-session adapter, and server enrollment/revocation boundary
-are implemented. The next software sequence is:
+are implemented, and all three migrations are applied to the protected cloud
+database. The next software sequence is:
 
-1. apply and independently verify the third migration in the protected cloud
-   database while keeping enrollment and both delivery gates false;
-2. add the server-owned magic-link/OTP PKCE cookie lifecycle needed for
+1. add the server-owned magic-link/OTP PKCE cookie lifecycle needed for
    interactive sign-in without changing the application identity port;
-3. validate non-exportable P-256 Windows CNG creation as a standard user on real
+2. validate non-exportable P-256 Windows CNG creation as a standard user on real
    Windows before accepting enrollment as complete; and
-4. add outbound Windows polling, durable replay consumption, and result resend
+3. add outbound Windows polling, durable replay consumption, and result resend
    without adding any generic command or inbound port.
 
-Keep both delivery gates false and do not configure the server response-signing
-private key in Vercel during the person-auth and enrollment work.
+Keep the enrollment opt-in absent, keep both delivery gates false, and do not
+configure the server response-signing private key in Vercel during the
+person-auth and enrollment work.
 
 The skeleton's pull requests must block on formatting, lint, TypeScript,
 dependency rules, a Next.js production build, pure and property tests, and
@@ -519,8 +531,8 @@ snapshot links). Keep subsequent changes small and reviewable:
 
 1. **Control-plane PostgreSQL and CI** — checked-in SQL migrations, Kysely
    issuance repository, real-database race tests, and blocking workflow are
-   implemented, as is scheduled advisory mutation testing; there is still no
-   public endpoint or device enrollment.
+   implemented, as is scheduled advisory mutation testing. This foundation was
+   established before adding any public endpoint or device enrollment.
 2. **Identity and device-security ADR** — accepted in ADR 0005: Supabase person
    identity, separate CNG device keys, protected storage, exact-byte integrity,
    replay, revocation, result idempotency, and clock rules.
@@ -532,10 +544,11 @@ snapshot links). Keep subsequent changes small and reviewable:
    access, exact migration verification, Git-connected Vercel deployment, and
    delivery disabled.
 5. **Person auth and Windows enrollment/polling** — person-session verification
-   and the default-disabled server enrollment/revocation boundary are locally
-   implemented. Server-owned PKCE cookie routes, protected Windows key creation,
-   local replay protection, one attempt, result report, and outbound-only
-   polling remain.
+   and the default-disabled server enrollment/revocation boundary are on `main`,
+   and their third migration is applied and verified in the protected cloud
+   database. Server-owned PKCE cookie routes, protected Windows key creation,
+   local replay protection, one attempt, result report, and outbound-only polling
+   remain.
 6. **Hardware evidence in parallel** — add reviewed reports and any narrowly
    evidence-backed adapter corrections when equipment becomes available.
 
