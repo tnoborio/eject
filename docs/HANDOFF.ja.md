@@ -7,7 +7,7 @@
 
 ## スナップショット
 
-- **日付:** 2026-07-21
+- **日付:** 2026-07-22
 - **リポジトリ:** `tnoborio/eject`
 - **現在のブランチ:** `main`
 - **マージ済みPR:** [#2](https://github.com/tnoborio/eject/pull/2)(Stage 0スパイク)、
@@ -21,14 +21,16 @@
   [#10](https://github.com/tnoborio/eject/pull/10)(identity・device security)、
   [#11](https://github.com/tnoborio/eject/pull/11)(認証済みagent polling)、
   [#12](https://github.com/tnoborio/eject/pull/12)(cloud database environment)
-- **現在の検証済み実装:** `main`上のPR #12
+- **現在の検証済み実装:** `main`上のPR #12と、現在のcheckoutでlocal検証済み・CI待ちの
+  person-session adapter
 - **`main`上の検証済みCI:** [Windows spike run 29688104811](https://github.com/tnoborio/eject/actions/runs/29688104811)、
   [protocol contract run 29688208249](https://github.com/tnoborio/eject/actions/runs/29688208249)、
   [control-plane run 29813234824](https://github.com/tnoborio/eject/actions/runs/29813234824)
 - **PR #12の検証済みCI:** [control-plane run 29839496511](https://github.com/tnoborio/eject/actions/runs/29839496511)
 - **現在のプロダクト段階:** Stage 0は物理証拠待ち。Stage 1 protocol、control-plane、
   identity・device-security architectureは採用済み。control planeは認証済みagent pollingとresult
-  ingestionまで実装済み。Sasaraの運用管理下に専用managed PostgreSQL環境とVercel projectも
+  ingestionまで実装済み。person-session境界はSupabase asymmetric JWTを検証し、現在のEJECT
+  account statusを再確認する。Sasaraの運用管理下に専用managed PostgreSQL環境とVercel projectも
   存在するが、すべてのgateでdeliveryは無効で、Windows agentは未接続。
 
 ## 現在の状態
@@ -81,8 +83,10 @@ protocol transport mapper、locale resource、blocking local verificationも実�
 Supabase Auth、端末ごとのnon-exportableなWindows CNG ECDSA P-256 key、署名済みrequest・response
 構成、replay・revocation確認、result idempotency、clock規則を選択しました。public eject endpointは
 ありません。認証済みpoll・result route、device key・nonce確認、signed response、result idempotency、
-fail-closedなenvironment・database delivery gateは実装済みです。device enrollment、person向けauth
-route、Windows pollingは未完了です。EJECT専用Supabase PostgreSQL 17 projectはTokyoに作成済みで、
+fail-closedなenvironment・database delivery gateは実装済みです。person-session adapterは、issuer・
+audienceの完全一致、有効なexpiry、UUID subjectを持つSupabase JWTだけからidentityを受理し、現在の
+EJECT account statusを再確認します。device enrollment、server管理のPKCE cookie発行・refresh route、
+Windows pollingは未完了です。EJECT専用Supabase PostgreSQL 17 projectはTokyoに作成済みで、
 SSL enforcement、migration 2件、application row 0件、delivery無効を確認済みです。`sasara/eject`
 Vercel projectはGitHubへ接続し、TokyoでNode.js 22のNext.jsを実行します。database accessは
 Productionだけに保護して設定し、Previewにはdatabase credentialを渡していません。
@@ -115,6 +119,10 @@ control-plane/src/modules/eject/
 control-plane/src/modules/devices/
     device request authentication port、Node P-256 crypto、bounded HTTP parsing、signed poll・result
     response handler。
+
+control-plane/src/modules/identity/
+    applicationが所有するperson-session・account-status port、固定host-only access-cookie reader、
+    Supabase JWKS JWT検証、PostgreSQL current-account-status adapter。
 
 control-plane/src/app/api/agent/v1/
     environment gateを明示的に有効にしない限り利用できない、固定poll・result POST route。
@@ -221,7 +229,8 @@ docs/decisions/0005-identity-and-device-security.md
 19. fast-check property、P-256 request・response integrity、closed HTTP handling、protocol result
     mapping、default-disabled routeを含むcontrol-plane test 49件がすべて成功する。重要なauthorization、
     lifecycle、exposure、idempotency codeはbranch、function、line、statement coverage 100%。
-20. production dependency auditは既知の脆弱性0件。PostCSS 8.5.20 overrideにより、Next.jsの
+20. 2026-07-21時点のproduction dependency auditは既知の脆弱性0件だった。PostCSS 8.5.20
+    overrideにより、Next.jsの
     transitive defaultにあったadvisoryを除去した。
 21. `main`上のcontrol-plane workflowで、static・architecture、critical coverage 100%の
     domain・protocol、PostgreSQL 17 migration・repository・concurrency test 12件、production
@@ -254,6 +263,20 @@ docs/decisions/0005-identity-and-device-security.md
     `404 DELIVERY_DISABLED`を確認した。
 30. PR #12はblocking control-plane job 4件とVercel check 2件にすべて成功した
     ([run 29839496511](https://github.com/tnoborio/eject/actions/runs/29839496511))。
+31. 2026-07-22にperson-session adapterはcontrol-plane unit test 58件に成功した。重要なapplication、
+    Supabase JWT、固定cookie surfaceは、blockingのbranch・function・line・statement coverage 100%の
+    対象に含まれる。
+32. JWT adapterは、設定済みSupabase JWKSで解決するES256またはRS256署名、issuer・audienceの完全一致、
+    必須expiry、小文字UUID subjectだけを受理する。誤ったclaim、expiry、signature、malformed・oversized
+    token、UUIDでないsubjectを拒否し、emailやprovider identityをapplication codeへ渡さないことをtestで
+    確認した。
+33. PostgreSQL 17 test 18件がlocalで成功する。追加した実database testにより、request間でpersonが
+    `ACTIVE`から`RESTRICTED`へ変わると、次のsession authenticationがrestrictionを認識することを証明した。
+34. 現在のcheckoutはlocked `npm ci`、protocol test 11件、control-plane static・architecture check、
+    production build、.NET 10 test 10件に成功する。新しい`jose` dependencyは6.2.4へexact pinした。
+35. このsessionで見つかった新しい`fast-uri` advisoryは、互換な3.1.4 lockfileで解消し、standalone
+    protocol production auditはcleanになった。root production auditには既知の制限に記した新しい
+    Sharp/libvips advisoryが残る。
 
 検証済み`main` artifactのチェックサムは次のとおりです。
 
@@ -294,12 +317,19 @@ artifactには期限があり、後続ビルドのチェックサムは変わり
   適するが永続的なハードウェア識別子ではなく、ドライブ文字の再割り当てで変化する。
 - UI、インストーラー、コード署名、更新チャネル、デバイス資格情報、サーバー接続がない。
 - protocol v1は実際の制御面とagent間ではまだ動かしていない。
-- PostgreSQL issuanceと認証済みpoll・result transportは実装済みだが、person向けSupabase
-  authentication、device enrollment、Windows CNG key作成、Windows polling clientは未実装。
+- PostgreSQL issuance、認証済みpoll・result transport、person-session検証境界は実装済みだが、
+  server管理のSupabase magic-link/OTP PKCE cookie発行・refresh route、device enrollment、Windows CNG
+  key作成、Windows polling clientは未実装。
+- person JWT adapterはlocal asymmetric JWKS fixtureで検証済みだが、作成済みSupabase Auth issuerや
+  liveなrotated key setに対しては未検証。
 - cloud environmentは作成・migration検証済みだが、person、device、command、result、signing key、
   private eventは一件も追加していない。これはinfrastructure readinessでありlive serviceではない。
 - ADR 0005でauthentication provider、device credential、integrity、replay、revocation、
   idempotency、clock構成を確定した。独立security reviewとstandard-user Windows CNG検証は未実施。
+- 2026-07-22時点で`npm audit --omit=dev`は、Next.jsのoptional Sharp 0.34.5 dependency経由で
+  high-severityのlibvips advisoryを報告する。現在の最新stable Next.jsも`sharp ^0.34.5`を宣言する一方、
+  audit上の修正版はSharp 0.35以降である。unsupportedなmajor overrideを強制せず、互換Next.js release
+  または明示的にreviewしたdecisionで更新する。
 - protocol共有、pure test境界、SQL migration、PostgreSQL issuance repository、実database
   race test、blocking control-plane CIは実装済み。定期的なadvisory mutation testingも実装済み。
 - 実機証拠から説明可能なsafety ceilingが得られるまで、subscription価格とinbound frequency
@@ -349,11 +379,13 @@ gh run download RUN_ID --name eject-windows-x64 --dir artifacts/github-actions
 
 物理検証は並行要件として残しますが、唯一の開発queueにはしません。SQL migration、blocking CI、
 Kysely issuance、決定論的PostgreSQL race、advisory mutation testing、ADR 0005、認証済みpoll・result
-transport、専用cloud database environmentは実装済みです。次のsoftware順序は次のとおりです。
+transport、専用cloud database environment、person-session adapterは実装済みです。次のsoftware順序は
+次のとおりです。
 
-1. browserが渡すidentityを信頼せず、Supabase Auth用person-session adapterを定義・実装する。
-2. 短命・one-useのdevice enrollment ceremonyと即時revocation routeを、closed HTTP contractと
-   PostgreSQL race test付きで実装する。
+1. person-session adapterをowner identityに使い、短命・one-useのdevice enrollment ceremonyと
+   即時revocation routeをclosed HTTP contractとPostgreSQL race test付きで実装する。
+2. application identity portを変えず、interactive sign-inに必要なserver管理のmagic-link/OTP PKCE
+   cookie lifecycleを追加する。
 3. enrollment完了扱いにする前に、standard userでnon-exportable P-256 Windows CNG key作成を実機検証する。
 4. generic commandやinbound portを追加せず、outbound Windows polling、durable replay consumption、
    result resendを追加する。
@@ -392,8 +424,9 @@ decisionが必要です。
    signed response、nonce replay防止、result idempotency、二つのfail-closed delivery gateを持つ。
 4. **専用cloud environment** — 独立managed PostgreSQL 17 project、SSL enforcement、protectedな
    Production-only database access、migration完全一致検証、Git接続済みVercel deployment、delivery無効で実装済み。
-5. **person auth・Windows登録とpolling** — 保護ストレージ上の独立したdevice credential、ローカル
-   リプレイ防止、1回だけの実行、結果報告を実装し、インバウンドポートを開かない。
+5. **person auth・Windows登録とpolling** — person-session adapterはlocal実装済み。server管理のPKCE
+   cookie route、protected storage上の独立したdevice credential、enrollment・revocation、ローカル
+   replay防止、1回だけの実行、result report、outbound-only pollingは未実装。
 6. **並行するハードウェア証拠** — 機材入手後、レビュー済みレポートと、証拠により狭く
    裏付けられたadapter修正を追加する。
 

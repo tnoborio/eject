@@ -23,6 +23,7 @@
   },
   "dependencies": {
     "@eject/protocol-contract": "0.1.0",
+    "jose": "6.2.4",
     "kysely": "0.29.4",
     "next": "16.2.10",
     "pg": "8.22.0",
