@@ -134,10 +134,7 @@ public sealed class WindowsCngDeviceKeyStoreTests
         var keyName = WindowsCngDeviceKeyStore.CreateKeyName(keyId);
         var providers = Enum.GetValues<WindowsCngProviderKind>()
             .Select(WindowsCngDeviceKeyStore.ToProvider)
-            .Where(provider => CngKey.Exists(
-                keyName,
-                provider,
-                CngKeyOpenOptions.UserKey))
+            .Where(provider => TestKeyExists(keyName, provider))
             .ToArray();
         var provider = Assert.Single(providers);
         return CngKey.Open(
@@ -170,6 +167,20 @@ public sealed class WindowsCngDeviceKeyStoreTests
             {
                 // An unavailable provider cannot contain the unique test key.
             }
+        }
+    }
+
+    [SupportedOSPlatform("windows")]
+    private static bool TestKeyExists(string keyName, CngProvider provider)
+    {
+        try
+        {
+            return CngKey.Exists(keyName, provider, CngKeyOpenOptions.UserKey);
+        }
+        catch (Exception exception)
+            when (exception is CryptographicException or PlatformNotSupportedException)
+        {
+            return false;
         }
     }
 }
