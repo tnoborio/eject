@@ -25,9 +25,10 @@ the order in which work should continue.
   environment), [#13](https://github.com/tnoborio/eject/pull/13) (person-session
   authentication), [#14](https://github.com/tnoborio/eject/pull/14) (device
   enrollment and revocation), [#15](https://github.com/tnoborio/eject/pull/15)
-  (protected migration evidence), and
-  [#16](https://github.com/tnoborio/eject/pull/16) (person PKCE sessions)
-- **Current verified implementation:** PR #16 on `main`; all three repository
+  (protected migration evidence), [#16](https://github.com/tnoborio/eject/pull/16)
+  (person PKCE sessions), and [#17](https://github.com/tnoborio/eject/pull/17)
+  (protected Windows CNG device keys)
+- **Current verified implementation:** PR #17 on `main`; all three repository
   migrations are applied and checksum-verified in the protected cloud database
 - **Verified CI on `main`:** [Windows spike run 29688104811](https://github.com/tnoborio/eject/actions/runs/29688104811),
   [protocol contract run 29688208249](https://github.com/tnoborio/eject/actions/runs/29688208249),
@@ -37,14 +38,17 @@ the order in which work should continue.
   [protocol run 29895265928](https://github.com/tnoborio/eject/actions/runs/29895265928)
 - **Verified CI for PR #14:** [control-plane run 29896627535](https://github.com/tnoborio/eject/actions/runs/29896627535)
 - **Verified CI for PR #16:** [control-plane run 29898326094](https://github.com/tnoborio/eject/actions/runs/29898326094)
+- **Verified CI for PR #17:** [Windows run 29899184939](https://github.com/tnoborio/eject/actions/runs/29899184939)
 - **Current product phase:** Stage 0 awaits physical evidence; Stage 1 protocol,
   control-plane, and identity/device-security architecture are accepted. The
   control plane is implemented through authenticated agent polling and result
   ingestion. The person-session boundary now verifies Supabase asymmetric JWTs
   and rechecks current EJECT account status. Default-disabled one-use device
   enrollment and owner revocation are implemented on `main`, together with a
-  default-disabled server-owned PKCE cookie lifecycle. A dedicated managed
-  PostgreSQL environment and Vercel project exist under Sasara
+  default-disabled server-owned PKCE cookie lifecycle. The protected Windows
+  CNG device-key store is also implemented, but enrollment and polling are not
+  connected and real standard-user evidence remains required. A dedicated
+  managed PostgreSQL environment and Vercel project exist under Sasara
   operational ownership, but delivery is disabled at every gate and no Windows
   agent is connected.
 
@@ -114,10 +118,12 @@ ten-minute, one-use enrollment ceremony and idempotent owner revocation. It
 stores only enrollment-secret digests, accepts only canonical P-256
 SubjectPublicKeyInfo, keeps enrollment creation disabled by default, and
 atomically revokes device keys and undelivered commands. Live Supabase sign-in,
-standard-user Windows CNG evidence, and Windows polling remain incomplete. Fixed
-existing-user magic-link, PKCE callback, email OTP, refresh, and local-logout
-routes are implemented with S256 state binding and separate host-only cookies;
-provider configuration and UI remain absent.
+standard-user Windows CNG evidence, and Windows polling remain incomplete. The
+Windows key-store implementation creates persistent current-user P-256 keys,
+prefers the Platform provider, falls back only to the Software KSP, and never
+exports private material. Fixed existing-user magic-link, PKCE callback, email
+OTP, refresh, and local-logout routes are implemented with S256 state binding
+and separate host-only cookies; provider configuration and UI remain absent.
 The EJECT-specific Supabase PostgreSQL 17 project is provisioned in Tokyo with
 SSL enforcement, all three migrations, zero application rows, and delivery
 disabled.
@@ -134,6 +140,14 @@ open a physical tray until that test evidence exists.
 ```text
 .github/workflows/windows-spike.yml
     Native Windows test, publish, smoke-test, checksum, and artifact workflow.
+
+src/Eject.Agent.Core/IDeviceKeyStore.cs
+    Narrow create, public-key retrieval, and exact-byte signing port for one
+    per-device key.
+
+src/Eject.Agent.Windows/WindowsCngDeviceKeyStore.cs
+    Persistent current-user, non-exportable CNG P-256 implementation with a
+    closed Platform-provider-to-Software-KSP fallback.
 
 .github/workflows/protocol-contract.yml
     Locked Node.js install and protocol Schema/semantic tests.
@@ -397,11 +411,21 @@ The following facts have direct build or test evidence:
     Vercel.
 48. PR #16 passed all four control-plane jobs and both Vercel checks before
     merge ([control-plane run 29898326094](https://github.com/tnoborio/eject/actions/runs/29898326094)).
+49. PR #17 passed 15 Windows tests on the hosted Windows 2025 runner. Its native
+    test created and reopened a persistent current-user P-256 key, verified DER
+    SubjectPublicKeyInfo and a 64-byte IEEE P1363 signature, confirmed the key's
+    export policy was `None`, and observed private-key export fail. Separate
+    provider-selection tests exercised the bounded Software KSP fallback.
+50. PR #17 then published and smoke-tested the self-contained Windows x64
+    executable and verified the hardware kit without ejecting
+    ([Windows run 29899184939](https://github.com/tnoborio/eject/actions/runs/29899184939)).
+    Hosted automation is not evidence of standard-user behavior or protected-key
+    behavior on target hardware.
 
-The verified `main` artifact had this checksum:
+The verified PR #17 artifact had this checksum:
 
 ```text
-d80c7f609a8aa36c332f0d2564c9ea869d56837ddfcf86698719cdc3b6406729
+830bb503a2b67952588231f82e311987430a5a01bee2d4838cc5151a615adf1d
 ```
 
 Artifacts expire and later builds have different checksums. Treat the checksum
@@ -441,15 +465,16 @@ Record the failure and narrow the supported capability contract instead.
 - The opaque drive identifier is derived from the current drive root. It is
   suitable for this local spike but is not a permanent hardware identity and
   can change when Windows reassigns drive letters.
-- The executable has no UI, installer, code signature, update channel, device
-  credential, or server connection.
+- The executable has no UI, installer, code signature, update channel,
+  enrollment state, or server connection. The CNG key store is not wired into
+  the CLI yet.
 - Protocol v1 has not yet been exercised between a real control plane and agent.
 - PostgreSQL issuance, authenticated poll/result transport, person-session
   verification, and the server enrollment/revocation boundary are implemented,
   and the server-owned Supabase magic-link/OTP PKCE cookie lifecycle is on
   `main` but disabled and unconfigured. A sign-in UI, live-provider
-  end-to-end evidence, Windows CNG key creation, and the Windows polling client
-  have not been implemented.
+  end-to-end evidence, wiring the Windows CNG key into enrollment, and the
+  Windows polling client have not been implemented.
 - The person JWT adapter has been verified with local asymmetric JWKS fixtures,
   not against the provisioned Supabase Auth issuer or a live rotated key set.
 - The cloud environment has all three migrations applied and verified, but no
@@ -519,8 +544,9 @@ deterministic PostgreSQL races, advisory mutation testing, ADR 0005,
 authenticated poll/result transport, and the dedicated cloud database
 environment, person-session adapter, and server enrollment/revocation boundary
 are implemented, and all three migrations are applied to the protected cloud
-database. The person PKCE cookie lifecycle is locally implemented. The next
-software sequence is:
+database. The person PKCE cookie lifecycle and protected Windows CNG key store
+are on `main`; the latter has hosted Windows CI evidence but no real standard-user
+hardware evidence. The next software sequence is:
 
 1. validate non-exportable P-256 Windows CNG creation as a standard user on real
    Windows before accepting enrollment as complete; and
@@ -572,9 +598,10 @@ snapshot links). Keep subsequent changes small and reviewable:
    and the default-disabled server enrollment/revocation boundary are on `main`,
    and their third migration is applied and verified in the protected cloud
    database. Server-owned PKCE cookie routes are also on `main` and
-   default-disabled. Sign-in UI and live-provider evidence, protected Windows
-   key creation, local replay protection, one attempt, result report, and
-   outbound-only polling remain.
+   default-disabled. Protected Windows key creation is implemented and verified
+   in hosted Windows CI but is not connected to enrollment. Sign-in UI and
+   live-provider evidence, real standard-user key evidence, local replay
+   protection, one attempt, result report, and outbound-only polling remain.
 6. **Hardware evidence in parallel** — add reviewed reports and any narrowly
    evidence-backed adapter corrections when equipment becomes available.
 

@@ -65,6 +65,12 @@ ECDSA P-256 keyを持たせます。認証済みoutbound requestと署名済みs
 bytesとreplay-resistant nonceへbindします。詳細は
 [ADR 0005](decisions/0005-identity-and-device-security.ja.md)を参照してください。
 
+Windows adapterは、そのdevice-key境界をcurrent-user scopeで永続化するCNG ECDSA P-256 keyとして
+実装します。Microsoft Platform Crypto Providerを優先し、Microsoft Software Key Storage Providerだけへ
+fallbackし、export policyなしのsigning用途を要求します。machine scopeなど要件外の保存keyを拒否し、
+DER SubjectPublicKeyInfoだけをexportして、固定64-byte IEEE P1363 signatureを生成します。このadapterは
+enrollment・pollingへ未接続で、hosted Windows CIは実機standard-user検証の代替ではありません。
+
 server管理のperson-auth境界には、既存user向けemail magic-link開始、PKCE callback交換、email OTP検証、
 refresh rotation、local-session logoutの固定routeがあります。S256 verifier・state cookieを生成し、
 access・refresh materialを分離したSecure、HttpOnly、SameSite cookieへ保存し、任意redirect targetを拒否して、

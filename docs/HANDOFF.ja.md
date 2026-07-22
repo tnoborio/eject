@@ -24,8 +24,9 @@
   [#13](https://github.com/tnoborio/eject/pull/13)(person-session authentication)、
   [#14](https://github.com/tnoborio/eject/pull/14)(device enrollment・revocation)、
   [#15](https://github.com/tnoborio/eject/pull/15)(protected migration証拠)、
-  [#16](https://github.com/tnoborio/eject/pull/16)(person PKCE session)
-- **現在の検証済み実装:** `main`上のPR #16。repositoryのmigration 3件はすべてprotected cloud
+  [#16](https://github.com/tnoborio/eject/pull/16)(person PKCE session)、
+  [#17](https://github.com/tnoborio/eject/pull/17)(protected Windows CNG device key)
+- **現在の検証済み実装:** `main`上のPR #17。repositoryのmigration 3件はすべてprotected cloud
   databaseへ適用し、checksumを検証済み
 - **`main`上の検証済みCI:** [Windows spike run 29688104811](https://github.com/tnoborio/eject/actions/runs/29688104811)、
   [protocol contract run 29688208249](https://github.com/tnoborio/eject/actions/runs/29688208249)、
@@ -35,12 +36,14 @@
   [protocol run 29895265928](https://github.com/tnoborio/eject/actions/runs/29895265928)
 - **PR #14の検証済みCI:** [control-plane run 29896627535](https://github.com/tnoborio/eject/actions/runs/29896627535)
 - **PR #16の検証済みCI:** [control-plane run 29898326094](https://github.com/tnoborio/eject/actions/runs/29898326094)
+- **PR #17の検証済みCI:** [Windows run 29899184939](https://github.com/tnoborio/eject/actions/runs/29899184939)
 - **現在のプロダクト段階:** Stage 0は物理証拠待ち。Stage 1 protocol、control-plane、
   identity・device-security architectureは採用済み。control planeは認証済みagent pollingとresult
   ingestionまで実装済み。person-session境界はSupabase asymmetric JWTを検証し、現在のEJECT
   account statusを再確認する。default-disabledのone-use device enrollmentとowner revocationは
   `main`へ実装済みで、default-disabledのserver管理PKCE cookie lifecycleも収載済み。
-  Sasaraの運用管理下に専用managed PostgreSQL環境とVercel projectも
+  protected Windows CNG device-key storeも実装済みだが、enrollment・pollingは未接続で、実機の
+  standard-user証拠が引き続き必要。Sasaraの運用管理下に専用managed PostgreSQL環境とVercel projectも
   存在するが、すべてのgateでdeliveryは無効で、Windows agentは未接続。
 
 ## 現在の状態
@@ -99,8 +102,10 @@ EJECT account statusを再確認します。repositoryには10分・one-use enro
 idempotentなowner revocationを追加します。enrollment secretはdigestだけを保存し、canonical P-256
 SubjectPublicKeyInfoだけを受理し、enrollment作成はdefault-disabledのまま、device keyとundelivered
 commandをatomicに取消します。live Supabase sign-in、standard-user Windows CNG証拠、Windows pollingは
-未完了です。既存user向けmagic-link、PKCE callback、email OTP、refresh、local logoutの固定routeは、
-S256 state bindingと分離したhost-only cookieで実装済みです。provider設定とUIは未設定です。
+未完了です。Windows key-store実装はcurrent-userの永続P-256 keyを作成し、Platform providerを優先して
+Software KSPだけへfallbackし、private materialをexportしません。既存user向けmagic-link、PKCE callback、
+email OTP、refresh、local logoutの固定routeは、S256 state bindingと分離したhost-only cookieで実装済みです。
+provider設定とUIは未設定です。
 EJECT専用Supabase PostgreSQL 17 projectはTokyoに作成済みで、
 SSL enforcement、migration 3件、application row 0件、delivery無効を確認済みです。`sasara/eject`
 Vercel projectはGitHubへ接続し、TokyoでNode.js 22のNext.jsを実行します。database accessは
@@ -114,6 +119,13 @@ Stage 0自体は**未完了**です。トレイ式光学ドライブを持つ実
 ```text
 .github/workflows/windows-spike.yml
     Windows上のテスト、発行、スモークテスト、チェックサム、artifact用workflow。
+
+src/Eject.Agent.Core/IDeviceKeyStore.cs
+    deviceごとのkeyについて、作成、public-key取得、正確なbyte列への署名だけを持つ狭いport。
+
+src/Eject.Agent.Windows/WindowsCngDeviceKeyStore.cs
+    current-userの永続・non-exportable CNG P-256実装。Platform providerからSoftware KSPだけへの
+    closed fallbackを持つ。
 
 .github/workflows/protocol-contract.yml
     locked Node.js installとprotocol Schema・意味テスト。
@@ -334,11 +346,18 @@ docs/decisions/0005-identity-and-device-security.md
     `PERSON_AUTH_DISABLED`を返す。Vercelにはauth設定もpublishable keyも設定していない。
 48. PR #16はcontrol-plane job 4件とVercel check 2件にすべて成功した後にmergeした
     ([control-plane run 29898326094](https://github.com/tnoborio/eject/actions/runs/29898326094))。
+49. PR #17はhosted Windows 2025 runnerでWindows test 15件に成功した。native testはcurrent-userの
+    永続P-256 keyを作成・再openし、DER SubjectPublicKeyInfoと64-byte IEEE P1363 signatureを検証し、
+    export policyが`None`でprivate-key exportが失敗することを確認した。別のprovider-selection testで、
+    限定したSoftware KSP fallbackも実走した。
+50. PR #17は続けてself-contained Windows x64 executableをpublish・smoke testし、ejectせずにhardware
+    kitを検証した([Windows run 29899184939](https://github.com/tnoborio/eject/actions/runs/29899184939))。
+    hosted automationはtarget hardware上のstandard-user動作やprotected-key動作の証拠ではない。
 
-検証済み`main` artifactのチェックサムは次のとおりです。
+検証済みPR #17 artifactのチェックサムは次のとおりです。
 
 ```text
-d80c7f609a8aa36c332f0d2564c9ea869d56837ddfcf86698719cdc3b6406729
+830bb503a2b67952588231f82e311987430a5a01bee2d4838cc5151a615adf1d
 ```
 
 artifactには期限があり、後続ビルドのチェックサムは変わります。各artifactに同梱される
@@ -372,12 +391,13 @@ artifactには期限があり、後続ビルドのチェックサムは変わり
 - Windows API成功と目視できるトレイ動作の関係を未確認。
 - 不透明なドライブ識別子は現在のドライブルートから生成している。ローカルスパイクには
   適するが永続的なハードウェア識別子ではなく、ドライブ文字の再割り当てで変化する。
-- UI、インストーラー、コード署名、更新チャネル、デバイス資格情報、サーバー接続がない。
+- UI、インストーラー、コード署名、更新チャネル、enrollment state、サーバー接続がない。CNG key storeは
+  CLIへ未接続。
 - protocol v1は実際の制御面とagent間ではまだ動かしていない。
 - PostgreSQL issuance、認証済みpoll・result transport、person-session検証、server enrollment・
   revocation境界は実装済みで、server管理のSupabase magic-link/OTP PKCE cookie lifecycleも`main`へ
-  実装済みだが、disabled・未設定である。sign-in UI、live providerのend-to-end証拠、Windows CNG key作成、Windows polling
-  clientは未実装。
+  実装済みだが、disabled・未設定である。sign-in UI、live providerのend-to-end証拠、Windows CNG keyの
+  enrollment接続、Windows polling clientは未実装。
 - person JWT adapterはlocal asymmetric JWKS fixtureで検証済みだが、作成済みSupabase Auth issuerや
   liveなrotated key setに対しては未検証。
 - cloud environmentはmigration 3件をすべて適用・検証済みだが、person、device、enrollment secret、
@@ -440,7 +460,8 @@ gh run download RUN_ID --name eject-windows-x64 --dir artifacts/github-actions
 Kysely issuance、決定論的PostgreSQL race、advisory mutation testing、ADR 0005、認証済みpoll・result
 transport、専用cloud database environment、person-session adapter、server enrollment・revocation境界は
 実装済みで、migration 3件はすべてprotected cloud databaseへ適用済みです。次のsoftware順序は
-次のとおりです。person PKCE cookie lifecycleはlocal実装済みです。
+次のとおりです。person PKCE cookie lifecycleとprotected Windows CNG key storeは`main`へ実装済みです。
+後者にはhosted Windows CI証拠がありますが、実機standard-user証拠はありません。
 
 1. enrollment完了扱いにする前に、standard userでnon-exportable P-256 Windows CNG key作成を実機検証する。
 2. generic commandやinbound portを追加せず、outbound Windows polling、durable replay consumption、
@@ -483,8 +504,8 @@ decisionが必要です。
 5. **person auth・Windows登録とpolling** — person-session検証とdefault-disabledのserver enrollment・
    revocation境界は`main`へ実装済みで、3件目のmigrationもprotected cloud databaseへ適用・検証済み。
    server管理のPKCE cookie routeも`main`へ実装済み・default-disabled。sign-in UIとlive provider証拠、
-   protected Windows key作成、ローカルreplay防止、1回だけの実行、result report、outbound-only pollingは
-   未実装。
+   実機standard-user key証拠、Windows keyのenrollment接続、ローカルreplay防止、1回だけの実行、
+   result report、outbound-only pollingは未実装。protected Windows key作成自体はhosted Windows CIで検証済み。
 6. **並行するハードウェア証拠** — 機材入手後、レビュー済みレポートと、証拠により狭く
    裏付けられたadapter修正を追加する。
 
