@@ -27,12 +27,14 @@ the order in which work should continue.
   enrollment and revocation), [#15](https://github.com/tnoborio/eject/pull/15)
   (protected migration evidence), [#16](https://github.com/tnoborio/eject/pull/16)
   (person PKCE sessions), and [#17](https://github.com/tnoborio/eject/pull/17)
-  (protected Windows CNG device keys)
+  (protected Windows CNG device keys), plus
+  [#18](https://github.com/tnoborio/eject/pull/18) (main CNG evidence refresh)
 - **Current verified implementation:** PR #17 on `main`; all three repository
   migrations are applied and checksum-verified in the protected cloud database
 - **Verified CI on `main`:** [Windows spike run 29688104811](https://github.com/tnoborio/eject/actions/runs/29688104811),
   [protocol contract run 29688208249](https://github.com/tnoborio/eject/actions/runs/29688208249),
-  [control-plane run 29813234824](https://github.com/tnoborio/eject/actions/runs/29813234824)
+  [control-plane run 29813234824](https://github.com/tnoborio/eject/actions/runs/29813234824),
+  [Windows CNG run 29899930269](https://github.com/tnoborio/eject/actions/runs/29899930269)
 - **Verified CI for PR #12:** [control-plane run 29839496511](https://github.com/tnoborio/eject/actions/runs/29839496511)
 - **Verified CI for PR #13:** [control-plane run 29895265935](https://github.com/tnoborio/eject/actions/runs/29895265935),
   [protocol run 29895265928](https://github.com/tnoborio/eject/actions/runs/29895265928)
@@ -421,11 +423,14 @@ The following facts have direct build or test evidence:
     ([Windows run 29899184939](https://github.com/tnoborio/eject/actions/runs/29899184939)).
     Hosted automation is not evidence of standard-user behavior or protected-key
     behavior on target hardware.
+51. PR #17 merged as `ec00e78`. The resulting `main` push repeated all 15 tests,
+    publish, smoke, no-eject hardware-kit verification, and artifact upload
+    successfully ([Windows run 29899930269](https://github.com/tnoborio/eject/actions/runs/29899930269)).
 
-The verified PR #17 artifact had this checksum:
+The verified `main` artifact from run 29899930269 had this checksum:
 
 ```text
-830bb503a2b67952588231f82e311987430a5a01bee2d4838cc5151a615adf1d
+3364e14a8ba65110389dab574ec0871f2f457e9894eebb3d44cfa5ea87ede9c4
 ```
 
 Artifacts expire and later builds have different checksums. Treat the checksum
