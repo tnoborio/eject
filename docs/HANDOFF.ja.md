@@ -25,12 +25,14 @@
   [#14](https://github.com/tnoborio/eject/pull/14)(device enrollment・revocation)、
   [#15](https://github.com/tnoborio/eject/pull/15)(protected migration証拠)、
   [#16](https://github.com/tnoborio/eject/pull/16)(person PKCE session)、
-  [#17](https://github.com/tnoborio/eject/pull/17)(protected Windows CNG device key)
+  [#17](https://github.com/tnoborio/eject/pull/17)(protected Windows CNG device key)、
+  [#18](https://github.com/tnoborio/eject/pull/18)(main CNG証拠更新)
 - **現在の検証済み実装:** `main`上のPR #17。repositoryのmigration 3件はすべてprotected cloud
   databaseへ適用し、checksumを検証済み
 - **`main`上の検証済みCI:** [Windows spike run 29688104811](https://github.com/tnoborio/eject/actions/runs/29688104811)、
   [protocol contract run 29688208249](https://github.com/tnoborio/eject/actions/runs/29688208249)、
-  [control-plane run 29813234824](https://github.com/tnoborio/eject/actions/runs/29813234824)
+  [control-plane run 29813234824](https://github.com/tnoborio/eject/actions/runs/29813234824)、
+  [Windows CNG run 29899930269](https://github.com/tnoborio/eject/actions/runs/29899930269)
 - **PR #12の検証済みCI:** [control-plane run 29839496511](https://github.com/tnoborio/eject/actions/runs/29839496511)
 - **PR #13の検証済みCI:** [control-plane run 29895265935](https://github.com/tnoborio/eject/actions/runs/29895265935)、
   [protocol run 29895265928](https://github.com/tnoborio/eject/actions/runs/29895265928)
@@ -353,11 +355,14 @@ docs/decisions/0005-identity-and-device-security.md
 50. PR #17は続けてself-contained Windows x64 executableをpublish・smoke testし、ejectせずにhardware
     kitを検証した([Windows run 29899184939](https://github.com/tnoborio/eject/actions/runs/29899184939))。
     hosted automationはtarget hardware上のstandard-user動作やprotected-key動作の証拠ではない。
+51. PR #17は`ec00e78`としてmergeした。merge後の`main` pushでもtest 15件、publish、smoke test、
+    no-eject hardware-kit検証、artifact uploadをすべて再実行して成功した
+    ([Windows run 29899930269](https://github.com/tnoborio/eject/actions/runs/29899930269))。
 
-検証済みPR #17 artifactのチェックサムは次のとおりです。
+run 29899930269の検証済み`main` artifactのチェックサムは次のとおりです。
 
 ```text
-830bb503a2b67952588231f82e311987430a5a01bee2d4838cc5151a615adf1d
+3364e14a8ba65110389dab574ec0871f2f457e9894eebb3d44cfa5ea87ede9c4
 ```
 
 artifactには期限があり、後続ビルドのチェックサムは変わります。各artifactに同梱される
