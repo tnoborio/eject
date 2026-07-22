@@ -65,11 +65,11 @@ ECDSA P-256 keyを持たせます。認証済みoutbound requestと署名済みs
 bytesとreplay-resistant nonceへbindします。詳細は
 [ADR 0005](decisions/0005-identity-and-device-security.ja.md)を参照してください。
 
-control planeには固定されたNode.js POST route `/api/agent/v1/poll`と
-`/api/agent/v1/result`があります。environment gateを明示的に有効にしない限り、databaseや
-signing keyを初期化する前にnon-delivery responseを返します。commandを返すには、独立したdatabase
-global-delivery gateもtrueである必要があります。person向けpublic eject endpointはなく、Windows
-agentもまだ接続していません。
+control planeにはagent enrollment・poll・result用の固定Node.js POST routeと、person認証済みの
+device-enrollment作成・revocation routeがあります。enrollment作成は独立したgateでdefault disabled
+となり、databaseやperson authの初期化前に停止します。poll・result deliveryは別のenvironment gateを
+維持し、commandを返すには独立したdatabase global-delivery gateもtrueである必要があります。
+person向けpublic eject endpointはなく、Windows agentもまだ接続していません。
 
 protocol v1は`protocol/v1`配下の正本のまま、private workspace package
 `@eject/protocol-contract`として利用します。そのvalidator・schemaをimportするのはtransport
