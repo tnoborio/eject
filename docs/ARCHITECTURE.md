@@ -68,6 +68,14 @@ non-exportable CNG ECDSA P-256 key. Authenticated outbound requests and signed
 server responses bind exact body bytes and replay-resistant nonces. See
 [ADR 0005](decisions/0005-identity-and-device-security.md).
 
+The Windows adapter implements that device-key boundary as a persistent,
+current-user CNG ECDSA P-256 key. It prefers Microsoft Platform Crypto Provider
+and falls back only to Microsoft Software Key Storage Provider, requests signing
+usage with no export policy, rejects machine-scoped or otherwise nonconforming
+stored keys, exports only DER SubjectPublicKeyInfo, and emits fixed 64-byte IEEE
+P1363 signatures. The adapter is not yet wired to enrollment or polling, and
+hosted Windows CI does not replace standard-user validation on real hardware.
+
 The server-owned person-auth boundary contains fixed routes for existing-user
 email magic-link initiation, PKCE callback exchange, email OTP verification,
 refresh rotation, and local-session logout. It generates S256 verifier and state
