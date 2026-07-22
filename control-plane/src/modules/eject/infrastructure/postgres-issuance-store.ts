@@ -179,7 +179,9 @@ class PostgresIssuanceTransaction implements IssuanceTransaction {
       JOIN sender_eject_state sender_state ON sender_state.actor_id = actor.person_id
       JOIN system_delivery_policy system_policy ON system_policy.singleton
       LEFT JOIN recipient_entitlements entitlement ON entitlement.recipient_id = policy.recipient_id
-      LEFT JOIN registered_devices device ON device.owner_id = policy.recipient_id
+      LEFT JOIN registered_devices device
+        ON device.owner_id = policy.recipient_id
+        AND device.enrollment_state <> 'REVOKED'
       WHERE actor.person_id = ${input.actorId}::uuid
     `.execute(this.transaction);
     const row = requireValue(result.rows[0]);

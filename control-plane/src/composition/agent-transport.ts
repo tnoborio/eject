@@ -1,7 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { Pool } from "pg";
-import { createPostgresDatabase } from "@/infrastructure/postgres/database";
-import { postgresPoolConfigFromEnvironment } from "@/infrastructure/postgres/pool-config";
+import { getRuntimeDatabase } from "@/composition/runtime-database";
 import { createAuthenticateAgentRequest } from "@/modules/devices/application/authenticate-agent-request";
 import {
   NodeAgentRequestCrypto,
@@ -13,7 +11,6 @@ import { createIngestAgentResult } from "@/modules/eject/application/ingest-agen
 import { PostgresAgentTransportStore } from "@/modules/eject/infrastructure/postgres-agent-transport-store";
 
 interface AgentTransportGlobal {
-  pool?: Pool;
   dependencies?: AgentHttpDependencies;
 }
 
@@ -33,10 +30,7 @@ export function getAgentTransportDependencies(): AgentHttpDependencies {
   const privateKey = decodeBase64Environment(
     "EJECT_SERVER_SIGNING_KEY_PKCS8_B64",
   );
-  const pool = (state.pool ??= new Pool(
-    postgresPoolConfigFromEnvironment(process.env, 5),
-  ));
-  const database = createPostgresDatabase(pool);
+  const database = getRuntimeDatabase();
   const store = new PostgresAgentTransportStore(database);
   const authenticate = createAuthenticateAgentRequest({
     keys: store,

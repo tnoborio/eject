@@ -17,6 +17,7 @@ export default defineConfig({
         "src/modules/identity/application/authenticate-person-session.ts",
         "src/modules/identity/infrastructure/supabase-person-token-verifier.ts",
         "src/modules/identity/transport/person-session-cookie.ts",
+        "src/modules/devices/application/device-enrollment.ts",
       ],
       thresholds: {
         branches: 100,

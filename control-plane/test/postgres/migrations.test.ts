@@ -44,6 +44,10 @@ describe("control-plane migrations", () => {
     expect(result.rows).toEqual([
       { filename: "0001_initial_control_plane.sql", checksum_length: 64 },
       { filename: "0002_agent_transport_security.sql", checksum_length: 64 },
+      {
+        filename: "0003_device_enrollment_and_revocation.sql",
+        checksum_length: 64,
+      },
     ]);
   });
 

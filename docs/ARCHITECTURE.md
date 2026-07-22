@@ -68,12 +68,13 @@ non-exportable CNG ECDSA P-256 key. Authenticated outbound requests and signed
 server responses bind exact body bytes and replay-resistant nonces. See
 [ADR 0005](decisions/0005-identity-and-device-security.md).
 
-The control plane now contains fixed Node.js POST routes at
-`/api/agent/v1/poll` and `/api/agent/v1/result`. An environment gate returns a
-non-delivery response before database or signing-key initialization unless it
-is explicitly enabled; the independent database global-delivery gate must also
-be true before a command can be returned. There is no person-facing public
-eject endpoint, and no Windows agent is connected yet.
+The control plane now contains fixed Node.js POST routes for agent enrollment,
+polling, and results, plus person-authenticated device-enrollment creation and
+revocation. Enrollment creation is independently disabled by default before
+database or person-auth initialization. Poll and result delivery retains its
+separate environment gate, and the independent database global-delivery gate
+must also be true before a command can be returned. There is no person-facing
+public eject endpoint, and no Windows agent is connected yet.
 
 Protocol v1 remains canonical under `protocol/v1` and is consumed as the
 private workspace package `@eject/protocol-contract`. Only transport adapters
