@@ -8,7 +8,7 @@ credential, signing material, device token, or user data.
 
 ## Provisioned environment
 
-As of 2026-07-21, the following environment exists under Sasara operational
+As of 2026-07-22, the following environment exists under Sasara operational
 ownership:
 
 | Component               | Configuration                        |
@@ -25,7 +25,7 @@ The Supabase project is dedicated to EJECT. It is not a database inside
 `sasara-hub`, and it does not share an application schema or credentials with
 another Sasara service.
 
-The two repository migrations are applied. PostgreSQL rejects non-TLS external
+All three repository migrations are applied. PostgreSQL rejects non-TLS external
 connections. The singleton delivery gate is `false`, the physical hourly
 ceiling is unset, and the initial EJECT application tables contain no people,
 devices, commands, results, or private events.
@@ -34,11 +34,12 @@ devices, commands, results, or private events.
 
 Vercel stores configuration outside the repository:
 
-| Variable                       | Production | Preview | Development |
-| ------------------------------ | ---------- | ------- | ----------- |
-| `DATABASE_URL`                 | sensitive  | absent  | absent      |
-| `EJECT_DATABASE_SSL_CA_B64`    | sensitive  | absent  | absent      |
-| `EJECT_AGENT_DELIVERY_ENABLED` | `false`    | `false` | `false`     |
+| Variable                          | Production | Preview | Development |
+| --------------------------------- | ---------- | ------- | ----------- |
+| `DATABASE_URL`                    | sensitive  | absent  | absent      |
+| `EJECT_DATABASE_SSL_CA_B64`       | sensitive  | absent  | absent      |
+| `EJECT_AGENT_DELIVERY_ENABLED`    | `false`    | `false` | `false`     |
+| `EJECT_DEVICE_ENROLLMENT_ENABLED` | absent     | absent  | absent      |
 
 Production uses the Supavisor transaction pooler on port 6543. Preview builds
 do not receive the production database credential. They can build and render
@@ -48,7 +49,8 @@ database URL supplied by the operator, not a downloaded production secret.
 No server response-signing private key is configured in Vercel. Even if the
 environment delivery flag were changed accidentally, agent transport
 composition would fail closed without the required signing key. The independent
-database delivery gate also remains disabled.
+database delivery gate also remains disabled. Device enrollment is independently
+fail-closed because its opt-in environment variable is absent.
 
 ## TLS trust
 
@@ -131,9 +133,15 @@ of the following are complete:
 - A provider project administrator can reset the database password; the
   temporary creation password is not retained in the repository or runbook.
 
-## Provisioning evidence
+## Provisioning and migration evidence
 
-On 2026-07-21, the repository verifier established:
+On 2026-07-21, the repository verifier established the pinned direct-TLS
+connection and initial empty schema. On 2026-07-22, migration 0003 was applied
+in one advisory-locked transaction through the authenticated Supabase
+Management API. A separate read-only Management API query then established the
+exact three migration checksums, PostgreSQL major version, disabled database
+gate, unset physical ceiling, zero aggregate application rows, new device
+metadata columns and indexes, and removal of the superseded owner constraint:
 
 ```json
 {
@@ -142,7 +150,8 @@ On 2026-07-21, the repository verifier established:
   "tls": "CA_AND_HOSTNAME_VERIFIED",
   "migrations": [
     "0001_initial_control_plane.sql",
-    "0002_agent_transport_security.sql"
+    "0002_agent_transport_security.sql",
+    "0003_device_enrollment_and_revocation.sql"
   ],
   "delivery_enabled": false,
   "physical_hourly_ceiling": null,
@@ -152,6 +161,12 @@ On 2026-07-21, the repository verifier established:
 
 This is cloud schema and connectivity evidence. It is not evidence that a
 physical tray has opened and does not complete Stage 0.
+
+The current Production deployment also returned the bounded semantic bodies
+`{"error":"DELIVERY_DISABLED"}` from agent polling and
+`{"error":"ENROLLMENT_DISABLED"}` from agent enrollment. No response-signing
+key, person, device, enrollment secret, command, result, or private event was
+created during this operation.
 
 The first protected Vercel deployment (`dpl_G6pHisFuPVmausakV6PXxzrGtZYi`)
 reached `Ready` on 2026-07-21. Its Next.js Functions were placed in `hnd1`; an

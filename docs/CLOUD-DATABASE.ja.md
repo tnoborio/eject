@@ -7,7 +7,7 @@
 
 ## 作成済み環境
 
-2026-07-21時点で、Sasaraの運用管理下に次の環境があります。
+2026-07-22時点で、Sasaraの運用管理下に次の環境があります。
 
 | Component               | 設定                              |
 | ----------------------- | --------------------------------- |
@@ -22,7 +22,7 @@
 Supabase projectはEJECT専用です。`sasara-hub`内のdatabaseではなく、他のSasara serviceと
 application schemaやcredentialを共有しません。
 
-repositoryのmigration 2件は適用済みです。PostgreSQLはTLSを使わない外部接続を拒否します。
+repositoryのmigration 3件はすべて適用済みです。PostgreSQLはTLSを使わない外部接続を拒否します。
 singleton delivery gateは`false`、physical hourly ceilingは未設定で、初期状態のEJECT application
 tableにはperson、device、command、result、private eventがありません。
 
@@ -30,11 +30,12 @@ tableにはperson、device、command、result、private eventがありません�
 
 Vercelはrepository外に設定を保存します。
 
-| Variable                       | Production | Preview | Development |
-| ------------------------------ | ---------- | ------- | ----------- |
-| `DATABASE_URL`                 | sensitive  | なし    | なし        |
-| `EJECT_DATABASE_SSL_CA_B64`    | sensitive  | なし    | なし        |
-| `EJECT_AGENT_DELIVERY_ENABLED` | `false`    | `false` | `false`     |
+| Variable                          | Production | Preview | Development |
+| --------------------------------- | ---------- | ------- | ----------- |
+| `DATABASE_URL`                    | sensitive  | なし    | なし        |
+| `EJECT_DATABASE_SSL_CA_B64`       | sensitive  | なし    | なし        |
+| `EJECT_AGENT_DELIVERY_ENABLED`    | `false`    | `false` | `false`     |
+| `EJECT_DEVICE_ENROLLMENT_ENABLED` | なし       | なし    | なし        |
 
 Productionはport 6543のSupavisor transaction poolerを使います。Preview buildにはproduction
 database credentialを渡しません。shellのbuildとrenderはできますが、agent routeは利用できない
@@ -43,7 +44,8 @@ URLを使います。
 
 Vercelにserver response-signing private keyは設定していません。environment delivery flagを誤って
 変更しても、必要なsigning keyがないためagent transport compositionはfail closedになります。
-独立したdatabase delivery gateも無効のままです。
+独立したdatabase delivery gateも無効のままです。device enrollmentもopt-in environment variableが
+存在しないため、独立してfail closedです。
 
 ## TLS trust
 
@@ -116,9 +118,13 @@ deploymentが作られます。`main`へのmergeではprotected database variabl
 - provider project administratorはdatabase passwordをresetできます。project作成時の一時passwordは
   repositoryやrunbookに保存しません。
 
-## Provisioning証拠
+## Provisioning・migration証拠
 
-2026-07-21にrepository verifierで次を確認しました。
+2026-07-21にrepository verifierでpin済みdirect-TLS接続と初期の空schemaを確認しました。
+2026-07-22には、認証済みSupabase Management APIを通じてadvisory lock付きの1 transactionで
+migration 0003を適用しました。その後、独立したread-only Management API queryにより、migration
+3件のchecksum完全一致、PostgreSQL major version、無効なdatabase gate、未設定のphysical ceiling、
+application row合計0件、新しいdevice metadata column・index、旧owner constraintの除去を確認しました。
 
 ```json
 {
@@ -127,7 +133,8 @@ deploymentが作られます。`main`へのmergeではprotected database variabl
   "tls": "CA_AND_HOSTNAME_VERIFIED",
   "migrations": [
     "0001_initial_control_plane.sql",
-    "0002_agent_transport_security.sql"
+    "0002_agent_transport_security.sql",
+    "0003_device_enrollment_and_revocation.sql"
   ],
   "delivery_enabled": false,
   "physical_hourly_ceiling": null,
@@ -136,6 +143,10 @@ deploymentが作られます。`main`へのmergeではprotected database variabl
 ```
 
 これはcloud schemaとconnectivityの証拠です。物理trayが開いた証拠ではなく、Stage 0を完了させません。
+
+現在のProduction deploymentからも、agent pollingで`{"error":"DELIVERY_DISABLED"}`、agent enrollmentで
+`{"error":"ENROLLMENT_DISABLED"}`という限定されたsemantic bodyを確認しました。この操作では、
+response-signing key、person、device、enrollment secret、command、result、private eventを作成していません。
 
 最初のprotected Vercel deployment (`dpl_G6pHisFuPVmausakV6PXxzrGtZYi`)は2026-07-21に`Ready`へ
 到達しました。Next.js Functionは`hnd1`へ配置され、認証付きdeployment checkで`/`からHTTP 200、
