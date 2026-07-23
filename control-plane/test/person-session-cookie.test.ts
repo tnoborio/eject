@@ -40,6 +40,14 @@ describe("person session cookie", () => {
       `__Host-eject-refresh=refresh-token-value-1234; __Host-eject-pkce-verifier=${verifier}; __Host-eject-pkce-state=${state}`,
     );
     expect(readPersonRefreshToken(request)).toBe("refresh-token-value-1234");
+    expect(
+      readPersonRefreshToken(
+        requestWithCookie("__Host-eject-refresh=A1b2C3d4E5f6"),
+      ),
+    ).toBe("A1b2C3d4E5f6");
+    expect(
+      readPersonRefreshToken(requestWithCookie("__Host-eject-refresh=short7")),
+    ).toBeNull();
     expect(readPersonPkceChallenge(request)).toEqual({ verifier, state });
 
     expect(

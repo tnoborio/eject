@@ -40,8 +40,11 @@ Vercel stores configuration outside the repository:
 | `EJECT_DATABASE_SSL_CA_B64`       | sensitive  | absent  | absent      |
 | `EJECT_AGENT_DELIVERY_ENABLED`    | `false`    | `false` | `false`     |
 | `EJECT_DEVICE_ENROLLMENT_ENABLED` | absent     | absent  | absent      |
-| `EJECT_PERSON_AUTH_ENABLED`        | absent     | absent  | absent      |
-| `EJECT_SUPABASE_PUBLISHABLE_KEY`   | absent     | absent  | absent      |
+| `EJECT_PERSON_AUTH_ENABLED`       | `true`     | absent  | absent      |
+| `EJECT_SUPABASE_AUTH_ISSUER`      | configured | absent  | absent      |
+| `EJECT_SUPABASE_AUTH_AUDIENCE`    | configured | absent  | absent      |
+| `EJECT_SUPABASE_PUBLISHABLE_KEY`  | configured | absent  | absent      |
+| `EJECT_PUBLIC_ORIGIN`             | configured | absent  | absent      |
 
 Production uses the Supavisor transaction pooler on port 6543. Preview builds
 do not receive the production database credential. They can build and render
@@ -53,7 +56,36 @@ environment delivery flag were changed accidentally, agent transport
 composition would fail closed without the required signing key. The independent
 database delivery gate also remains disabled. Device enrollment is independently
 fail-closed because its opt-in environment variable is absent. Person auth is
-also fail-closed because both its opt-in and provider publishable key are absent.
+enabled only in Production for the exact `https://eject-bice.vercel.app` origin.
+Preview and Development remain fail-closed because their auth opt-in and provider
+configuration are absent.
+
+## Invite-only person provisioning
+
+Person authentication remains separate from device enrollment and delivery.
+Before enabling it, set Supabase Auth to reject public sign-up and configure the
+exact EJECT HTTPS origin as both the site URL and the only redirect origin.
+
+Provision an invited existing account from an operator environment, never from
+Vercel and never from a browser. Supply the protected production database
+variables, the exact Supabase issuer, and an operator-only secret API key through
+the process environment:
+
+```sh
+npm run person:provision --workspace @eject/control-plane -- \
+  PERSON_EMAIL "Display name"
+```
+
+The script creates a confirmed Supabase Auth identity and then creates the
+matching EJECT `people` row and private-by-default
+`recipient_access_policies` row with the same UUID in one database transaction.
+If that transaction fails, it attempts to remove the new Auth identity. It does
+not print the email, token, or database credential. Review Supabase Auth
+manually if it reports that rollback needs attention.
+
+Never configure `EJECT_PROVISIONING_SUPABASE_SECRET_KEY` in Vercel. The deployed
+application needs only the publishable key; its fixed sign-in request uses
+`create_user = false`.
 
 ## TLS trust
 

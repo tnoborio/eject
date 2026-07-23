@@ -8,6 +8,7 @@ import {
 } from "../src/modules/devices/transport/agent-enrollment-http-handler";
 import {
   handleCreateDeviceEnrollment,
+  handleListDevices,
   handleRevokeDevice,
   type PersonDeviceHttpDependencies,
 } from "../src/modules/devices/transport/person-device-http-handlers";
@@ -106,6 +107,40 @@ describe("person device HTTP handlers", () => {
     ).resolves.toMatchObject({ status: 400 });
   });
 
+  it("lists only devices owned by the authenticated person", async () => {
+    const dependencies = personDependencies();
+    const response = await handleListDevices(
+      new Request(`${origin}/api/person/v1/device-enrollments`, {
+        headers: { cookie: `__Host-eject-access=${token}` },
+      }),
+      dependencies,
+    );
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      devices: [
+        {
+          device_id: deviceId,
+          enrollment_state: "READY",
+          availability: "OFFLINE",
+          has_approved_drive: true,
+          platform: "WINDOWS",
+          agent_version: "0.1.0",
+          created_at: now.toISOString(),
+        },
+      ],
+    });
+    expect(dependencies.listDevices).toHaveBeenCalledWith(personId);
+
+    await expect(
+      handleListDevices(
+        new Request(`${origin}/api/person/v1/device-enrollments?owner=other`, {
+          headers: { cookie: `__Host-eject-access=${token}` },
+        }),
+        dependencies,
+      ),
+    ).resolves.toMatchObject({ status: 400 });
+  });
+
   it("keeps deployed enrollment routes disabled by default", async () => {
     process.env.EJECT_DEVICE_ENROLLMENT_ENABLED = "false";
     const response = await personEnrollmentRoute(
@@ -193,6 +228,7 @@ describe("agent enrollment HTTP handler", () => {
 function personDependencies(): PersonDeviceHttpDependencies & {
   authenticate: ReturnType<typeof vi.fn>;
   createEnrollment: ReturnType<typeof vi.fn>;
+  listDevices: ReturnType<typeof vi.fn>;
   revokeDevice: ReturnType<typeof vi.fn>;
 } {
   return {
@@ -206,6 +242,17 @@ function personDependencies(): PersonDeviceHttpDependencies & {
       enrollmentSecret: "A".repeat(43),
       expiresAt: new Date(now.getTime() + 600_000),
     })),
+    listDevices: vi.fn(async () => [
+      {
+        deviceId,
+        enrollmentState: "READY" as const,
+        availability: "OFFLINE" as const,
+        hasApprovedDrive: true,
+        platform: "WINDOWS" as const,
+        agentVersion: "0.1.0",
+        createdAt: now,
+      },
+    ]),
     revokeDevice: vi.fn(async () => {}),
     now: () => now,
   };

@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   createConsumeDeviceEnrollment,
   createDeviceEnrollment,
+  createListOwnedDevices,
   createRevokeDevice,
   type DeviceEnrollmentStore,
 } from "../src/modules/devices/application/device-enrollment";
@@ -119,6 +120,25 @@ describe("device enrollment application", () => {
     await revoke(ownerId, deviceId, now);
     expect(store.revokeDevice).toHaveBeenCalledWith({ ownerId, deviceId, now });
   });
+
+  it("lists devices only through the owner-bound store port", async () => {
+    const store = fakeStore();
+    const devices = [
+      {
+        deviceId,
+        enrollmentState: "READY" as const,
+        availability: "OFFLINE" as const,
+        hasApprovedDrive: true,
+        platform: "WINDOWS" as const,
+        agentVersion: "0.1.0",
+        createdAt: now,
+      },
+    ];
+    store.listDevices.mockResolvedValueOnce(devices);
+    const list = createListOwnedDevices({ store });
+    await expect(list(ownerId)).resolves.toEqual(devices);
+    expect(store.listDevices).toHaveBeenCalledWith(ownerId);
+  });
 });
 
 describe("NodeDeviceEnrollmentCrypto", () => {
@@ -157,6 +177,7 @@ function publicSpki(key: KeyObject): Uint8Array {
 
 function fakeStore() {
   return {
+    listDevices: vi.fn<DeviceEnrollmentStore["listDevices"]>(async () => []),
     createEnrollment: vi.fn<DeviceEnrollmentStore["createEnrollment"]>(
       async () => "CREATED",
     ),

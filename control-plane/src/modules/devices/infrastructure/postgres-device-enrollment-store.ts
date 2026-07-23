@@ -13,6 +13,33 @@ export class PostgresDeviceEnrollmentStore implements DeviceEnrollmentStore {
     private readonly maximumAttempts = 3,
   ) {}
 
+  async listDevices(ownerId: string) {
+    const result = await sql<{
+      device_id: string;
+      enrollment_state: "SETUP_IN_PROGRESS" | "READY" | "REVOKED";
+      availability: "AVAILABLE" | "PAUSED" | "OFFLINE";
+      has_approved_drive: boolean;
+      platform: "WINDOWS";
+      agent_version: string;
+      created_at: Date;
+    }>`
+      SELECT device_id, enrollment_state, availability, has_approved_drive,
+        platform, agent_version, created_at
+      FROM registered_devices
+      WHERE owner_id = ${ownerId}::uuid
+      ORDER BY created_at DESC, device_id
+    `.execute(this.database);
+    return result.rows.map((row) => ({
+      deviceId: row.device_id,
+      enrollmentState: row.enrollment_state,
+      availability: row.availability,
+      hasApprovedDrive: row.has_approved_drive,
+      platform: row.platform,
+      agentVersion: row.agent_version,
+      createdAt: row.created_at,
+    }));
+  }
+
   async createEnrollment(
     input: Parameters<DeviceEnrollmentStore["createEnrollment"]>[0],
   ): ReturnType<DeviceEnrollmentStore["createEnrollment"]> {

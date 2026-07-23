@@ -7,7 +7,7 @@
 
 ## スナップショット
 
-- **日付:** 2026-07-22
+- **日付:** 2026-07-24
 - **リポジトリ:** `tnoborio/eject`
 - **現在のブランチ:** `main`
 - **マージ済みPR:** [#2](https://github.com/tnoborio/eject/pull/2)(Stage 0スパイク)、
@@ -27,8 +27,9 @@
   [#16](https://github.com/tnoborio/eject/pull/16)(person PKCE session)、
   [#17](https://github.com/tnoborio/eject/pull/17)(protected Windows CNG device key)、
   [#18](https://github.com/tnoborio/eject/pull/18)(main CNG証拠更新)
-- **現在の検証済み実装:** `main`上のPR #17。repositoryのmigration 3件はすべてprotected cloud
-  databaseへ適用し、checksumを検証済み
+- **現在の検証済み実装:** `main`上のPR #18。現在のcheckoutには英日safe-state Web consoleと認証済み
+  owner device一覧に加え、recipientが操作するpauseと既存relationshipへのgrant/revokeを追加。
+  repositoryのmigration 3件はすべてprotected cloud databaseへ適用し、checksumを検証済み
 - **`main`上の検証済みCI:** [Windows spike run 29688104811](https://github.com/tnoborio/eject/actions/runs/29688104811)、
   [protocol contract run 29688208249](https://github.com/tnoborio/eject/actions/runs/29688208249)、
   [control-plane run 29813234824](https://github.com/tnoborio/eject/actions/runs/29813234824)、
@@ -47,12 +48,28 @@
   protected Windows CNG device-key storeも実装済みだが、enrollment・pollingは未接続で、実機の
   standard-user証拠が引き続き必要。Sasaraの運用管理下に専用managed PostgreSQL環境とVercel projectも
   存在するが、すべてのgateでdeliveryは無効で、Windows agentは未接続。
+  Windows統合より先にWeb体験を進めている。現在のcheckoutは英日serviceを表示し、既存の
+  auth・device管理境界へformを接続するが、物理操作はすべて利用不可のままにする。ownerへbindした
+  consent controlは受信accessをpauseするか、既存のactive relationship 1件をgrant/revokeする。
+  pause・revokeはissuanceのrecipient lock下で、影響する未確認commandをatomicに取り消す。UIは
+  relationshipを作成せず、account検索も公開しない。Supabase Authはpublic signupを拒否し、完全一致する
+  public Production callbackだけを許可し、email code期限を10分に設定済み。
+  `https://eject-bice.vercel.app`でperson authを有効化し、最初の招待accountをprovision
+  済み。live refresh、account検証、owner-device一覧、logout lifecycleも検証済み。device enrollmentと
+  両delivery gateは無効のまま。
 
 ## 現在の状態
 
 リポジトリから、未署名かつ自己完結型のWindows x64コンソールアプリを生成できます。
 このアプリはローカルの光学ドライブを検出し、ローカルで選択した不透明なドライブ識別子に
 対して、固定されたeject処理を1回だけ試します。
+
+現在のcheckoutにはresponsiveな英日Web consoleもあります。deployment capability stateを事実どおり
+表示し、既存account向けmagic-link・OTP form、認証済みowner sessionの検出、そのownerだけのdevice
+一覧、独立gateが有効な場合だけのone-use enrollment secret作成、owner device revocationを提供します。
+EJECT controlは無効で、commandを送信しないと明示します。recipient pauseと方向付きgrant/revokeは、
+認証済みownerと既存のactive relationshipだけに作用します。pause・revokeはconsent changeと同じ
+transactionで、影響する`QUEUED`・未確認`DISPATCHED` commandをatomicに取り消します。
 
 次の作業は完了しています。
 
@@ -103,13 +120,14 @@ audienceの完全一致、有効なexpiry、UUID subjectを持つSupabase JWTだ
 EJECT account statusを再確認します。repositoryには10分・one-use enrollment ceremonyのserver側と、
 idempotentなowner revocationを追加します。enrollment secretはdigestだけを保存し、canonical P-256
 SubjectPublicKeyInfoだけを受理し、enrollment作成はdefault-disabledのまま、device keyとundelivered
-commandをatomicに取消します。live Supabase sign-in、standard-user Windows CNG証拠、Windows pollingは
-未完了です。Windows key-store実装はcurrent-userの永続P-256 keyを作成し、Platform providerを優先して
+commandをatomicに取消します。live Supabase provider lifecycleは検証済みですが、人がbrowserで行う
+sign-in、standard-user Windows CNG証拠、Windows pollingは未完了です。Windows key-store実装は
+current-userの永続P-256 keyを作成し、Platform providerを優先して
 Software KSPだけへfallbackし、private materialをexportしません。既存user向けmagic-link、PKCE callback、
 email OTP、refresh、local logoutの固定routeは、S256 state bindingと分離したhost-only cookieで実装済みです。
-provider設定とUIは未設定です。
+Production provider設定と英日UIは有効です。
 EJECT専用Supabase PostgreSQL 17 projectはTokyoに作成済みで、
-SSL enforcement、migration 3件、application row 0件、delivery無効を確認済みです。`sasara/eject`
+SSL enforcement、migration 3件、招待person 1件、delivery無効を確認済みです。`sasara/eject`
 Vercel projectはGitHubへ接続し、TokyoでNode.js 22のNext.jsを実行します。database accessは
 Productionだけに保護して設定し、Previewにはdatabase credentialを渡していません。
 
@@ -139,7 +157,8 @@ src/Eject.Agent.Windows/WindowsCngDeviceKeyStore.cs
     週次および手動実行可能なadvisory Stryker mutation testing。
 
 control-plane/src/app/
-    remote action endpointを持たない、localize済みNext.js shell。
+    safe-state EJECT表示、person-auth form、owner device管理を持ち、remote action endpointを持たない
+    responsiveなlocalize済みservice console。
 
 control-plane/src/modules/eject/
     pure authorization、exposure、lifecycle policy、application issuance・agent result境界、
@@ -153,13 +172,18 @@ control-plane/src/modules/identity/
     applicationが所有するperson-session・account-status port、固定host-only access-cookie reader、
     Supabase JWKS JWT検証、PostgreSQL current-account-status adapter。
 
+control-plane/src/modules/permissions/
+    ownerへbindしたrecipient consent application port、閉じたHTTP処理、commandのatomic取消を持つ
+    SERIALIZABLE PostgreSQL pause・grant・revoke。
+
 control-plane/src/app/api/agent/v1/
     固定enrollment・poll・result POST route。enrollmentとdeliveryは独立したdefault-disabled
     environment gateを持つ。
 
 control-plane/src/app/api/person/v1/
     Origin確認・person-session認証済みのenrollment-secret作成とidempotentなdevice revocation
-    POST route。person eject routeは存在しない。
+    POST route、recipient pause、既存relationshipへのgrant/revoke route。person eject routeと
+    account検索routeは存在しない。
 
 control-plane/test/
     unit、property、application境界、protocol adapter、migration、repository、決定論的concurrency test。
@@ -358,6 +382,46 @@ docs/decisions/0005-identity-and-device-security.md
 51. PR #17は`ec00e78`としてmergeした。merge後の`main` pushでもtest 15件、publish、smoke test、
     no-eject hardware-kit検証、artifact uploadをすべて再実行して成功した
     ([Windows run 29899930269](https://github.com/tnoborio/eject/actions/runs/29899930269))。
+52. 現在のcheckoutは静的shellをresponsiveな英日service consoleへ置き換える。明示的なlocale選択は
+    非機密cookieへ永続化し、document languageも追従する。新しい表示文言はすべて対になるlocale
+    resourceに置く。無効なEJECT表示はcommandを送らないと明示し、物理成功を主張しない。
+53. Web consoleはdefault-disabledのmagic-link、OTP、logout、enrollment-secret、revocation routeへ
+    接続する。固定device-enrollment pathの新しい認証済みGETはsession ownerの限定されたdevice stateだけを
+    一覧化し、keyやenrollment digestを公開しない。
+54. localではformat、ESLint、TypeScript、dependency rule、unit・property test 95件、blocking critical
+    boundaryのbranch・function・line・statement coverage 100%、隔離した一時databaseに対するPostgreSQL 17
+    integration・concurrency test 23件、Next.js 16.2.10 production buildに成功する。
+55. Vercel Preview deployment `dpl_7QNfN2eigmYZK1bP3jeZaUT9DfgR`は
+    `https://eject-liv5qbj16-sasara.vercel.app`で`READY`へ到達した。認証付きdeployment requestで`/`から
+    HTTP 200を確認した。previewは3 capabilityすべてを無効と表示し、auth routeは
+    `PERSON_AUTH_DISABLED`を返す。Previewにはproduction database credentialがない。
+56. 2026-07-23にEJECT Supabase Auth projectが`ACTIVE_HEALTHY`のままで、ES256 signing keyを1件
+    公開することを確認した。provider defaultから、public signup拒否、完全一致するpublic Production
+    site・callback URLだけの許可、server PKCE cookie期限と一致する8桁email codeの10分失効へ変更した。
+57. 現在のcheckoutにoperator専用`person:provision` commandを追加した。live testではemailを送らない
+    confirmedな一時Supabase Auth identityを作成し、同じUUIDをmigration済み隔離PostgreSQL 17 databaseへ
+    insertした後、両方のtest recordを削除した。2回目のlive testでは現在の`sb_secret_` API key header
+    contractを検証し、一時identityとdatabaseを削除した。operator secretはrepositoryにもVercelにも
+    保存していない。
+58. Production deployment `dpl_W5Xs6mVeViWaks9hrPBidLfLAESe`は`READY`へ到達し、
+    `https://eject-bice.vercel.app`へaliasした。Production表示は`personAuth=true`、
+    `deviceEnrollment=false`、`delivery=false`である。enrollment作成とagent pollingはそれぞれ
+    boundedなdisabled responseをHTTP 404で返す。
+59. email送信や個人情報のlog出力なしで、最初の永続的な招待Auth identityと同じUUIDの`people` rowを
+    provisionした。protected cloud databaseはperson 1件、device 0件、enrollment session 0件となり、
+    Auth userも正確に1件となった。
+60. live-provider検証で、現在のSupabase API key・tokenとの互換性想定を2点修正した。
+    `sb_publishable_` keyはAPI keyとしてだけ送り、userまたはlegacy anon JWTだけをBearer headerへ
+    送る。boundedな12文字のopaque refresh tokenも受け付ける。emailを送らない生成linkでprovider
+    tokenを検証後、Production refreshはHTTP 204、認証済みowner-device一覧はdevice 0件でHTTP 200、
+    Production logoutはHTTP 204を返した。session tokenはlog出力していない。
+61. 現在のcheckoutはformat、ESLint、TypeScript、dependency rule、unit・property test 100件、
+    blocking critical boundaryのbranch・function・line・statement coverage 100%、隔離した一時databaseに
+    対するPostgreSQL 17 integration・concurrency test 26件、Next.js 16.2.10 production buildに成功する。
+    実PostgreSQL testにより、consent readがactive relationshipだけを公開すること、grantがactive
+    relationshipを必須とすること、revokeがそのactorの未確認commandだけを取り消すこと、pauseが
+    recipientの未確認commandをすべて取り消すこと、安全mutationの再実行でcancellation eventを
+    重複作成しないことを証明した。
 
 run 29899930269の検証済み`main` artifactのチェックサムは次のとおりです。
 
@@ -396,18 +460,22 @@ artifactには期限があり、後続ビルドのチェックサムは変わり
 - Windows API成功と目視できるトレイ動作の関係を未確認。
 - 不透明なドライブ識別子は現在のドライブルートから生成している。ローカルスパイクには
   適するが永続的なハードウェア識別子ではなく、ドライブ文字の再割り当てで変化する。
-- UI、インストーラー、コード署名、更新チャネル、enrollment state、サーバー接続がない。CNG key storeは
+- desktop executableにはUI、インストーラー、コード署名、更新チャネル、enrollment state、サーバー接続がない。CNG key storeは
   CLIへ未接続。
 - protocol v1は実際の制御面とagent間ではまだ動かしていない。
 - PostgreSQL issuance、認証済みpoll・result transport、person-session検証、server enrollment・
   revocation境界は実装済みで、server管理のSupabase magic-link/OTP PKCE cookie lifecycleも`main`へ
-  実装済みだが、disabled・未設定である。sign-in UI、live providerのend-to-end証拠、Windows CNG keyの
-  enrollment接続、Windows polling clientは未実装。
-- person JWT adapterはlocal asymmetric JWKS fixtureで検証済みだが、作成済みSupabase Auth issuerや
-  liveなrotated key setに対しては未検証。
-- cloud environmentはmigration 3件をすべて適用・検証済みだが、person、device、enrollment secret、
-  command、result、signing key、private eventは一件も追加していない。enrollmentは無効のままである。
-  これはinfrastructure readinessでありlive serviceではない。
+  実装済みで、Productionでは有効である。provider token検証、refresh、認証済みowner-device一覧、
+  logoutにはlive証拠がある。人がbrowserで行うPKCE magic-linkまたはOTP操作はまだ完了していない。
+  Windows CNG keyのenrollment接続とWindows polling clientは未実装。
+- ownerへbindしたpauseと既存relationshipへのgrant/revokeは、現在のcheckoutへ実databaseの
+  cancellation証拠とともに実装済みだが、未deployでlive browser証拠もない。serviceはrelationship作成、
+  account検索、eject request送信を引き続き提供しない。
+- person JWT adapterはlive Supabase ES256 JWKSとprovision済みactive accountに対して検証済み。
+  live signing-key rotationはまだ観測していない。
+- cloud environmentはmigration 3件をすべて適用・検証済みで、招待person 1件が存在する。device、
+  enrollment secret、command、result、signing key、private eventは存在しない。person authはliveだが、
+  enrollmentとすべての物理deliveryは無効のまま。
 - ADR 0005でauthentication provider、device credential、integrity、replay、revocation、
   idempotency、clock構成を確定した。独立security reviewとstandard-user Windows CNG検証は未実施。
 - 2026-07-22時点で`npm audit --omit=dev`は、Next.jsのoptional Sharp 0.34.5 dependency経由で
@@ -466,11 +534,21 @@ Kysely issuance、決定論的PostgreSQL race、advisory mutation testing、ADR 
 transport、専用cloud database environment、person-session adapter、server enrollment・revocation境界は
 実装済みで、migration 3件はすべてprotected cloud databaseへ適用済みです。次のsoftware順序は
 次のとおりです。person PKCE cookie lifecycleとprotected Windows CNG key storeは`main`へ実装済みです。
-後者にはhosted Windows CI証拠がありますが、実機standard-user証拠はありません。
+後者にはhosted Windows CI証拠がありますが、実機standard-user証拠はありません。現在はWeb体験を
+先行します。現在のcheckoutはdeliveryやaccount検索を有効にせず、安全な英日preview、owner-device UI、
+ownerへbindしたpause・grant・revokeを提供します。次の順序は次のとおりです。
 
-1. enrollment完了扱いにする前に、standard userでnon-exportable P-256 Windows CNG key作成を実機検証する。
-2. generic commandやinbound portを追加せず、outbound Windows polling、durable replay consumption、
-   result resendを追加する。
+1. public Production serviceで人が操作するmagic-linkまたはOTP sign-inを1回完了し、browser callback
+   証拠を記録する。
+2. Web consoleとconsent mutationをreview・mergeし、blocking ActionsとVercel checkを記録する。
+3. public account検索を追加せず、two-person prototype向けのinvite-only relationship確立を仕様化し、
+   方向付きEJECT permissionとは分離する。
+4. 無効なgateの背後でprotected Windows keyをenrollmentへ接続し、durable replay consumptionと保存済み
+   resultのresendを含むoutbound-only pollingを実装する。実機standard-user CNG証拠が得られるまで
+   device enrollment作成を無効に保つ。認証済みdevice一覧とrevocationは独立したsafety controlとして
+   利用可能にしてよい。
+
+Windows CNG検証は並行要件として残します。pollingにはgeneric commandやinbound portを追加しません。
 
 person-authとenrollment作業中はenrollment opt-inを未設定、両delivery gateをfalseのままにし、
 Vercelにserver response-signing private keyを設定しません。
@@ -506,11 +584,15 @@ decisionが必要です。
    signed response、nonce replay防止、result idempotency、二つのfail-closed delivery gateを持つ。
 4. **専用cloud environment** — 独立managed PostgreSQL 17 project、SSL enforcement、protectedな
    Production-only database access、migration完全一致検証、Git接続済みVercel deployment、delivery無効で実装済み。
-5. **person auth・Windows登録とpolling** — person-session検証とdefault-disabledのserver enrollment・
+5. **Web体験、person auth・Windows登録とpolling** — 英日safe-state service console、person-session検証とdefault-disabledのserver enrollment・
    revocation境界は`main`へ実装済みで、3件目のmigrationもprotected cloud databaseへ適用・検証済み。
-   server管理のPKCE cookie routeも`main`へ実装済み・default-disabled。sign-in UIとlive provider証拠、
-   実機standard-user key証拠、Windows keyのenrollment接続、ローカルreplay防止、1回だけの実行、
-   result report、outbound-only pollingは未実装。protected Windows key作成自体はhosted Windows CIで検証済み。
+   server管理のPKCE cookie routeも`main`へ実装済み・default-disabled。sign-in・owner-device UIを実装し、
+   safeなVercel Previewとauth-enabled Production serviceを検証済み。最初の招待personとlive provider
+   session lifecycleも検証済み。ownerへbindしたpauseと既存relationshipへのgrant/revokeは、atomicな
+   cancellation証拠とともに現在のcheckoutへ実装済み。人がbrowserで行うsign-in・consent証拠、
+   invite-only relationship確立、実機standard-user key証拠、Windows keyのenrollment接続、
+   ローカルreplay防止、1回だけの実行、result report、outbound-only pollingは未実装。protected
+   Windows key作成自体はhosted Windows CIで検証済み。
 6. **並行するハードウェア証拠** — 機材入手後、レビュー済みレポートと、証拠により狭く
    裏付けられたadapter修正を追加する。
 

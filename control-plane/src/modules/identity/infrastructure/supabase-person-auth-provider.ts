@@ -6,7 +6,7 @@ import type {
 
 const maximumResponseBytes = 64 * 1_024;
 const compactJwtPattern = /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/;
-const refreshTokenPattern = /^[A-Za-z0-9._~-]{20,4096}$/;
+const refreshTokenPattern = /^[A-Za-z0-9._~-]{8,4096}$/;
 
 export class SupabasePersonAuthProvider implements PersonAuthProvider {
   private readonly issuer: string;
@@ -117,11 +117,7 @@ export class SupabasePersonAuthProvider implements PersonAuthProvider {
     try {
       const response = await this.fetcher(`${this.issuer}${path}`, {
         method: "POST",
-        headers: {
-          apikey: this.publishableKey,
-          authorization: `Bearer ${accessToken ?? this.publishableKey}`,
-          "content-type": "application/json;charset=UTF-8",
-        },
+        headers: requestHeaders(this.publishableKey, accessToken),
         body: JSON.stringify(body),
         signal: AbortSignal.timeout(5_000),
       });
@@ -159,11 +155,29 @@ function parsePublishableKey(value: string): string {
   if (
     value.length < 20 ||
     value.length > 2_048 ||
-    !/^[A-Za-z0-9._-]+$/.test(value)
+    !/^[A-Za-z0-9._-]+$/.test(value) ||
+    value.startsWith("sb_secret_") ||
+    (!value.startsWith("sb_publishable_") && !compactJwtPattern.test(value))
   ) {
     throw new Error("Supabase publishable key is invalid");
   }
   return value;
+}
+
+function requestHeaders(
+  publishableKey: string,
+  accessToken?: string,
+): Readonly<Record<string, string>> {
+  const headers: Record<string, string> = {
+    apikey: publishableKey,
+    "content-type": "application/json;charset=UTF-8",
+  };
+  if (accessToken !== undefined) {
+    headers.authorization = `Bearer ${accessToken}`;
+  } else if (!publishableKey.startsWith("sb_publishable_")) {
+    headers.authorization = `Bearer ${publishableKey}`;
+  }
+  return headers;
 }
 
 async function readBoundedResponse(

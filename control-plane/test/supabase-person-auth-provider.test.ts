@@ -4,7 +4,7 @@ import { SupabasePersonAuthProvider } from "../src/modules/identity/infrastructu
 const publishableKey = `sb_publishable_${"a".repeat(32)}`;
 const tokenResponse = {
   access_token: "header.payload.signature",
-  refresh_token: "refresh-token-value-1234",
+  refresh_token: "A1b2C3d4E5f6",
   expires_in: 3600,
   token_type: "bearer",
 };
@@ -29,8 +29,8 @@ describe("Supabase person auth provider", () => {
     );
     expect(init.headers).toMatchObject({
       apikey: publishableKey,
-      authorization: `Bearer ${publishableKey}`,
     });
+    expect(init.headers).not.toHaveProperty("authorization");
     expect(JSON.parse(String(init.body))).toEqual({
       email: "person@example.com",
       data: {},
@@ -157,7 +157,26 @@ describe("Supabase person auth provider", () => {
     const [url, init] = fetcher.mock.calls[0] as [string, RequestInit];
     expect(url).toBe("https://project.supabase.co/auth/v1/logout?scope=local");
     expect(init.headers).toMatchObject({
+      apikey: publishableKey,
       authorization: "Bearer header.payload.signature",
+    });
+  });
+
+  it("uses a legacy anon JWT as both the API key and bearer credential", async () => {
+    const legacyAnonKey = `${"a".repeat(20)}.${"b".repeat(20)}.${"c".repeat(20)}`;
+    const fetcher = vi.fn().mockResolvedValue(Response.json({}));
+    const provider = createProvider(fetcher, legacyAnonKey);
+
+    await provider.requestEmailSignIn({
+      email: "person@example.com",
+      redirectTo: "https://eject.test/callback",
+      codeChallenge: "c".repeat(43),
+    });
+
+    const init = fetcher.mock.calls[0]?.[1] as RequestInit;
+    expect(init.headers).toMatchObject({
+      apikey: legacyAnonKey,
+      authorization: `Bearer ${legacyAnonKey}`,
     });
   });
 
@@ -176,13 +195,23 @@ describe("Supabase person auth provider", () => {
           publishableKey: "secret with spaces",
         }),
     ).toThrow("publishable key");
+    expect(
+      () =>
+        new SupabasePersonAuthProvider({
+          issuer: "https://project.supabase.co/auth/v1",
+          publishableKey: `sb_secret_${"a".repeat(32)}`,
+        }),
+    ).toThrow("publishable key");
   });
 });
 
-function createProvider(fetcher: ReturnType<typeof vi.fn>) {
+function createProvider(
+  fetcher: ReturnType<typeof vi.fn>,
+  key: string = publishableKey,
+) {
   return new SupabasePersonAuthProvider({
     issuer: "https://project.supabase.co/auth/v1",
-    publishableKey,
+    publishableKey: key,
     fetch: fetcher as unknown as typeof fetch,
   });
 }

@@ -78,10 +78,13 @@ providerが発行したaccess JWTをcookieへ設定する前に再検証しま�
 独立gateでdefault disabledです。
 
 control planeにはagent enrollment・poll・result用の固定Node.js POST routeと、person認証済みの
-device-enrollment作成・revocation routeがあります。enrollment作成は独立したgateでdefault disabled
-となり、databaseやperson authの初期化前に停止します。poll・result deliveryは別のenvironment gateを
-維持し、commandを返すには独立したdatabase global-delivery gateもtrueである必要があります。
-person向けpublic eject endpointはなく、Windows agentもまだ接続していません。
+device-enrollment作成・revocation routeがあります。さらに、ownerへbindした受信者同意のreadと、
+pauseおよび既存のactive relationshipへの方向付きgrant mutationを持ちます。pauseまたはgrant revokeは
+issuanceと同じrecipient lockで直列化し、影響する`QUEUED`または未確認の`DISPATCHED` commandをatomicに
+取り消します。これらのrouteはrelationshipを作成せず、accountを検索可能にしません。enrollment作成は
+独立したgateでdefault disabledとなり、databaseやperson authの初期化前に停止します。poll・result
+deliveryは別のenvironment gateを維持し、commandを返すには独立したdatabase global-delivery gateも
+trueである必要があります。person向けpublic eject endpointはなく、Windows agentもまだ接続していません。
 
 protocol v1は`protocol/v1`配下の正本のまま、private workspace package
 `@eject/protocol-contract`として利用します。そのvalidator・schemaをimportするのはtransport
