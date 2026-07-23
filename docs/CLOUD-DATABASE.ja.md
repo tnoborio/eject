@@ -36,8 +36,11 @@ Vercelはrepository外に設定を保存します。
 | `EJECT_DATABASE_SSL_CA_B64`       | sensitive  | なし    | なし        |
 | `EJECT_AGENT_DELIVERY_ENABLED`    | `false`    | `false` | `false`     |
 | `EJECT_DEVICE_ENROLLMENT_ENABLED` | なし       | なし    | なし        |
-| `EJECT_PERSON_AUTH_ENABLED`        | なし       | なし    | なし        |
-| `EJECT_SUPABASE_PUBLISHABLE_KEY`   | なし       | なし    | なし        |
+| `EJECT_PERSON_AUTH_ENABLED`       | `true`     | なし    | なし        |
+| `EJECT_SUPABASE_AUTH_ISSUER`      | 設定済み   | なし    | なし        |
+| `EJECT_SUPABASE_AUTH_AUDIENCE`    | 設定済み   | なし    | なし        |
+| `EJECT_SUPABASE_PUBLISHABLE_KEY`  | 設定済み   | なし    | なし        |
+| `EJECT_PUBLIC_ORIGIN`             | 設定済み   | なし    | なし        |
 
 Productionはport 6543のSupavisor transaction poolerを使います。Preview buildにはproduction
 database credentialを渡しません。shellのbuildとrenderはできますが、agent routeは利用できない
@@ -47,8 +50,32 @@ URLを使います。
 Vercelにserver response-signing private keyは設定していません。environment delivery flagを誤って
 変更しても、必要なsigning keyがないためagent transport compositionはfail closedになります。
 独立したdatabase delivery gateも無効のままです。device enrollmentもopt-in environment variableが
-存在しないため、独立してfail closedです。person authもopt-inとprovider publishable keyの両方が
-存在しないためfail closedです。
+存在しないため、独立してfail closedです。person authは完全一致する
+`https://eject-bice.vercel.app` originのProductionだけで有効です。PreviewとDevelopmentはauth
+opt-inとprovider設定がないためfail closedのままです。
+
+## 招待制person provisioning
+
+person authenticationはdevice enrollment・deliveryから分離します。有効化する前にSupabase Authの
+public sign-upを拒否し、完全一致するEJECT HTTPS originをsite URLかつ唯一のredirect originとして
+設定します。
+
+招待済みの既存accountは、Vercelやbrowserではなくoperator環境からprovisionします。保護された
+production database変数、完全一致するSupabase issuer、operatorだけが使うsecret API keyをprocess
+environmentで渡します。
+
+```sh
+npm run person:provision --workspace @eject/control-plane -- \
+  PERSON_EMAIL "Display name"
+```
+
+scriptはconfirmed Supabase Auth identityを作成し、同じUUIDを持つEJECT `people` rowとprivate-by-defaultの
+`recipient_access_policies` rowを1つのdatabase transactionで作成します。そのtransactionが失敗した場合は
+新しいAuth identityの削除を試みます。email、token、database credentialは出力しません。rollbackに確認が
+必要と報告された場合はSupabase Authを手動確認します。
+
+`EJECT_PROVISIONING_SUPABASE_SECRET_KEY`をVercelへ設定してはいけません。deployed applicationが必要と
+するのはpublishable keyだけで、固定sign-in requestは`create_user = false`を使います。
 
 ## TLS trust
 

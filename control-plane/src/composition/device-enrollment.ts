@@ -7,6 +7,7 @@ import { parseExpectedOrigin } from "@/modules/identity/transport/person-http-au
 import {
   createConsumeDeviceEnrollment,
   createDeviceEnrollment,
+  createListOwnedDevices,
   createRevokeDevice,
 } from "@/modules/devices/application/device-enrollment";
 import { NodeDeviceEnrollmentCrypto } from "@/modules/devices/infrastructure/node-device-enrollment-crypto";
@@ -64,6 +65,7 @@ export function getPersonDeviceDependencies(): PersonDeviceHttpDependencies {
       crypto,
       newId: randomUUID,
     }),
+    listDevices: createListOwnedDevices({ store }),
     revokeDevice: createRevokeDevice({ store }),
     now: () => new Date(),
   };

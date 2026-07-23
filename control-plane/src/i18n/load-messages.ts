@@ -7,7 +7,13 @@ export type Messages = Readonly<Record<MessageKey, string>>;
 
 const messages: Readonly<Record<Locale, Messages>> = { en, ja };
 
-export function selectLocale(acceptLanguage: string | null): Locale {
+export function selectLocale(
+  acceptLanguage: string | null,
+  explicitLocale?: string,
+): Locale {
+  if (explicitLocale === "en" || explicitLocale === "ja") {
+    return explicitLocale;
+  }
   if (acceptLanguage === null) {
     return "en";
   }

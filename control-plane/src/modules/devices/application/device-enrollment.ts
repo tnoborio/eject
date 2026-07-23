@@ -10,6 +10,8 @@ export interface DeviceEnrollmentCrypto {
 }
 
 export interface DeviceEnrollmentStore {
+  listDevices(ownerId: string): Promise<readonly RegisteredDeviceSummary[]>;
+
   createEnrollment(input: {
     readonly enrollmentId: string;
     readonly ownerId: string;
@@ -38,6 +40,26 @@ export interface DeviceEnrollmentStore {
     readonly deviceId: string;
     readonly now: Date;
   }): Promise<void>;
+}
+
+export interface RegisteredDeviceSummary {
+  readonly deviceId: string;
+  readonly enrollmentState: "SETUP_IN_PROGRESS" | "READY" | "REVOKED";
+  readonly availability: "AVAILABLE" | "PAUSED" | "OFFLINE";
+  readonly hasApprovedDrive: boolean;
+  readonly platform: "WINDOWS";
+  readonly agentVersion: string;
+  readonly createdAt: Date;
+}
+
+export function createListOwnedDevices(dependencies: {
+  readonly store: DeviceEnrollmentStore;
+}) {
+  return async function list(
+    ownerId: string,
+  ): Promise<readonly RegisteredDeviceSummary[]> {
+    return dependencies.store.listDevices(ownerId);
+  };
 }
 
 export type CreateDeviceEnrollmentResult =

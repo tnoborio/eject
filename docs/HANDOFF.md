@@ -8,7 +8,7 @@ the order in which work should continue.
 
 ## Snapshot
 
-- **Date:** 2026-07-22
+- **Date:** 2026-07-24
 - **Repository:** `tnoborio/eject`
 - **Current branch:** `main`
 - **Merged PRs:** [#2](https://github.com/tnoborio/eject/pull/2) (Stage 0
@@ -29,8 +29,11 @@ the order in which work should continue.
   (person PKCE sessions), and [#17](https://github.com/tnoborio/eject/pull/17)
   (protected Windows CNG device keys), plus
   [#18](https://github.com/tnoborio/eject/pull/18) (main CNG evidence refresh)
-- **Current verified implementation:** PR #17 on `main`; all three repository
-  migrations are applied and checksum-verified in the protected cloud database
+- **Current verified implementation:** PR #18 on `main`; the current checkout
+  adds the bilingual safe-state web console and authenticated owner-device
+  listing plus recipient-authored pause and existing-relationship grant/revoke,
+  while all three repository migrations remain applied and checksum-verified
+  in the protected cloud database
 - **Verified CI on `main`:** [Windows spike run 29688104811](https://github.com/tnoborio/eject/actions/runs/29688104811),
   [protocol contract run 29688208249](https://github.com/tnoborio/eject/actions/runs/29688208249),
   [control-plane run 29813234824](https://github.com/tnoborio/eject/actions/runs/29813234824),
@@ -52,13 +55,35 @@ the order in which work should continue.
   connected and real standard-user evidence remains required. A dedicated
   managed PostgreSQL environment and Vercel project exist under Sasara
   operational ownership, but delivery is disabled at every gate and no Windows
-  agent is connected.
+  agent is connected. Web experience work is now proceeding ahead of Windows
+  integration: the current checkout renders the English/Japanese service,
+  connects its forms to the existing auth and device-management boundaries, and
+  keeps all physical action unavailable. Owner-bound consent controls now pause
+  incoming access or grant/revoke one existing active relationship. Pause and
+  revoke atomically cancel affected unconfirmed commands under the issuance
+  recipient lock; the UI creates no relationships and exposes no account
+  search. Supabase Auth rejects public sign-up, allows only the exact public
+  Production callback, and uses a ten-minute email-code lifetime. Person auth
+  is enabled at
+  `https://eject-bice.vercel.app`, the first invited account is provisioned, and
+  the live refresh, account verification, owner-device list, and logout
+  lifecycle is verified. Device enrollment and both delivery gates remain off.
 
 ## Executive status
 
 The repository now produces an unsigned, self-contained Windows x64 console
 application that discovers local optical drives and makes one fixed eject
 attempt against a locally selected opaque drive identifier.
+
+The current checkout also contains a responsive English/Japanese web console.
+It truthfully exposes deployment capability state, provides existing-account
+magic-link and OTP forms, detects the authenticated owner session, lists only
+that owner's devices, creates one-use enrollment secrets only when the separate
+gate is enabled, and provides owner device revocation. Its EJECT control is
+disabled and explicitly sends no command. Recipient pause and directional
+grant/revoke operate only for the authenticated owner and existing active
+relationships. Pause and revoke cancel affected `QUEUED` and unconfirmed
+`DISPATCHED` commands atomically with the consent change.
 
 The following work is complete:
 
@@ -119,15 +144,17 @@ EJECT account status. The repository includes the server side of the
 ten-minute, one-use enrollment ceremony and idempotent owner revocation. It
 stores only enrollment-secret digests, accepts only canonical P-256
 SubjectPublicKeyInfo, keeps enrollment creation disabled by default, and
-atomically revokes device keys and undelivered commands. Live Supabase sign-in,
-standard-user Windows CNG evidence, and Windows polling remain incomplete. The
+atomically revokes device keys and undelivered commands. The live Supabase
+provider lifecycle is verified; a human browser sign-in, standard-user Windows
+CNG evidence, and Windows polling remain incomplete. The
 Windows key-store implementation creates persistent current-user P-256 keys,
 prefers the Platform provider, falls back only to the Software KSP, and never
 exports private material. Fixed existing-user magic-link, PKCE callback, email
 OTP, refresh, and local-logout routes are implemented with S256 state binding
-and separate host-only cookies; provider configuration and UI remain absent.
+and separate host-only cookies; Production provider configuration and the
+bilingual UI are active.
 The EJECT-specific Supabase PostgreSQL 17 project is provisioned in Tokyo with
-SSL enforcement, all three migrations, zero application rows, and delivery
+SSL enforcement, all three migrations, one invited person, and delivery
 disabled.
 The `sasara/eject` Vercel project is connected to GitHub, runs Next.js on Node.js
 22 in Tokyo, with production-only protected database access and no database
@@ -161,7 +188,8 @@ src/Eject.Agent.Windows/WindowsCngDeviceKeyStore.cs
     Weekly and manually dispatchable advisory Stryker mutation testing.
 
 control-plane/src/app/
-    Localized Next.js shell with no remote action endpoint.
+    Responsive localized service console with safe-state EJECT presentation,
+    person-auth forms, owner device management, and no remote action endpoint.
 
 control-plane/src/modules/eject/
     Pure authorization, exposure, and lifecycle policy; application issuance
@@ -178,13 +206,18 @@ control-plane/src/modules/identity/
     host-only access-cookie reader, Supabase JWKS JWT verification, and the
     PostgreSQL current-account-status adapter.
 
+control-plane/src/modules/permissions/
+    Owner-bound recipient consent application ports, closed HTTP handling, and
+    SERIALIZABLE PostgreSQL pause/grant/revoke with atomic command cancellation.
+
 control-plane/src/app/api/agent/v1/
     Fixed enrollment, poll, and result POST routes. Enrollment and delivery have
     independent default-disabled environment gates.
 
 control-plane/src/app/api/person/v1/
     Origin-checked, person-session-authenticated enrollment-secret creation and
-    idempotent device revocation POST routes. There is no person eject route.
+    idempotent device revocation, recipient pause, and existing-relationship
+    grant/revoke routes. There is no person eject or account-search route.
 
 control-plane/test/
     Unit, property, application-boundary, protocol-adapter, migration,
@@ -426,6 +459,62 @@ The following facts have direct build or test evidence:
 51. PR #17 merged as `ec00e78`. The resulting `main` push repeated all 15 tests,
     publish, smoke, no-eject hardware-kit verification, and artifact upload
     successfully ([Windows run 29899930269](https://github.com/tnoborio/eject/actions/runs/29899930269)).
+52. The current checkout replaces the static shell with a responsive bilingual
+    service console. Explicit locale choice persists in a non-sensitive cookie,
+    the document language follows it, and all newly visible strings live in the
+    paired locale resources. The disabled EJECT presentation states that it
+    sends no command and does not claim physical success.
+53. The web console connects to the existing default-disabled magic-link, OTP,
+    logout, enrollment-secret, and revocation routes. A new authenticated GET on
+    the fixed device-enrollment path lists only the session owner's bounded
+    device state and never exposes a key or enrollment digest.
+54. Local verification passes formatting, ESLint, TypeScript, dependency rules,
+    95 unit and property tests, 100% branch/function/line/statement coverage for
+    the blocking critical boundary, 23 PostgreSQL 17 integration and concurrency
+    tests against an isolated temporary database, and the Next.js 16.2.10
+    production build.
+55. Vercel Preview deployment `dpl_7QNfN2eigmYZK1bP3jeZaUT9DfgR` reached
+    `READY` at `https://eject-liv5qbj16-sasara.vercel.app`. An authenticated
+    deployment request returned HTTP 200 from `/`; the preview advertises all
+    three capabilities as disabled and the auth route returns
+    `PERSON_AUTH_DISABLED`. Preview has no production database credential.
+56. On 2026-07-23, the EJECT Supabase Auth project remained `ACTIVE_HEALTHY` and
+    published one ES256 signing key. Auth configuration was changed from its
+    provider default to reject public sign-up, allow only the exact public
+    Production site and callback URL, and expire eight-digit email codes after
+    ten minutes, matching the server PKCE-cookie lifetime.
+57. The current checkout adds an operator-only `person:provision` command. A
+    live test created a confirmed, non-emailed transient Supabase Auth identity,
+    inserted the same UUID into an isolated migrated PostgreSQL 17 database, and
+    then removed both test records. A second live test verified the current
+    `sb_secret_` API-key header contract before removing that transient identity
+    and database. The operator secret was not written to the repository or
+    configured in Vercel.
+58. Production deployment `dpl_W5Xs6mVeViWaks9hrPBidLfLAESe` reached `READY`
+    and was aliased to `https://eject-bice.vercel.app`. Production advertises
+    `personAuth=true`, `deviceEnrollment=false`, and `delivery=false`.
+    Enrollment creation and agent polling each return their bounded disabled
+    response with HTTP 404.
+59. The first persistent invited Auth identity and matching `people` UUID were
+    provisioned without emailing or logging personal data. The protected cloud
+    database then contained one person, zero devices, and zero enrollment
+    sessions. Auth also contained exactly one user.
+60. Live-provider verification found and fixed two current Supabase API-key and
+    token compatibility assumptions: `sb_publishable_` keys are sent only as
+    API keys, while user or legacy anon JWTs use the Bearer header; bounded
+    opaque twelve-character refresh tokens are accepted. A no-email generated
+    link then verified the provider token, Production refresh returned HTTP 204,
+    the authenticated owner-device list returned HTTP 200 with zero devices,
+    and Production logout returned HTTP 204. No session token was logged.
+61. The current checkout passes formatting, ESLint, TypeScript, dependency
+    rules, 100 unit and property tests, 100% branch/function/line/statement
+    coverage for the blocking critical boundary, 26 PostgreSQL 17 integration
+    and concurrency tests against an isolated temporary database, and the
+    Next.js 16.2.10 production build. Real-PostgreSQL tests prove that consent
+    reads expose only active relationships, grant requires an active
+    relationship, revoke cancels only that actor's unconfirmed commands, pause
+    cancels all unconfirmed recipient commands, and repeated safety mutations
+    do not duplicate cancellation events.
 
 The verified `main` artifact from run 29899930269 had this checksum:
 
@@ -470,22 +559,28 @@ Record the failure and narrow the supported capability contract instead.
 - The opaque drive identifier is derived from the current drive root. It is
   suitable for this local spike but is not a permanent hardware identity and
   can change when Windows reassigns drive letters.
-- The executable has no UI, installer, code signature, update channel,
+- The desktop executable has no UI, installer, code signature, update channel,
   enrollment state, or server connection. The CNG key store is not wired into
   the CLI yet.
 - Protocol v1 has not yet been exercised between a real control plane and agent.
 - PostgreSQL issuance, authenticated poll/result transport, person-session
   verification, and the server enrollment/revocation boundary are implemented,
   and the server-owned Supabase magic-link/OTP PKCE cookie lifecycle is on
-  `main` but disabled and unconfigured. A sign-in UI, live-provider
-  end-to-end evidence, wiring the Windows CNG key into enrollment, and the
-  Windows polling client have not been implemented.
-- The person JWT adapter has been verified with local asymmetric JWKS fixtures,
-  not against the provisioned Supabase Auth issuer or a live rotated key set.
-- The cloud environment has all three migrations applied and verified, but no
-  person, device, enrollment secret, command, result, signing key, or private
-  event has been added. Enrollment remains disabled. This is infrastructure
-  readiness, not a live service.
+  `main` and enabled in Production. Provider token verification, refresh,
+  authenticated owner-device listing, and logout have live evidence. A human
+  browser has not yet completed the PKCE magic-link or OTP interaction. Wiring
+  the Windows CNG key into enrollment and the Windows polling client remain.
+- Owner-bound pause and existing-relationship grant/revoke are implemented in
+  the current checkout with real-database cancellation evidence, but they are
+  not deployed and have no live browser evidence. The service still cannot
+  create a relationship, search for an account, or send an eject request.
+- The person JWT adapter has been verified against the live Supabase ES256 JWKS
+  and a provisioned active account. Live signing-key rotation has not been
+  observed.
+- The cloud environment has all three migrations applied and verified, one
+  invited person, and no device, enrollment secret, command, result, signing
+  key, or private event. Person auth is live, but enrollment and all physical
+  delivery remain disabled.
 - ADR 0005 fixes the authentication provider, device credential, integrity,
   replay, revocation, idempotency, and clock construction. It has not received
   independent security review or standard-user Windows CNG validation.
@@ -551,12 +646,26 @@ environment, person-session adapter, and server enrollment/revocation boundary
 are implemented, and all three migrations are applied to the protected cloud
 database. The person PKCE cookie lifecycle and protected Windows CNG key store
 are on `main`; the latter has hosted Windows CI evidence but no real standard-user
-hardware evidence. The next software sequence is:
+hardware evidence. The web experience is now being advanced first. The current
+checkout provides a safe bilingual preview, owner-device UI, and owner-bound
+pause/grant/revoke without enabling delivery or account search. The next
+sequence is:
 
-1. validate non-exportable P-256 Windows CNG creation as a standard user on real
-   Windows before accepting enrollment as complete; and
-2. add outbound Windows polling, durable replay consumption, and result resend
-   without adding any generic command or inbound port.
+1. complete one human-browser magic-link or OTP sign-in on the public Production
+   service, then record the browser callback evidence;
+2. review and merge the web console and consent mutations, then record their
+   blocking Actions and Vercel checks;
+3. specify invite-only relationship establishment for the two-person prototype
+   without public account search, and keep it separate from directional EJECT
+   permission; and
+4. wire the protected Windows key to enrollment and implement outbound-only
+   polling behind the disabled gates, including durable replay consumption and
+   stored-result resend; keep device-enrollment creation disabled until real
+   standard-user CNG evidence exists. Authenticated device listing and
+   revocation may remain available independently as safety controls.
+
+Windows CNG validation remains a parallel requirement. Polling must add no
+generic command or inbound port.
 
 Keep the enrollment opt-in absent, keep both delivery gates false, and do not
 configure the server response-signing private key in Vercel during the
@@ -599,13 +708,19 @@ snapshot links). Keep subsequent changes small and reviewable:
    PostgreSQL 17 project, SSL enforcement, protected production-only database
    access, exact migration verification, Git-connected Vercel deployment, and
    delivery disabled.
-5. **Person auth and Windows enrollment/polling** — person-session verification
+5. **Web experience, person auth, and Windows enrollment/polling** — the
+   bilingual safe-state service console, person-session verification,
    and the default-disabled server enrollment/revocation boundary are on `main`,
    and their third migration is applied and verified in the protected cloud
    database. Server-owned PKCE cookie routes are also on `main` and
-   default-disabled. Protected Windows key creation is implemented and verified
-   in hosted Windows CI but is not connected to enrollment. Sign-in UI and
-   live-provider evidence, real standard-user key evidence, local replay
+   default-disabled. The sign-in and owner-device UI is implemented, and a safe
+   Vercel Preview and auth-enabled Production service are verified. The first
+   invited person and live provider session lifecycle are verified. Protected
+   Windows key creation is implemented and verified in hosted Windows CI but is
+   not connected to enrollment. Owner-bound pause and existing-relationship
+   grant/revoke are implemented in the current checkout with atomic cancellation
+   evidence. Human-browser sign-in and consent evidence, invite-only
+   relationship establishment, real standard-user key evidence, local replay
    protection, one attempt, result report, and outbound-only polling remain.
 6. **Hardware evidence in parallel** — add reviewed reports and any narrowly
    evidence-backed adapter corrections when equipment becomes available.

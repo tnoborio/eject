@@ -1,6 +1,8 @@
 import type { PersonSessionAuthentication } from "@/modules/identity/application/authenticate-person-session";
 import { parsePersonPostRequest } from "@/modules/identity/transport/person-http-auth";
 import type { CreateDeviceEnrollmentResult } from "../application/device-enrollment";
+import type { RegisteredDeviceSummary } from "../application/device-enrollment";
+import { readPersonAccessToken } from "@/modules/identity/transport/person-session-cookie";
 
 const createPath = "/api/person/v1/device-enrollments";
 const revokePath = "/api/person/v1/device-revocations";
@@ -16,12 +18,55 @@ export interface PersonDeviceHttpDependencies {
     ownerId: string,
     now: Date,
   ) => Promise<CreateDeviceEnrollmentResult>;
+  readonly listDevices: (
+    ownerId: string,
+  ) => Promise<readonly RegisteredDeviceSummary[]>;
   readonly revokeDevice: (
     ownerId: string,
     deviceId: string,
     now: Date,
   ) => Promise<void>;
   readonly now: () => Date;
+}
+
+export async function handleListDevices(
+  request: Request,
+  dependencies: PersonDeviceHttpDependencies,
+): Promise<Response> {
+  const url = new URL(request.url);
+  if (
+    request.method !== "GET" ||
+    url.pathname !== createPath ||
+    url.searchParams.size !== 0
+  ) {
+    return personError("INVALID_REQUEST", 400);
+  }
+  const authentication = await dependencies.authenticate(
+    readPersonAccessToken(request),
+  );
+  if (!authentication.authenticated) {
+    return personError(
+      authentication.reason,
+      authentication.reason === "AUTHENTICATION_REQUIRED" ? 401 : 403,
+    );
+  }
+  const devices = await dependencies.listDevices(
+    authentication.context.personId,
+  );
+  return noStoreJson(
+    {
+      devices: devices.map((device) => ({
+        device_id: device.deviceId,
+        enrollment_state: device.enrollmentState,
+        availability: device.availability,
+        has_approved_drive: device.hasApprovedDrive,
+        platform: device.platform,
+        agent_version: device.agentVersion,
+        created_at: device.createdAt.toISOString(),
+      })),
+    },
+    200,
+  );
 }
 
 export async function handleCreateDeviceEnrollment(

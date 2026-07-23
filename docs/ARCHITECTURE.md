@@ -86,11 +86,16 @@ disabled by default before provider configuration is initialized.
 
 The control plane now contains fixed Node.js POST routes for agent enrollment,
 polling, and results, plus person-authenticated device-enrollment creation and
-revocation. Enrollment creation is independently disabled by default before
-database or person-auth initialization. Poll and result delivery retains its
-separate environment gate, and the independent database global-delivery gate
-must also be true before a command can be returned. There is no person-facing
-public eject endpoint, and no Windows agent is connected yet.
+revocation. It also has owner-bound recipient-consent reads and mutations for
+pause and directional grants to existing active relationships. Pausing or
+revoking a grant serializes on the same recipient lock as issuance and
+atomically cancels affected `QUEUED` or unconfirmed `DISPATCHED` commands.
+These routes do not create relationships or make accounts searchable.
+Enrollment creation is independently disabled by default before database or
+person-auth initialization. Poll and result delivery retains its separate
+environment gate, and the independent database global-delivery gate must also
+be true before a command can be returned. There is no person-facing public
+eject endpoint, and no Windows agent is connected yet.
 
 Protocol v1 remains canonical under `protocol/v1` and is consumed as the
 private workspace package `@eject/protocol-contract`. Only transport adapters

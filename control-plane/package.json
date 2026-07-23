@@ -13,6 +13,7 @@
     "typecheck": "tsc --noEmit",
     "architecture": "depcruise src --config dependency-cruiser.config.cjs",
     "migrate": "tsx src/infrastructure/postgres/migrate.ts",
+    "person:provision": "tsx scripts/provision-invited-person.ts",
     "verify:cloud-database": "tsx scripts/verify-cloud-database.ts",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",

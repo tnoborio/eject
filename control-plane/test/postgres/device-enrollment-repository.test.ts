@@ -89,6 +89,18 @@ describe("PostgresDeviceEnrollmentStore", () => {
         key_length: publicSpki.byteLength,
       },
     ]);
+    await expect(store.listDevices(ownerId)).resolves.toEqual([
+      {
+        deviceId,
+        enrollmentState: "SETUP_IN_PROGRESS",
+        availability: "OFFLINE",
+        hasApprovedDrive: false,
+        platform: "WINDOWS",
+        agentVersion: "0.1.0",
+        createdAt: now,
+      },
+    ]);
+    await expect(store.listDevices(actorId)).resolves.toEqual([]);
   });
 
   it("allows exactly one winner when the same one-use secret races", async () => {

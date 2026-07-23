@@ -1,10 +1,15 @@
 import type { Metadata } from "next";
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { loadMessages, selectLocale } from "@/i18n/load-messages";
+import { WebConsole } from "./web-console";
 
 async function localeAndMessages() {
   const requestHeaders = await headers();
-  const locale = selectLocale(requestHeaders.get("accept-language"));
+  const cookieStore = await cookies();
+  const locale = selectLocale(
+    requestHeaders.get("accept-language"),
+    cookieStore.get("eject_locale")?.value,
+  );
   return { locale, messages: loadMessages(locale) };
 }
 
@@ -17,17 +22,15 @@ export default async function Home() {
   const { locale, messages } = await localeAndMessages();
 
   return (
-    <main lang={locale}>
-      <section className="panel" aria-labelledby="headline">
-        <p className="eyebrow">{messages["home.eyebrow"]}</p>
-        <h1 id="headline">{messages["home.headline"]}</h1>
-        <p className="statement">{messages["home.statement"]}</p>
-        <dl>
-          <dt>{messages["home.statusLabel"]}</dt>
-          <dd>{messages["home.statusValue"]}</dd>
-        </dl>
-        <p className="notice">{messages["home.notice"]}</p>
-      </section>
-    </main>
+    <WebConsole
+      locale={locale}
+      messages={messages}
+      capabilities={{
+        personAuth: process.env.EJECT_PERSON_AUTH_ENABLED === "true",
+        deviceEnrollment:
+          process.env.EJECT_DEVICE_ENROLLMENT_ENABLED === "true",
+        delivery: process.env.EJECT_AGENT_DELIVERY_ENABLED === "true",
+      }}
+    />
   );
 }

@@ -10,7 +10,7 @@ const stateCookieName = "__Host-eject-pkce-state";
 const maximumCookieHeaderLength = 16_384;
 const maximumAccessTokenLength = 8_192;
 const compactJwtPattern = /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/;
-const refreshTokenPattern = /^[A-Za-z0-9._~-]{20,4096}$/;
+const refreshTokenPattern = /^[A-Za-z0-9._~-]{8,4096}$/;
 const challengeValuePattern = /^[A-Za-z0-9_-]{43}$/;
 
 export function readPersonAccessToken(request: Request): string | null {
