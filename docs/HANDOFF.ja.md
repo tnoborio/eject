@@ -11,8 +11,8 @@
 - **リポジトリ:** `tnoborio/eject`
 - **現在のブランチ:** `agent/relationship-lifecycle`
 - **現在のworking tree:** relationship lifecycleの29 path changeはこのbranchへcommit・push済み。
-  Draft [PR #21](https://github.com/tnoborio/eject/pull/21)は`main`向けで、migration 0005を
-  適用・検証する前にmergeしてはいけない
+  Draft [PR #21](https://github.com/tnoborio/eject/pull/21)は`main`向けで、新deploymentが
+  activeになる前にmigration 0005を適用・検証するreview済みone-time Production build bridgeを含む
 - **マージ済みPR:** [#2](https://github.com/tnoborio/eject/pull/2)(Stage 0スパイク)、
   [#3](https://github.com/tnoborio/eject/pull/3)(One Bitロゴ)、
   [#4](https://github.com/tnoborio/eject/pull/4)(ハードウェア検証キット)、
@@ -34,7 +34,9 @@
   [#20](https://github.com/tnoborio/eject/pull/20)(invite-only relationship確立)
 - **現在の検証済み実装:** `main`上のPR #20、merge commit `9929968`。PR #21のcommit `03e180c`はrelationship
   切断、grantを復元しない明示的code再接続、24時間後のinvitation metadata cleanupを追加。protected
-  cloud databaseへ適用・checksum検証済みなのは最初のmigration 4件で、0005はcommit済みだがremote未適用
+  cloud databaseへ適用・checksum検証済みなのは最初のmigration 4件で、0005はcommit済みだがremote未適用。
+  VercelがsensitiveなProduction valueをoperator CLIへexportしないため、現在のcheckoutはfail-closedな
+  one-time build bridgeを追加する
 - **`main`上の検証済みCI:** [Windows spike run 29688104811](https://github.com/tnoborio/eject/actions/runs/29688104811)、
   [protocol contract run 29688208249](https://github.com/tnoborio/eject/actions/runs/29688208249)、
   [control-plane run 29813234824](https://github.com/tnoborio/eject/actions/runs/29813234824)、
@@ -459,6 +461,11 @@ docs/decisions/0005-identity-and-device-security.md
     だけの再接続、24時間のinvitation retention境界を超えたrowだけの削除を証明する。実装commit
     `03e180c`のPR #21はrun 30065802534でActions 4 jobとVercel check 2件すべてに成功した。
     migration 0005はprotected databaseへ未適用のまま。
+64. one-time Production migration bridgeはstatic・architecture check、protocol test 11件、
+    control-plane unit・property test 120件、database操作をすべてskipするlocal production buildに成功する。
+    unit証拠は、`main` refのVercel Production buildだけが処理を継続し、安全設定・pooler形状の不一致が
+    fail closedになること、session-pooler変更がprocess memory内だけで行われること、秘密を返さず
+    migration、bounded cleanup、verificationの順で実行することを証明する。
 
 run 29899930269の検証済み`main` artifactのチェックサムは次のとおりです。
 
@@ -555,8 +562,9 @@ git diff --check
 
 期待する結果はbranch `agent/relationship-lifecycle`、merge commit `9929968`の`main`、
 branch history内の実装commit `03e180c`、未commit product changeなしです。Draft PR #21は
-Actions 4 job・Vercel check 2件すべてに成功済みです。protected migration完了前にmergeしてはいけません。
-完了済みlocal verificationを再現するには次を実行してください。
+one-time Production migration bridgeを含みます。全check成功後だけmergeし、新しいProduction
+deploymentを受理する前に`APPLIED_AND_VERIFIED`証拠を必須とします。完了済みlocal verificationを
+再現するには次を実行してください。
 
 ```sh
 npm run check
@@ -570,12 +578,12 @@ PostgreSQL証拠では、`eject_test`という名前のephemeral PostgreSQL 17 d
 32件すべて成功後、containerを停止しました。再実行時もその正確な名前の隔離databaseを作成してください。
 testは他のdatabaseをresetしません。
 
-直後の継続作業は、protected database passwordと現在のpin済みCAを持つoperator environmentから
-migration 0005を適用し、5件すべてのchecksumと無効なsafety gateを検証し、invitation cleanupが
-0件を報告するまで実行することです。その証拠を更新してからPR #21をreadyまたはmergeしてください。
-migration 0005はremoteへ未適用です。このCodex hostはVercel Production variable名を一覧できますが、
-Vercelはsensitive valueを返さず、Supabase operator credentialも利用できません。保護を迂回したり、
-先にmergeしたりしてはいけません。
+直後の継続作業はPR #21のcheckを完了し、ready化・mergeすることです。Vercel Production buildは
+migration 0005を適用し、対象invitation cleanupを0件まで実行し、migration 5件のchecksumと無効な
+safety gateを検証した後だけ`APPLIED_AND_VERIFIED`を報告しなければなりません。buildが失敗した場合は
+直前のProduction deploymentをactiveのままにし、bounded errorを診断してください。sensitive valueを
+露出させてはいけません。deploy成功後は無効なagent routeを検証し、one-time build bridgeを削除する
+review済みfollow-upを直ちにpublishしてください。migration 0005はremoteへまだ未適用です。
 
 repositoryは`global.json`で.NET 10を選択します。relationship lifecycle changeはWindows projectを
 変更しませんが、hardware work再開時に`dotnet`がなければ対応する.NET 10 SDKをinstallしてください。

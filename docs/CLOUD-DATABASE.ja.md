@@ -131,6 +131,28 @@ npm run relationships:cleanup
 1回につき、使用・無効化・失効から24時間を超えたrowを最大500件削除し、削除件数だけを出力します。
 0件になるまで実行してください。database credentialをpublic schedulerやbrowserへ設定してはいけません。
 
+### migration 0005用の一回限りのProduction build bridge
+
+VercelはsensitiveなProduction valueをoperator CLIへexportしません。そのためPR #21は一時的に
+`next build`より先に`scripts/run-one-time-production-migration.ts`を実行します。このbridgeは
+credentialを出力・返却しません。Production以外のbuildでは常にskipし、次の事実がすべて成立しない限り
+fail closedになります。
+
+- processが`main` Git refのVercel Production buildである
+- agent deliveryが明示的に`false`である
+- device enrollmentとserver response-signing key変数2件が存在しない
+- pin済みdatabase CAが存在する
+- `DATABASE_URL`がport 6543の想定Supabase transaction poolerである
+
+bridgeはprocess memory内でpooler portだけをsession-poolerの5432へ変更し、既存advisory lock下で
+forward-only migrationを適用します。その後、対象invitation cleanupをbounded batchで0件まで実行し、
+全repository checksum、PostgreSQL 17、pin済みTLS、delivery無効、physical ceiling未設定を独立検証します。
+いずれかが失敗するとbuildも失敗するため、直前のProduction deploymentがactiveなまま残ります。
+
+最初の`APPLIED_AND_VERIFIED` Production build後、deploy済みagent routeが引き続き無効なことを確認し、
+直後のreview済みfollow-upでbuild scriptからone-time bridgeを削除してください。build outputから
+sensitive valueを露出させたり、bridgeを汎用migration runnerとして残したりしてはいけません。
+
 ## Deployment動作
 
 Vercel projectはGitHubへ接続済みです。pull requestにはproduction databaseへaccessできないPreview

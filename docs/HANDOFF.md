@@ -13,8 +13,9 @@ the order in which work should continue.
 - **Current branch:** `agent/relationship-lifecycle`
 - **Current working tree:** the 29-path relationship-lifecycle change is
   committed and pushed on this branch. Draft
-  [PR #21](https://github.com/tnoborio/eject/pull/21) targets `main`; do not
-  merge it before migration 0005 is applied and verified
+  [PR #21](https://github.com/tnoborio/eject/pull/21) targets `main` and now
+  includes a reviewed one-time Production build bridge that must apply and
+  verify migration 0005 before the new deployment can become active
 - **Merged PRs:** [#2](https://github.com/tnoborio/eject/pull/2) (Stage 0
   spike), [#3](https://github.com/tnoborio/eject/pull/3) (One Bit logo),
   [#4](https://github.com/tnoborio/eject/pull/4) (hardware validation kit),
@@ -41,7 +42,9 @@ the order in which work should continue.
   code-based reconnection without grant restoration, and 24-hour invitation
   metadata cleanup. The first four repository migrations are applied and
   checksum-verified in the protected cloud database; migration 0005 is
-  committed but not applied remotely
+  committed but not applied remotely. The current checkout adds a fail-closed
+  one-time build bridge because Vercel does not export sensitive Production
+  values to the operator CLI
 - **Verified CI on `main`:** [Windows spike run 29688104811](https://github.com/tnoborio/eject/actions/runs/29688104811),
   [protocol contract run 29688208249](https://github.com/tnoborio/eject/actions/runs/29688208249),
   [control-plane run 29813234824](https://github.com/tnoborio/eject/actions/runs/29813234824),
@@ -567,6 +570,14 @@ The following facts have direct build or test evidence:
     boundary. PR #21 at implementation commit `03e180c` passed all four Actions
     jobs and both Vercel checks in run 30065802534. Migration 0005 remains
     unapplied to the protected database.
+64. The one-time Production migration bridge passes static and architecture
+    checks, all 11 protocol tests, 120 control-plane unit and property tests,
+    and a local production build that skipped every database operation. Unit
+    evidence proves that only a Vercel Production build for the `main` ref can
+    proceed, that safety configuration and pooler-shape mismatches fail closed,
+    that the session-pooler change occurs only in process memory, and that
+    migration, bounded cleanup, and verification run in that order without
+    returning secrets.
 
 The verified `main` artifact from run 29899930269 had this checksum:
 
@@ -683,8 +694,9 @@ git diff --check
 
 Expected results are branch `agent/relationship-lifecycle`, `main` at merge
 commit `9929968`, implementation commit `03e180c` in the branch history, and no
-uncommitted product change. Draft PR #21 has passed all four Actions jobs and
-both Vercel checks. Do not merge it before the protected migration is complete.
+uncommitted product change. Draft PR #21 includes the one-time Production
+migration bridge. Merge only after all checks pass, then require its
+`APPLIED_AND_VERIFIED` evidence before accepting the new Production deployment.
 To reproduce the completed local verification:
 
 ```sh
@@ -700,14 +712,15 @@ The PostgreSQL evidence used an ephemeral PostgreSQL 17 database named
 stopped the container. Recreate an isolated database with that exact name
 before rerunning; the tests refuse to reset any other database.
 
-The immediate continuation is to apply migration 0005 from an operator
-environment with the protected database password and current pinned CA, verify
-all five checksums and disabled safety gates, run invitation cleanup until it
-reports zero, then update this evidence before marking PR #21 ready or merging
-it. Migration 0005 has not been applied remotely. This Codex host can list the
-Vercel Production variable names but Vercel does not return their sensitive
-values, and no Supabase operator credential is available here; do not bypass
-that protection or merge first.
+The immediate continuation is to finish PR #21 checks, mark it ready, and merge
+it. Its Vercel Production build must report `APPLIED_AND_VERIFIED` only after
+applying migration 0005, draining eligible invitation cleanup to zero, and
+verifying all five checksums and disabled safety gates. If that build fails,
+leave the previous Production deployment active and diagnose the bounded error;
+do not expose a sensitive value. After a successful deployment, verify the
+disabled agent routes and immediately publish the reviewed follow-up that
+removes the one-time build bridge. Migration 0005 has not yet been applied
+remotely.
 
 The repository selects .NET 10 through `global.json`. The relationship-lifecycle
 change does not alter the Windows project, but install a supported .NET 10 SDK

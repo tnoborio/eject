@@ -149,6 +149,32 @@ Each run deletes at most 500 rows that have been used, invalidated, or expired
 for more than 24 hours, and prints only the deleted count. Run until it reports
 zero. Do not configure database credentials in a public scheduler or browser.
 
+### One-time Production build bridge for migration 0005
+
+Vercel does not export sensitive Production values to the operator CLI. PR #21
+therefore temporarily runs
+`scripts/run-one-time-production-migration.ts` before `next build`. The bridge
+does not print or return a credential. It skips every non-Production build and
+fails closed unless all of these facts hold:
+
+- the process is a Vercel Production build for the `main` Git ref;
+- agent delivery is explicitly `false`;
+- device enrollment and both server response-signing key variables are absent;
+- the pinned database CA is present; and
+- `DATABASE_URL` is the expected Supabase transaction pooler on port 6543.
+
+The bridge changes only the pooler port to the session-pooler port 5432 in
+process memory, applies the forward-only migrations under the existing advisory
+lock, drains eligible invitation cleanup in bounded batches, and independently
+verifies all repository checksums, PostgreSQL 17, pinned TLS, disabled delivery,
+and the unset physical ceiling. A failed step fails the build, so the previous
+Production deployment remains active.
+
+After the first successful `APPLIED_AND_VERIFIED` Production build, verify the
+deployed disabled agent routes and remove the one-time bridge from the build
+script in an immediate reviewed follow-up. Do not use build output to reveal
+sensitive values and do not retain the bridge as a general migration runner.
+
 ## Deployment behavior
 
 The Vercel project is connected to GitHub. Pull requests receive Preview

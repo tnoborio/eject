@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { readdir, readFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { pathToFileURL } from "node:url";
 import { Pool } from "pg";
 import { postgresPoolConfigFromEnvironment } from "../src/infrastructure/postgres/pool-config";
 
@@ -19,17 +20,28 @@ interface DatabaseState {
   application_rows: string;
 }
 
-async function main(): Promise<void> {
-  const expectEmpty = parseArguments(process.argv.slice(2));
-  const poolConfig = postgresPoolConfigFromEnvironment(process.env, 1);
+export interface CloudDatabaseVerification {
+  readonly database: string;
+  readonly postgres_major: 17;
+  readonly tls: "CA_AND_HOSTNAME_VERIFIED";
+  readonly migrations: readonly string[];
+  readonly delivery_enabled: false;
+  readonly physical_hourly_ceiling: null;
+  readonly application_rows: number;
+}
+
+export async function verifyCloudDatabase(input: {
+  readonly environment: Readonly<Record<string, string | undefined>>;
+  readonly migrationsDirectory: string;
+  readonly expectEmpty?: boolean;
+}): Promise<CloudDatabaseVerification> {
+  const poolConfig = postgresPoolConfigFromEnvironment(input.environment, 1);
   if (poolConfig.ssl === undefined || poolConfig.ssl === false) {
     throw new Error("Cloud database verification requires a pinned TLS CA");
   }
   const pool = new Pool(poolConfig);
   try {
-    const migrations = await expectedMigrations(
-      resolve(process.cwd(), "migrations"),
-    );
+    const migrations = await expectedMigrations(input.migrationsDirectory);
     const applied = await pool.query<MigrationRow>(
       "SELECT filename, checksum FROM schema_migrations ORDER BY filename",
     );
@@ -76,28 +88,31 @@ async function main(): Promise<void> {
       throw new Error("Cloud database physical ceiling must remain unset");
     }
     const applicationRows = Number(snapshot.application_rows);
-    if (expectEmpty && applicationRows !== 0) {
+    if (input.expectEmpty === true && applicationRows !== 0) {
       throw new Error("Cloud database contains EJECT application rows");
     }
 
-    console.log(
-      JSON.stringify(
-        {
-          database: snapshot.database_name,
-          postgres_major: 17,
-          tls: "CA_AND_HOSTNAME_VERIFIED",
-          migrations: migrations.map(({ filename }) => filename),
-          delivery_enabled: false,
-          physical_hourly_ceiling: null,
-          application_rows: applicationRows,
-        },
-        null,
-        2,
-      ),
-    );
+    return {
+      database: snapshot.database_name,
+      postgres_major: 17,
+      tls: "CA_AND_HOSTNAME_VERIFIED",
+      migrations: migrations.map(({ filename }) => filename),
+      delivery_enabled: false,
+      physical_hourly_ceiling: null,
+      application_rows: applicationRows,
+    };
   } finally {
     await pool.end();
   }
+}
+
+async function main(): Promise<void> {
+  const verification = await verifyCloudDatabase({
+    environment: process.env,
+    migrationsDirectory: resolve(process.cwd(), "migrations"),
+    expectEmpty: parseArguments(process.argv.slice(2)),
+  });
+  console.log(JSON.stringify(verification, null, 2));
 }
 
 function parseArguments(arguments_: readonly string[]): boolean {
@@ -144,11 +159,17 @@ function assertMigrations(
   }
 }
 
-void main().catch((error: unknown) => {
-  console.error(
-    error instanceof Error
-      ? error.message
-      : "Cloud database verification failed",
-  );
-  process.exitCode = 1;
-});
+const entrypoint = process.argv[1];
+if (
+  entrypoint !== undefined &&
+  import.meta.url === pathToFileURL(entrypoint).href
+) {
+  void main().catch((error: unknown) => {
+    console.error(
+      error instanceof Error
+        ? error.message
+        : "Cloud database verification failed",
+    );
+    process.exitCode = 1;
+  });
+}
