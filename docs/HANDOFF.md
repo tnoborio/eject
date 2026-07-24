@@ -10,10 +10,10 @@ the order in which work should continue.
 
 - **Date:** 2026-07-24
 - **Repository:** `tnoborio/eject`
-- **Current branch:** `agent/remove-production-migration-bridge`
-- **Current working tree:** focused follow-up based on merge commit `b55258c`
-  removes the completed one-time Production migration bridge and records its
-  bounded evidence. Do not retain the bridge as a general migration runner
+- **Current branch:** `main` after this handoff-only follow-up is merged
+- **Current working tree:** no product-code change remains. PR #22 removed the
+  completed one-time Production migration bridge; the ordinary Production
+  build is verified
 - **Merged PRs:** [#2](https://github.com/tnoborio/eject/pull/2) (Stage 0
   spike), [#3](https://github.com/tnoborio/eject/pull/3) (One Bit logo),
   [#4](https://github.com/tnoborio/eject/pull/4) (hardware validation kit),
@@ -36,12 +36,13 @@ the order in which work should continue.
   consent controls), [#20](https://github.com/tnoborio/eject/pull/20)
   (invite-only relationship establishment), and
   [#21](https://github.com/tnoborio/eject/pull/21) (bounded relationship
-  lifecycle)
-- **Current verified implementation:** PR #21, merge commit `b55258c`, on
+  lifecycle), and [#22](https://github.com/tnoborio/eject/pull/22) (one-time
+  migration bridge removal)
+- **Current verified implementation:** PR #22, merge commit `739392a`, on
   `main`. Relationship disconnection, explicit code-based reconnection without
   grant restoration, and 24-hour invitation metadata cleanup are deployed. All
   five repository migrations are applied and checksum-verified in the
-  protected cloud database
+  protected cloud database, and the temporary build bridge is removed
 - **Verified CI on `main`:** [Windows spike run 29688104811](https://github.com/tnoborio/eject/actions/runs/29688104811),
   [protocol contract run 29688208249](https://github.com/tnoborio/eject/actions/runs/29688208249),
   [control-plane run 29813234824](https://github.com/tnoborio/eject/actions/runs/29813234824),
@@ -59,6 +60,10 @@ the order in which work should continue.
 - **Verified CI for PR #21:** [control-plane run 30080211721](https://github.com/tnoborio/eject/actions/runs/30080211721);
   all four Actions jobs and both Vercel checks passed before merge
 - **Verified CI for PR #21 on `main`:** [control-plane run 30080277254](https://github.com/tnoborio/eject/actions/runs/30080277254);
+  all four Actions jobs passed after merge
+- **Verified CI for PR #22:** [control-plane run 30080781288](https://github.com/tnoborio/eject/actions/runs/30080781288);
+  all four Actions jobs and both Vercel checks passed before merge
+- **Verified CI for PR #22 on `main`:** [control-plane run 30080846955](https://github.com/tnoborio/eject/actions/runs/30080846955);
   all four Actions jobs passed after merge
 - **Current product phase:** Stage 0 awaits physical evidence; Stage 1 protocol,
   control-plane, and identity/device-security architecture are accepted. The
@@ -577,6 +582,12 @@ The following facts have direct build or test evidence:
     external checks received HTTP 200 from `/`, `404 DELIVERY_DISABLED` from
     polling, `404 ENROLLMENT_DISABLED` from enrollment, and
     `401 AUTHENTICATION_REQUIRED` from an unauthenticated disconnection request.
+65. PR #22 removed the one-time bridge after all four Actions jobs and both
+    Vercel checks passed in run 30080781288. It merged as `739392a`; all four
+    Actions jobs passed on `main` in run 30080846955. Ordinary Production
+    deployment `dpl_91cuRwKTJp2bLa3kT9MVtJ4PG8Nb` reached `Ready` with
+    `next build` as the complete build command, and the deployed poll and
+    enrollment routes remained disabled.
 
 The verified `main` artifact from run 29899930269 had this checksum:
 
@@ -677,9 +688,7 @@ Read these files before changing product behavior:
 5. `docs/ARCHITECTURE.md`
 6. this handoff
 
-This workspace contains the focused follow-up that removes the one-time
-Production migration bridge. Confirm the exact resume point before any
-synchronization:
+Confirm the exact `main` resume point before any synchronization:
 
 ```sh
 git branch --show-current
@@ -688,11 +697,9 @@ git log -1 --oneline main
 git diff --check
 ```
 
-Expected results are branch `agent/remove-production-migration-bridge`, `main`
-at merge commit `b55258c`, and only the focused bridge-removal and evidence
-change described in the snapshot. PR #21 is merged, migration 0005 is verified,
-and the one-time bridge must not remain in the build. To reproduce the completed
-local verification:
+Expected results are `main` at PR #22 merge commit `739392a` or the later
+handoff-only merge, no uncommitted product change, migration 0005 verified, and
+no one-time bridge in the build. To reproduce the completed local verification:
 
 ```sh
 npm run check
@@ -707,11 +714,11 @@ The PostgreSQL evidence used an ephemeral PostgreSQL 17 database named
 stopped the container. Recreate an isolated database with that exact name
 before rerunning; the tests refuse to reset any other database.
 
-The immediate continuation is to publish and merge the focused removal of the
-one-time Production migration bridge, verify the ordinary Production build and
-disabled agent routes, then provision a second invited account for the
-human-browser relationship lifecycle evidence. Do not expose a credential or
-reintroduce a general migration runner.
+The immediate continuation is to provision a second invited account through
+the operator-only path, then collect human-browser sign-in, relationship-code
+acceptance, disconnection, and explicit reconnection evidence without logging a
+code or session. Do not expose a credential or reintroduce a general migration
+runner.
 
 The repository selects .NET 10 through `global.json`. The relationship-lifecycle
 change does not alter the Windows project, but install a supported .NET 10 SDK

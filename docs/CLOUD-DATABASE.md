@@ -270,8 +270,10 @@ with the relationship-disconnection route. External checks received HTTP 200
 from `/`, `404 DELIVERY_DISABLED` from agent polling,
 `404 ENROLLMENT_DISABLED` from agent enrollment, and
 `401 AUTHENTICATION_REQUIRED` from an unauthenticated disconnection request.
-The immediate follow-up removes the one-time bridge; it is not a retained
-general migration runner.
+PR #22 removed the one-time bridge. Ordinary Production deployment
+`dpl_91cuRwKTJp2bLa3kT9MVtJ4PG8Nb` then reached `Ready` from merge commit
+`739392a` with `next build` as the complete build command. The bridge is not a
+retained general migration runner.
 
 The current Production deployment also returned the bounded semantic bodies
 `{"error":"DELIVERY_DISABLED"}` from agent polling and
