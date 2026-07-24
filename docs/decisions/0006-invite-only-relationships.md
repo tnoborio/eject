@@ -40,9 +40,8 @@ device capability, or imply that either person can eject the other.
    account rows in deterministic order. Exactly one accepter can consume a
    code.
 7. If the pair already has an active relationship, consume the code
-   idempotently without changing grants. Do not use this path to reactivate an
-   inactive relationship; reconnection and disconnection require a separate
-   reviewed decision with cancellation behavior.
+   idempotently without changing grants. Reconnection and disconnection are
+   governed separately by [ADR 0007](0007-relationship-lifecycle.md).
 8. Do not log codes, raw request bodies, email addresses, or relationship
    contents. Define invitation-row retention and deletion before private alpha.
 

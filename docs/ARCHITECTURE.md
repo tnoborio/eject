@@ -70,6 +70,10 @@ server responses bind exact body bytes and replay-resistant nonces. See
 Existing accounts establish private relationships through digest-only,
 ten-minute, one-use codes that never create directional permission or account
 search. See [ADR 0006](decisions/0006-invite-only-relationships.md).
+Either person may end a relationship; one serializable transaction removes both
+grants and cancels both directions of unconfirmed commands. Reconnection
+requires a new accepted code and restores no grant. See
+[ADR 0007](decisions/0007-relationship-lifecycle.md).
 
 The Windows adapter implements that device-key boundary as a persistent,
 current-user CNG ECDSA P-256 key. It prefers Microsoft Platform Crypto Provider
@@ -94,7 +98,10 @@ pause and directional grants to existing active relationships. Pausing or
 revoking a grant serializes on the same recipient lock as issuance and
 atomically cancels affected `QUEUED` or unconfirmed `DISPATCHED` commands.
 Separate authenticated routes create and consume one-use relationship codes;
-they create only the relationship and keep accounts unsearchable.
+they create only the relationship and keep accounts unsearchable. A fixed
+disconnection route ends one relationship and returns no account-existence
+signal. Invitation metadata becomes cleanup-eligible 24 hours after its terminal
+state or expiry.
 Enrollment creation is independently disabled by default before database or
 person-auth initialization. Poll and result delivery retains its separate
 environment gate, and the independent database global-delivery gate must also

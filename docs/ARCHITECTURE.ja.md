@@ -67,6 +67,9 @@ bytesとreplay-resistant nonceへbindします。詳細は
 既存accountはdigestだけを保存する10分・1回限りのcodeで非公開relationshipを確立します。この操作は
 方向付きpermissionやaccount検索を作りません。詳細は
 [ADR 0006](decisions/0006-invite-only-relationships.ja.md)を参照してください。
+どちらのpersonもrelationshipを終了できます。1件のserializable transactionで双方向grantを削除し、
+両方向の未確認commandを取り消します。再接続には新しいcodeのacceptが必要で、grantは復元しません。
+[ADR 0007](decisions/0007-relationship-lifecycle.ja.md)を参照してください。
 
 Windows adapterは、そのdevice-key境界をcurrent-user scopeで永続化するCNG ECDSA P-256 keyとして
 実装します。Microsoft Platform Crypto Providerを優先し、Microsoft Software Key Storage Providerだけへ
@@ -85,7 +88,9 @@ device-enrollment作成・revocation routeがあります。さらに、ownerへ
 pauseおよび既存のactive relationshipへの方向付きgrant mutationを持ちます。pauseまたはgrant revokeは
 issuanceと同じrecipient lockで直列化し、影響する`QUEUED`または未確認の`DISPATCHED` commandをatomicに
 取り消します。分離した認証済みrouteが1回限りのrelationship codeを作成・消費します。このrouteが
-作成するのはrelationshipだけで、accountは検索可能になりません。enrollment作成は
+作成するのはrelationshipだけで、accountは検索可能になりません。固定disconnection routeはrelationship
+1件を終了し、account存在signalを返しません。invitation metadataはterminal stateまたは失効の24時間後に
+cleanup対象となります。enrollment作成は
 独立したgateでdefault disabledとなり、databaseやperson authの初期化前に停止します。poll・result
 deliveryは別のenvironment gateを維持し、commandを返すには独立したdatabase global-delivery gateも
 trueである必要があります。person向けpublic eject endpointはなく、Windows agentもまだ接続していません。

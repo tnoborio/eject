@@ -22,10 +22,11 @@
 Supabase projectはEJECT専用です。`sasara-hub`内のdatabaseではなく、他のSasara serviceと
 application schemaやcredentialを共有しません。
 
-repositoryのmigration 4件はすべて適用済みです。PostgreSQLはTLSを使わない外部接続を拒否します。
-singleton delivery gateは`false`、physical hourly ceilingは未設定で、EJECT application tableには
-招待済みperson 1件が存在し、relationship、relationship invitation、device、command、result、
-private eventは存在しません。
+repositoryの最初のmigration 4件は適用済みです。`0005_relationship_lifecycle.sql`は現在の
+development checkoutだけに存在し、protected cloud databaseへは未適用です。PostgreSQLはTLSを使わない
+外部接続を拒否します。singleton delivery gateは`false`、physical hourly ceilingは未設定で、EJECT
+application tableには招待済みperson 1件が存在し、relationship、relationship invitation、device、
+command、result、private eventは存在しません。
 
 ## Environment境界
 
@@ -121,6 +122,37 @@ npm run verify:cloud-database -- --expect-empty
 出力するのは限定された運用上の事実とEJECT rowの合計数だけです。connection string、host credential、
 row内容、event識別子は出力しません。
 
+migration 0005をdeployした後、同じoperator専用環境からinvitation cleanupを実行します。
+
+```sh
+npm run relationships:cleanup
+```
+
+1回につき、使用・無効化・失効から24時間を超えたrowを最大500件削除し、削除件数だけを出力します。
+0件になるまで実行してください。database credentialをpublic schedulerやbrowserへ設定してはいけません。
+
+### migration 0005用の一回限りのProduction build bridge
+
+VercelはsensitiveなProduction valueをoperator CLIへexportしません。そのためPR #21は一時的に
+`next build`より先に`scripts/run-one-time-production-migration.ts`を実行します。このbridgeは
+credentialを出力・返却しません。Production以外のbuildでは常にskipし、次の事実がすべて成立しない限り
+fail closedになります。
+
+- processが`main` Git refのVercel Production buildである
+- agent deliveryが明示的に`false`である
+- device enrollmentとserver response-signing key変数2件が存在しない
+- pin済みdatabase CAが存在する
+- `DATABASE_URL`がport 6543の想定Supabase transaction poolerである
+
+bridgeはprocess memory内でpooler portだけをsession-poolerの5432へ変更し、既存advisory lock下で
+forward-only migrationを適用します。その後、対象invitation cleanupをbounded batchで0件まで実行し、
+全repository checksum、PostgreSQL 17、pin済みTLS、delivery無効、physical ceiling未設定を独立検証します。
+いずれかが失敗するとbuildも失敗するため、直前のProduction deploymentがactiveなまま残ります。
+
+最初の`APPLIED_AND_VERIFIED` Production build後、deploy済みagent routeが引き続き無効なことを確認し、
+直後のreview済みfollow-upでbuild scriptからone-time bridgeを削除してください。build outputから
+sensitive valueを露出させたり、bridgeを汎用migration runnerとして残したりしてはいけません。
+
 ## Deployment動作
 
 Vercel projectはGitHubへ接続済みです。pull requestにはproduction databaseへaccessできないPreview
@@ -130,6 +162,8 @@ deploymentが作られます。`main`へのmergeではprotected database variabl
 migration 0004は適用・checksum検証済みのため、そのschemaはrelationship invitation routeをreview・
 deployするまで未使用のまま保持できます。schema適用によってdevice enrollmentや物理deliveryは
 有効になっていません。
+relationshipの切断・再接続動作をdeployする前にmigration 0005を適用し、repository migration 5件の
+checksum完全一致を検証してください。
 
 次のすべてが完了するまでresponse-signing keyを設定せず、どちらのdelivery gateも有効にしません。
 

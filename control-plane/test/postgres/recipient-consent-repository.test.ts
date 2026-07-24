@@ -63,9 +63,9 @@ describe("PostgresRecipientConsentStore", () => {
     await connect(actorId);
     await pool.query(
       `INSERT INTO relationships (
-         person_low_id, person_high_id, active
-       ) VALUES ($1, $2, false)`,
-      [recipientId, otherActorId],
+         person_low_id, person_high_id, active, created_at, ended_at
+       ) VALUES ($1, $2, false, $3, $3)`,
+      [recipientId, otherActorId, now],
     );
     await pool.query(
       "INSERT INTO eject_grants (recipient_id, actor_id) VALUES ($1, $2)",

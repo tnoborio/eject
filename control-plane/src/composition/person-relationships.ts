@@ -6,6 +6,7 @@ import { SupabasePersonTokenVerifier } from "@/modules/identity/infrastructure/s
 import { parseExpectedOrigin } from "@/modules/identity/transport/person-http-auth";
 import {
   createAcceptRelationshipInvitation,
+  createDisconnectRelationship,
   createRelationshipInvitation,
 } from "@/modules/permissions/application/manage-relationships";
 import { NodeRelationshipInvitationCrypto } from "@/modules/permissions/infrastructure/node-relationship-invitation-crypto";
@@ -24,7 +25,7 @@ export function getPersonRelationshipDependencies(): PersonRelationshipHttpDepen
   const state = (shared.ejectPersonRelationships ??= {});
   if (state.dependencies !== undefined) return state.dependencies;
   const database = getRuntimeDatabase();
-  const store = new PostgresRelationshipStore(database);
+  const store = new PostgresRelationshipStore(database, randomUUID);
   const crypto = new NodeRelationshipInvitationCrypto();
   state.dependencies = {
     expectedOrigin: parseExpectedOrigin(
@@ -43,6 +44,7 @@ export function getPersonRelationshipDependencies(): PersonRelationshipHttpDepen
       newId: randomUUID,
     }),
     acceptInvitation: createAcceptRelationshipInvitation({ store, crypto }),
+    disconnectRelationship: createDisconnectRelationship({ store }),
     now: () => new Date(),
   };
   return state.dependencies;

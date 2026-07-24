@@ -329,6 +329,17 @@ export function WebConsole({
     }
   }
 
+  async function disconnectRelationship(personId: string) {
+    const response = await submit(
+      "/api/person/v1/relationship-disconnections",
+      { person_id: personId },
+    );
+    if (response !== null) {
+      await loadConsent();
+      setFeedback(t("feedback.relationshipDisconnected"));
+    }
+  }
+
   function switchLocale() {
     const next = locale === "en" ? "ja" : "en";
     document.cookie = `eject_locale=${next}; Path=/; Max-Age=31536000; SameSite=Lax`;
@@ -643,6 +654,16 @@ export function WebConsole({
                         {person.grant_active
                           ? t("consent.revoke")
                           : t("consent.grant")}
+                      </button>
+                      <button
+                        className="danger-action"
+                        type="button"
+                        disabled={working}
+                        onClick={() =>
+                          void disconnectRelationship(person.person_id)
+                        }
+                      >
+                        {t("relationship.disconnect")}
                       </button>
                     </div>
                   ))}
