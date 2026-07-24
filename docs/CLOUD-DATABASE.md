@@ -8,7 +8,7 @@ credential, signing material, device token, or user data.
 
 ## Provisioned environment
 
-As of 2026-07-22, the following environment exists under Sasara operational
+As of 2026-07-24, the following environment exists under Sasara operational
 ownership:
 
 | Component               | Configuration                        |
@@ -25,12 +25,10 @@ The Supabase project is dedicated to EJECT. It is not a database inside
 `sasara-hub`, and it does not share an application schema or credentials with
 another Sasara service.
 
-The first four repository migrations are applied. Migration
-`0005_relationship_lifecycle.sql` exists only in the current development
-checkout and is not applied to the protected cloud database. PostgreSQL rejects
-non-TLS external connections. The singleton delivery gate is `false`, the
-physical hourly ceiling is unset, and the EJECT application tables contain one
-invited person and no relationships, relationship invitations, devices,
+All five repository migrations are applied and checksum-verified. PostgreSQL
+rejects non-TLS external connections. The singleton delivery gate is `false`,
+the physical hourly ceiling is unset, and the EJECT application tables contain
+one invited person and no relationships, relationship invitations, devices,
 commands, results, or private events.
 
 ## Environment boundary
@@ -149,32 +147,6 @@ Each run deletes at most 500 rows that have been used, invalidated, or expired
 for more than 24 hours, and prints only the deleted count. Run until it reports
 zero. Do not configure database credentials in a public scheduler or browser.
 
-### One-time Production build bridge for migration 0005
-
-Vercel does not export sensitive Production values to the operator CLI. PR #21
-therefore temporarily runs
-`scripts/run-one-time-production-migration.ts` before `next build`. The bridge
-does not print or return a credential. It skips every non-Production build and
-fails closed unless all of these facts hold:
-
-- the process is a Vercel Production build for the `main` Git ref;
-- agent delivery is explicitly `false`;
-- device enrollment and both server response-signing key variables are absent;
-- the pinned database CA is present; and
-- `DATABASE_URL` is the expected Supabase transaction pooler on port 6543.
-
-The bridge changes only the pooler port to the session-pooler port 5432 in
-process memory, applies the forward-only migrations under the existing advisory
-lock, drains eligible invitation cleanup in bounded batches, and independently
-verifies all repository checksums, PostgreSQL 17, pinned TLS, disabled delivery,
-and the unset physical ceiling. A failed step fails the build, so the previous
-Production deployment remains active.
-
-After the first successful `APPLIED_AND_VERIFIED` Production build, verify the
-deployed disabled agent routes and remove the one-time bridge from the build
-script in an immediate reviewed follow-up. Do not use build output to reveal
-sensitive values and do not retain the bridge as a general migration runner.
-
 ## Deployment behavior
 
 The Vercel project is connected to GitHub. Pull requests receive Preview
@@ -182,11 +154,10 @@ deployments without production database access. Merges to `main` may create a
 Production deployment with the protected database variables, but agent delivery
 continues to return `404 DELIVERY_DISABLED`.
 
-Migration 0004 is applied and its checksum is verified, so its schema may remain
-dormant until the relationship-invitation routes are reviewed and deployed.
-Applying that schema did not enable device enrollment or physical delivery.
-Do not deploy relationship disconnection or reconnection behavior until
-migration 0005 is applied and all five repository checksums are verified.
+Migration 0005 and all five checksums are verified. Relationship disconnection
+and reconnection are deployed, while authenticated use still requires an
+existing invited account and relationship. Applying the schema and deploying
+the routes did not enable device enrollment or physical delivery.
 
 Do not configure response-signing keys or enable either delivery gate until all
 of the following are complete:
@@ -267,6 +238,40 @@ index, and the absence of accepter identity storage:
   "relationship_invitations": 0
 }
 ```
+
+Later on 2026-07-24, PR #21 used a reviewed one-time Vercel Production build
+bridge to apply migration 0005 before the new deployment became active. The
+bridge changed only the Supabase pooler port in process memory, printed no
+credential, drained zero eligible invitation rows, and independently verified
+pinned TLS, PostgreSQL 17, all five checksums, disabled delivery, the unset
+physical ceiling, and one aggregate application row:
+
+```json
+{
+  "database": "postgres",
+  "postgres_major": 17,
+  "tls": "CA_AND_HOSTNAME_VERIFIED",
+  "migrations": [
+    "0001_initial_control_plane.sql",
+    "0002_agent_transport_security.sql",
+    "0003_device_enrollment_and_revocation.sql",
+    "0004_invite_only_relationships.sql",
+    "0005_relationship_lifecycle.sql"
+  ],
+  "delivery_enabled": false,
+  "physical_hourly_ceiling": null,
+  "application_rows": 1,
+  "deleted_invitations": 0
+}
+```
+
+Production deployment `dpl_B4GqXfk457m1qWeRkb5bzYMDFWEo` then reached `Ready`
+with the relationship-disconnection route. External checks received HTTP 200
+from `/`, `404 DELIVERY_DISABLED` from agent polling,
+`404 ENROLLMENT_DISABLED` from agent enrollment, and
+`401 AUTHENTICATION_REQUIRED` from an unauthenticated disconnection request.
+The immediate follow-up removes the one-time bridge; it is not a retained
+general migration runner.
 
 The current Production deployment also returned the bounded semantic bodies
 `{"error":"DELIVERY_DISABLED"}` from agent polling and

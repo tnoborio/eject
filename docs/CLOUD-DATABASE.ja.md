@@ -7,7 +7,7 @@
 
 ## 作成済み環境
 
-2026-07-22時点で、Sasaraの運用管理下に次の環境があります。
+2026-07-24時点で、Sasaraの運用管理下に次の環境があります。
 
 | Component               | 設定                              |
 | ----------------------- | --------------------------------- |
@@ -22,11 +22,10 @@
 Supabase projectはEJECT専用です。`sasara-hub`内のdatabaseではなく、他のSasara serviceと
 application schemaやcredentialを共有しません。
 
-repositoryの最初のmigration 4件は適用済みです。`0005_relationship_lifecycle.sql`は現在の
-development checkoutだけに存在し、protected cloud databaseへは未適用です。PostgreSQLはTLSを使わない
-外部接続を拒否します。singleton delivery gateは`false`、physical hourly ceilingは未設定で、EJECT
-application tableには招待済みperson 1件が存在し、relationship、relationship invitation、device、
-command、result、private eventは存在しません。
+repository migration 5件はすべて適用・checksum検証済みです。PostgreSQLはTLSを使わない外部接続を
+拒否します。singleton delivery gateは`false`、physical hourly ceilingは未設定で、EJECT application
+tableには招待済みperson 1件が存在し、relationship、relationship invitation、device、command、
+result、private eventは存在しません。
 
 ## Environment境界
 
@@ -131,39 +130,15 @@ npm run relationships:cleanup
 1回につき、使用・無効化・失効から24時間を超えたrowを最大500件削除し、削除件数だけを出力します。
 0件になるまで実行してください。database credentialをpublic schedulerやbrowserへ設定してはいけません。
 
-### migration 0005用の一回限りのProduction build bridge
-
-VercelはsensitiveなProduction valueをoperator CLIへexportしません。そのためPR #21は一時的に
-`next build`より先に`scripts/run-one-time-production-migration.ts`を実行します。このbridgeは
-credentialを出力・返却しません。Production以外のbuildでは常にskipし、次の事実がすべて成立しない限り
-fail closedになります。
-
-- processが`main` Git refのVercel Production buildである
-- agent deliveryが明示的に`false`である
-- device enrollmentとserver response-signing key変数2件が存在しない
-- pin済みdatabase CAが存在する
-- `DATABASE_URL`がport 6543の想定Supabase transaction poolerである
-
-bridgeはprocess memory内でpooler portだけをsession-poolerの5432へ変更し、既存advisory lock下で
-forward-only migrationを適用します。その後、対象invitation cleanupをbounded batchで0件まで実行し、
-全repository checksum、PostgreSQL 17、pin済みTLS、delivery無効、physical ceiling未設定を独立検証します。
-いずれかが失敗するとbuildも失敗するため、直前のProduction deploymentがactiveなまま残ります。
-
-最初の`APPLIED_AND_VERIFIED` Production build後、deploy済みagent routeが引き続き無効なことを確認し、
-直後のreview済みfollow-upでbuild scriptからone-time bridgeを削除してください。build outputから
-sensitive valueを露出させたり、bridgeを汎用migration runnerとして残したりしてはいけません。
-
 ## Deployment動作
 
 Vercel projectはGitHubへ接続済みです。pull requestにはproduction databaseへaccessできないPreview
 deploymentが作られます。`main`へのmergeではprotected database variableを持つProduction deploymentが
 作られ得ますが、agent deliveryは引き続き`404 DELIVERY_DISABLED`を返します。
 
-migration 0004は適用・checksum検証済みのため、そのschemaはrelationship invitation routeをreview・
-deployするまで未使用のまま保持できます。schema適用によってdevice enrollmentや物理deliveryは
-有効になっていません。
-relationshipの切断・再接続動作をdeployする前にmigration 0005を適用し、repository migration 5件の
-checksum完全一致を検証してください。
+migration 0005とmigration 5件すべてのchecksumは検証済みです。relationship切断・再接続はdeploy済み
+ですが、認証済み利用には既存の招待accountとrelationshipが引き続き必要です。schema適用とroute
+deployによってdevice enrollmentや物理deliveryは有効になっていません。
 
 次のすべてが完了するまでresponse-signing keyを設定せず、どちらのdelivery gateも有効にしません。
 
@@ -236,6 +211,37 @@ accepter identityを保存する列がないことを確認しました。
   "relationship_invitations": 0
 }
 ```
+
+同じ2026-07-24の後半に、PR #21はreview済みone-time Vercel Production build bridgeを使い、
+新deploymentがactiveになる前にmigration 0005を適用しました。bridgeはprocess memory内でSupabase
+pooler portだけを変更し、credentialを出力せず、cleanup対象invitation 0件を確認しました。その後、
+pin済みTLS、PostgreSQL 17、migration 5件すべてのchecksum、delivery無効、physical ceiling未設定、
+application row合計1件を独立検証しました。
+
+```json
+{
+  "database": "postgres",
+  "postgres_major": 17,
+  "tls": "CA_AND_HOSTNAME_VERIFIED",
+  "migrations": [
+    "0001_initial_control_plane.sql",
+    "0002_agent_transport_security.sql",
+    "0003_device_enrollment_and_revocation.sql",
+    "0004_invite_only_relationships.sql",
+    "0005_relationship_lifecycle.sql"
+  ],
+  "delivery_enabled": false,
+  "physical_hourly_ceiling": null,
+  "application_rows": 1,
+  "deleted_invitations": 0
+}
+```
+
+続いてProduction deployment `dpl_B4GqXfk457m1qWeRkb5bzYMDFWEo`がrelationship-disconnection routeを
+含んで`Ready`へ到達しました。外部確認では`/`がHTTP 200、agent pollingが
+`404 DELIVERY_DISABLED`、agent enrollmentが`404 ENROLLMENT_DISABLED`、未認証disconnection requestが
+`401 AUTHENTICATION_REQUIRED`を返しました。直後のfollow-upでone-time bridgeを削除し、汎用migration
+runnerとして残しません。
 
 現在のProduction deploymentからも、agent pollingで`{"error":"DELIVERY_DISABLED"}`、agent enrollmentで
 `{"error":"ENROLLMENT_DISABLED"}`という限定されたsemantic bodyを確認しました。この操作では、

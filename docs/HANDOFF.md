@@ -10,12 +10,10 @@ the order in which work should continue.
 
 - **Date:** 2026-07-24
 - **Repository:** `tnoborio/eject`
-- **Current branch:** `agent/relationship-lifecycle`
-- **Current working tree:** the 29-path relationship-lifecycle change is
-  committed and pushed on this branch. Draft
-  [PR #21](https://github.com/tnoborio/eject/pull/21) targets `main` and now
-  includes a reviewed one-time Production build bridge that must apply and
-  verify migration 0005 before the new deployment can become active
+- **Current branch:** `agent/remove-production-migration-bridge`
+- **Current working tree:** focused follow-up based on merge commit `b55258c`
+  removes the completed one-time Production migration bridge and records its
+  bounded evidence. Do not retain the bridge as a general migration runner
 - **Merged PRs:** [#2](https://github.com/tnoborio/eject/pull/2) (Stage 0
   spike), [#3](https://github.com/tnoborio/eject/pull/3) (One Bit logo),
   [#4](https://github.com/tnoborio/eject/pull/4) (hardware validation kit),
@@ -35,16 +33,15 @@ the order in which work should continue.
   (protected Windows CNG device keys),
   [#18](https://github.com/tnoborio/eject/pull/18) (main CNG evidence refresh),
   [#19](https://github.com/tnoborio/eject/pull/19) (safe web console and
-  consent controls), and [#20](https://github.com/tnoborio/eject/pull/20)
-  (invite-only relationship establishment)
-- **Current verified implementation:** PR #20, merge commit `9929968`, on
-  `main`. PR #21 commit `03e180c` adds relationship disconnection, explicit
-  code-based reconnection without grant restoration, and 24-hour invitation
-  metadata cleanup. The first four repository migrations are applied and
-  checksum-verified in the protected cloud database; migration 0005 is
-  committed but not applied remotely. The current checkout adds a fail-closed
-  one-time build bridge because Vercel does not export sensitive Production
-  values to the operator CLI
+  consent controls), [#20](https://github.com/tnoborio/eject/pull/20)
+  (invite-only relationship establishment), and
+  [#21](https://github.com/tnoborio/eject/pull/21) (bounded relationship
+  lifecycle)
+- **Current verified implementation:** PR #21, merge commit `b55258c`, on
+  `main`. Relationship disconnection, explicit code-based reconnection without
+  grant restoration, and 24-hour invitation metadata cleanup are deployed. All
+  five repository migrations are applied and checksum-verified in the
+  protected cloud database
 - **Verified CI on `main`:** [Windows spike run 29688104811](https://github.com/tnoborio/eject/actions/runs/29688104811),
   [protocol contract run 29688208249](https://github.com/tnoborio/eject/actions/runs/29688208249),
   [control-plane run 29813234824](https://github.com/tnoborio/eject/actions/runs/29813234824),
@@ -59,8 +56,10 @@ the order in which work should continue.
   all four Actions jobs and both Vercel checks passed before merge
 - **Verified CI for PR #20:** [control-plane run 30056420951](https://github.com/tnoborio/eject/actions/runs/30056420951);
   all four Actions jobs and both Vercel checks passed before merge
-- **Verified CI for PR #21:** [control-plane run 30065802534](https://github.com/tnoborio/eject/actions/runs/30065802534);
-  all four Actions jobs and both Vercel checks pass on the draft PR
+- **Verified CI for PR #21:** [control-plane run 30080211721](https://github.com/tnoborio/eject/actions/runs/30080211721);
+  all four Actions jobs and both Vercel checks passed before merge
+- **Verified CI for PR #21 on `main`:** [control-plane run 30080277254](https://github.com/tnoborio/eject/actions/runs/30080277254);
+  all four Actions jobs passed after merge
 - **Current product phase:** Stage 0 awaits physical evidence; Stage 1 protocol,
   control-plane, and identity/device-security architecture are accepted. The
   control plane is implemented through authenticated agent polling and result
@@ -73,14 +72,14 @@ the order in which work should continue.
   managed PostgreSQL environment and Vercel project exist under Sasara
   operational ownership, but delivery is disabled at every gate and no Windows
   agent is connected. Web experience work is now proceeding ahead of Windows
-  integration: the current checkout renders the English/Japanese service,
+  integration: `main` renders the English/Japanese service,
   connects its forms to the existing auth and device-management boundaries, and
   keeps all physical action unavailable. Owner-bound consent controls now pause
   incoming access or grant/revoke one existing active relationship. Pause and
   revoke atomically cancel affected unconfirmed commands under the issuance
   recipient lock. `main` also creates a relationship through an
   out-of-band one-use code between two existing signed-in accounts. It exposes
-  no account search and does not grant EJECT permission. The current checkout
+  no account search and does not grant EJECT permission. `main`
   adds owner-authored disconnection: it removes both grants and cancels
   unconfirmed commands in both directions. Reconnection needs a new accepted
   code and restores no grant. Supabase Auth rejects
@@ -97,7 +96,7 @@ The repository now produces an unsigned, self-contained Windows x64 console
 application that discovers local optical drives and makes one fixed eject
 attempt against a locally selected opaque drive identifier.
 
-The current checkout also contains a responsive English/Japanese web console.
+`main` also contains a responsive English/Japanese web console.
 It truthfully exposes deployment capability state, provides existing-account
 magic-link and OTP forms, detects the authenticated owner session, lists only
 that owner's devices, creates one-use enrollment secrets only when the separate
@@ -109,7 +108,7 @@ relationships. Pause and revoke cancel affected `QUEUED` and unconfirmed
 `main` includes explicit relationship establishment with a
 digest-only, ten-minute, one-use code. Acceptance creates no directional grant,
 and the application provides no account directory, lookup, or invitation
-delivery channel. The current checkout adds relationship disconnection and
+delivery channel. `main` adds relationship disconnection and
 explicit reconnection. Disconnection removes both grants and both directions of
 unconfirmed commands atomically; invitation metadata becomes cleanup-eligible
 24 hours after use, invalidation, or expiry.
@@ -567,17 +566,17 @@ The following facts have direct build or test evidence:
     proves atomic bidirectional grant removal and command cancellation,
     idempotent disconnect, explicit code-only reconnection without grant
     restoration, and deletion only beyond the 24-hour invitation-retention
-    boundary. PR #21 at implementation commit `03e180c` passed all four Actions
-    jobs and both Vercel checks in run 30065802534. Migration 0005 remains
-    unapplied to the protected database.
-64. The one-time Production migration bridge passes static and architecture
-    checks, all 11 protocol tests, 120 control-plane unit and property tests,
-    and a local production build that skipped every database operation. Unit
-    evidence proves that only a Vercel Production build for the `main` ref can
-    proceed, that safety configuration and pooler-shape mismatches fail closed,
-    that the session-pooler change occurs only in process memory, and that
-    migration, bounded cleanup, and verification run in that order without
-    returning secrets.
+    boundary. PR #21 passed all four Actions jobs and both Vercel checks in run
+    30080211721, then merged as `b55258c`; all four Actions jobs passed again on
+    `main` in run 30080277254.
+64. Production deployment `dpl_B4GqXfk457m1qWeRkb5bzYMDFWEo` applied migration
+    0005 before activating the relationship route and reported
+    `APPLIED_AND_VERIFIED`: pinned TLS, PostgreSQL 17, all five repository
+    checksums, disabled delivery, an unset physical ceiling, one aggregate
+    application row, and zero cleanup-eligible invitations. It reached `Ready`;
+    external checks received HTTP 200 from `/`, `404 DELIVERY_DISABLED` from
+    polling, `404 ENROLLMENT_DISABLED` from enrollment, and
+    `401 AUTHENTICATION_REQUIRED` from an unauthenticated disconnection request.
 
 The verified `main` artifact from run 29899930269 had this checksum:
 
@@ -635,23 +634,19 @@ Record the failure and narrow the supported capability contract instead.
   the Windows CNG key into enrollment and the Windows polling client remain.
 - Owner-bound pause and existing-relationship grant/revoke are on `main` with
   real-database cancellation evidence. Invite-only relationship establishment
-  is also on `main`, but it has no live two-account browser evidence. The
-  current checkout adds disconnection and explicit reconnection, but is not
-  deployed. It intentionally provides no account search, invitation delivery,
-  relationship history, or eject request.
-- Migration 0004 is applied and independently verified in the protected cloud
-  database, ahead of the undeployed relationship routes. Its new table remains
-  empty and does not enable enrollment or physical delivery.
-- Migration 0005 is verified only against an isolated local PostgreSQL 17
-  database. The protected cloud database still has migrations 0001–0004; do not
-  deploy relationship lifecycle behavior until 0005 is applied and verified.
+  and disconnection/reconnection are also on `main`, but they have no live
+  two-account browser evidence. The application intentionally provides no
+  account search, invitation delivery, relationship history, or eject request.
+- All five migrations are applied and independently verified in the protected
+  cloud database. The relationship and invitation tables remain empty and do
+  not enable enrollment or physical delivery.
 - Invitation retention and bounded cleanup are implemented, but no periodic
   operator schedule exists yet. The database stores only invitation digests,
   timestamps, and the inviter ID, never the bearer code or accepter identity.
 - The person JWT adapter has been verified against the live Supabase ES256 JWKS
   and a provisioned active account. Live signing-key rotation has not been
   observed.
-- The cloud environment has all four migrations applied and verified, one
+- The cloud environment has all five migrations applied and verified, one
   invited person, and no device, enrollment secret, command, result, signing
   key, or private event. Person auth is live, but enrollment and all physical
   delivery remain disabled.
@@ -682,8 +677,9 @@ Read these files before changing product behavior:
 5. `docs/ARCHITECTURE.md`
 6. this handoff
 
-This workspace contains the pushed relationship-lifecycle branch. Confirm the
-exact resume point before any synchronization:
+This workspace contains the focused follow-up that removes the one-time
+Production migration bridge. Confirm the exact resume point before any
+synchronization:
 
 ```sh
 git branch --show-current
@@ -692,12 +688,11 @@ git log -1 --oneline main
 git diff --check
 ```
 
-Expected results are branch `agent/relationship-lifecycle`, `main` at merge
-commit `9929968`, implementation commit `03e180c` in the branch history, and no
-uncommitted product change. Draft PR #21 includes the one-time Production
-migration bridge. Merge only after all checks pass, then require its
-`APPLIED_AND_VERIFIED` evidence before accepting the new Production deployment.
-To reproduce the completed local verification:
+Expected results are branch `agent/remove-production-migration-bridge`, `main`
+at merge commit `b55258c`, and only the focused bridge-removal and evidence
+change described in the snapshot. PR #21 is merged, migration 0005 is verified,
+and the one-time bridge must not remain in the build. To reproduce the completed
+local verification:
 
 ```sh
 npm run check
@@ -712,15 +707,11 @@ The PostgreSQL evidence used an ephemeral PostgreSQL 17 database named
 stopped the container. Recreate an isolated database with that exact name
 before rerunning; the tests refuse to reset any other database.
 
-The immediate continuation is to finish PR #21 checks, mark it ready, and merge
-it. Its Vercel Production build must report `APPLIED_AND_VERIFIED` only after
-applying migration 0005, draining eligible invitation cleanup to zero, and
-verifying all five checksums and disabled safety gates. If that build fails,
-leave the previous Production deployment active and diagnose the bounded error;
-do not expose a sensitive value. After a successful deployment, verify the
-disabled agent routes and immediately publish the reviewed follow-up that
-removes the one-time build bridge. Migration 0005 has not yet been applied
-remotely.
+The immediate continuation is to publish and merge the focused removal of the
+one-time Production migration bridge, verify the ordinary Production build and
+disabled agent routes, then provision a second invited account for the
+human-browser relationship lifecycle evidence. Do not expose a credential or
+reintroduce a general migration runner.
 
 The repository selects .NET 10 through `global.json`. The relationship-lifecycle
 change does not alter the Windows project, but install a supported .NET 10 SDK
@@ -748,18 +739,17 @@ only development queue. SQL migrations, blocking CI, Kysely issuance,
 deterministic PostgreSQL races, advisory mutation testing, ADR 0005,
 authenticated poll/result transport, and the dedicated cloud database
 environment, person-session adapter, and server enrollment/revocation boundary
-are implemented, and all four migrations are applied to the protected cloud
+are implemented, and all five migrations are applied to the protected cloud
 database. The person PKCE cookie lifecycle and protected Windows CNG key store
 are on `main`; the latter has hosted Windows CI evidence but no real standard-user
 hardware evidence. The web experience is now being advanced first. `main`
 provides a safe bilingual preview, owner-device UI, owner-bound
 pause/grant/revoke, and invite-only relationship establishment without enabling
-delivery or account search. The current checkout adds the bounded relationship
-lifecycle. The next sequence is:
+delivery or account search. Bounded relationship disconnection and explicit
+reconnection are also deployed. The next sequence is:
 
-1. review and publish the relationship-lifecycle change, apply migration 0005
-   before deploying its route, and verify all five checksums while enrollment
-   and delivery remain disabled;
+1. remove the completed one-time Production migration bridge and verify the
+   ordinary build while enrollment and delivery remain disabled;
 2. provision a second invited existing account through the operator-only path,
    then complete one human-browser magic-link or OTP sign-in and one
    two-account relationship-code acceptance, disconnect, and explicit
@@ -826,13 +816,12 @@ snapshot links). Keep subsequent changes small and reviewable:
    Windows key creation is implemented and verified in hosted Windows CI but is
    not connected to enrollment. Owner-bound pause and existing-relationship
    grant/revoke and invite-only relationship establishment are on `main` with
-   atomic cancellation and one-use-code evidence. The current checkout adds ADR
-   0007 disconnection, explicit no-grant reconnection, and bounded invitation
-   retention; migration 0005 is local only. Publishing the lifecycle change,
-   protected migration application, periodic cleanup scheduling, human-browser
-   sign-in and two-account consent evidence, real standard-user key evidence,
-   local replay protection, one attempt, result report, and outbound-only
-   polling remain.
+   atomic cancellation and one-use-code evidence. ADR 0007 disconnection,
+   explicit no-grant reconnection, and bounded invitation retention are on
+   `main`; migration 0005 and all five checksums are verified in Production.
+   Periodic cleanup scheduling, human-browser sign-in and two-account consent
+   evidence, real standard-user key evidence, local replay protection, one
+   attempt, result report, and outbound-only polling remain.
 6. **Hardware evidence in parallel** — add reviewed reports and any narrowly
    evidence-backed adapter corrections when equipment becomes available.
 
