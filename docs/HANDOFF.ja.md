@@ -10,9 +10,9 @@
 - **日付:** 2026-07-24
 - **リポジトリ:** `tnoborio/eject`
 - **現在のブランチ:** `agent/relationship-lifecycle`
-- **現在のworking tree:** relationship lifecycle作業29 pathを意図的に未commitで保持。review前に
-  `main`へswitch、reset、restore、変更破棄をしてはいけない。merge commit `9929968`を起点とする
-  次のfocused change
+- **現在のworking tree:** relationship lifecycleの29 path changeはこのbranchへcommit・push済み。
+  Draft [PR #21](https://github.com/tnoborio/eject/pull/21)は`main`向けで、migration 0005を
+  適用・検証する前にmergeしてはいけない
 - **マージ済みPR:** [#2](https://github.com/tnoborio/eject/pull/2)(Stage 0スパイク)、
   [#3](https://github.com/tnoborio/eject/pull/3)(One Bitロゴ)、
   [#4](https://github.com/tnoborio/eject/pull/4)(ハードウェア検証キット)、
@@ -32,9 +32,9 @@
   [#18](https://github.com/tnoborio/eject/pull/18)(main CNG証拠更新)、
   [#19](https://github.com/tnoborio/eject/pull/19)(safe Web console・consent control)、
   [#20](https://github.com/tnoborio/eject/pull/20)(invite-only relationship確立)
-- **現在の検証済み実装:** `main`上のPR #20、merge commit `9929968`。現在のcheckoutにはrelationship
+- **現在の検証済み実装:** `main`上のPR #20、merge commit `9929968`。PR #21のcommit `03e180c`はrelationship
   切断、grantを復元しない明示的code再接続、24時間後のinvitation metadata cleanupを追加。protected
-  cloud databaseへ適用・checksum検証済みなのは最初のmigration 4件で、0005はlocalだけに存在
+  cloud databaseへ適用・checksum検証済みなのは最初のmigration 4件で、0005はcommit済みだがremote未適用
 - **`main`上の検証済みCI:** [Windows spike run 29688104811](https://github.com/tnoborio/eject/actions/runs/29688104811)、
   [protocol contract run 29688208249](https://github.com/tnoborio/eject/actions/runs/29688208249)、
   [control-plane run 29813234824](https://github.com/tnoborio/eject/actions/runs/29813234824)、
@@ -49,6 +49,8 @@
   merge前にActions 4 jobとVercel check 2件がすべて成功
 - **PR #20の検証済みCI:** [control-plane run 30056420951](https://github.com/tnoborio/eject/actions/runs/30056420951)。
   merge前にActions 4 jobとVercel check 2件がすべて成功
+- **PR #21の検証済みCI:** [control-plane run 30065802534](https://github.com/tnoborio/eject/actions/runs/30065802534)。
+  Draft PRでActions 4 jobとVercel check 2件がすべて成功
 - **現在のプロダクト段階:** Stage 0は物理証拠待ち。Stage 1 protocol、control-plane、
   identity・device-security architectureは採用済み。control planeは認証済みagent pollingとresult
   ingestionまで実装済み。person-session境界はSupabase asymmetric JWTを検証し、現在のEJECT
@@ -454,8 +456,9 @@ docs/decisions/0005-identity-and-device-security.md
     control-plane unit・property test 110件、critical boundaryのbranch・function・line・statement coverage
     100%、PostgreSQL 17 migration・repository test 32件、Next.js production buildに成功する。実PostgreSQL
     証拠は、双方向grant削除・command取消のatomic性、idempotent disconnect、grantを復元しない明示的code
-    だけの再接続、24時間のinvitation retention境界を超えたrowだけの削除を証明する。migration 0005は
-    localだけに存在する。
+    だけの再接続、24時間のinvitation retention境界を超えたrowだけの削除を証明する。実装commit
+    `03e180c`のPR #21はrun 30065802534でActions 4 jobとVercel check 2件すべてに成功した。
+    migration 0005はprotected databaseへ未適用のまま。
 
 run 29899930269の検証済み`main` artifactのチェックサムは次のとおりです。
 
@@ -540,7 +543,7 @@ artifactには期限があり、後続ビルドのチェックサムは変わり
 5. `docs/ARCHITECTURE.md`
 6. このハンドオフ
 
-このworkspaceには、意図した次の変更が未commitで存在します。同期操作より先に保持し、正確な再開点を
+このworkspaceにはpush済みrelationship lifecycle branchがあります。同期操作より先に正確な再開点を
 確認してください。
 
 ```sh
@@ -551,9 +554,9 @@ git diff --check
 ```
 
 期待する結果はbranch `agent/relationship-lifecycle`、merge commit `9929968`の`main`、
-snapshotに記載した29 pathのrelationship lifecycle working treeです。この作業に対して
-`git switch main`、`git pull`、`git reset`、`git restore`を実行してはいけません。最初にdiffを
-確認し、完了済みlocal verificationを再現してください。
+branch history内の実装commit `03e180c`、未commit product changeなしです。Draft PR #21は
+Actions 4 job・Vercel check 2件すべてに成功済みです。protected migration完了前にmergeしてはいけません。
+完了済みlocal verificationを再現するには次を実行してください。
 
 ```sh
 npm run check
@@ -567,9 +570,12 @@ PostgreSQL証拠では、`eject_test`という名前のephemeral PostgreSQL 17 d
 32件すべて成功後、containerを停止しました。再実行時もその正確な名前の隔離databaseを作成してください。
 testは他のdatabaseをresetしません。
 
-直後の継続作業は、このfocused diffのreview、commit、PR作成、Actions 4 job・Vercel check 2件の成功確認、
-新routeのProduction deploy前のprotected databaseへのmigration 0005適用です。migration 0005はremoteへ
-未適用です。
+直後の継続作業は、protected database passwordと現在のpin済みCAを持つoperator environmentから
+migration 0005を適用し、5件すべてのchecksumと無効なsafety gateを検証し、invitation cleanupが
+0件を報告するまで実行することです。その証拠を更新してからPR #21をreadyまたはmergeしてください。
+migration 0005はremoteへ未適用です。このCodex hostはVercel Production variable名を一覧できますが、
+Vercelはsensitive valueを返さず、Supabase operator credentialも利用できません。保護を迂回したり、
+先にmergeしたりしてはいけません。
 
 repositoryは`global.json`で.NET 10を選択します。relationship lifecycle changeはWindows projectを
 変更しませんが、hardware work再開時に`dotnet`がなければ対応する.NET 10 SDKをinstallしてください。

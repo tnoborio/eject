@@ -11,10 +11,10 @@ the order in which work should continue.
 - **Date:** 2026-07-24
 - **Repository:** `tnoborio/eject`
 - **Current branch:** `agent/relationship-lifecycle`
-- **Current working tree:** intentionally uncommitted relationship-lifecycle
-  work across 29 paths. Do not switch to `main`, reset, restore, or discard
-  these changes before reviewing them. They are the next focused change, based
-  on merge commit `9929968`
+- **Current working tree:** the 29-path relationship-lifecycle change is
+  committed and pushed on this branch. Draft
+  [PR #21](https://github.com/tnoborio/eject/pull/21) targets `main`; do not
+  merge it before migration 0005 is applied and verified
 - **Merged PRs:** [#2](https://github.com/tnoborio/eject/pull/2) (Stage 0
   spike), [#3](https://github.com/tnoborio/eject/pull/3) (One Bit logo),
   [#4](https://github.com/tnoborio/eject/pull/4) (hardware validation kit),
@@ -37,11 +37,11 @@ the order in which work should continue.
   consent controls), and [#20](https://github.com/tnoborio/eject/pull/20)
   (invite-only relationship establishment)
 - **Current verified implementation:** PR #20, merge commit `9929968`, on
-  `main`. The current checkout adds relationship disconnection, explicit
+  `main`. PR #21 commit `03e180c` adds relationship disconnection, explicit
   code-based reconnection without grant restoration, and 24-hour invitation
   metadata cleanup. The first four repository migrations are applied and
-  checksum-verified in the protected cloud database; migration 0005 is local
-  only
+  checksum-verified in the protected cloud database; migration 0005 is
+  committed but not applied remotely
 - **Verified CI on `main`:** [Windows spike run 29688104811](https://github.com/tnoborio/eject/actions/runs/29688104811),
   [protocol contract run 29688208249](https://github.com/tnoborio/eject/actions/runs/29688208249),
   [control-plane run 29813234824](https://github.com/tnoborio/eject/actions/runs/29813234824),
@@ -56,6 +56,8 @@ the order in which work should continue.
   all four Actions jobs and both Vercel checks passed before merge
 - **Verified CI for PR #20:** [control-plane run 30056420951](https://github.com/tnoborio/eject/actions/runs/30056420951);
   all four Actions jobs and both Vercel checks passed before merge
+- **Verified CI for PR #21:** [control-plane run 30065802534](https://github.com/tnoborio/eject/actions/runs/30065802534);
+  all four Actions jobs and both Vercel checks pass on the draft PR
 - **Current product phase:** Stage 0 awaits physical evidence; Stage 1 protocol,
   control-plane, and identity/device-security architecture are accepted. The
   control plane is implemented through authenticated agent polling and result
@@ -562,7 +564,9 @@ The following facts have direct build or test evidence:
     proves atomic bidirectional grant removal and command cancellation,
     idempotent disconnect, explicit code-only reconnection without grant
     restoration, and deletion only beyond the 24-hour invitation-retention
-    boundary. Migration 0005 remains local only.
+    boundary. PR #21 at implementation commit `03e180c` passed all four Actions
+    jobs and both Vercel checks in run 30065802534. Migration 0005 remains
+    unapplied to the protected database.
 
 The verified `main` artifact from run 29899930269 had this checksum:
 
@@ -667,8 +671,8 @@ Read these files before changing product behavior:
 5. `docs/ARCHITECTURE.md`
 6. this handoff
 
-This workspace already contains the intended uncommitted next change. Preserve
-it and confirm the exact resume point before any synchronization:
+This workspace contains the pushed relationship-lifecycle branch. Confirm the
+exact resume point before any synchronization:
 
 ```sh
 git branch --show-current
@@ -678,10 +682,10 @@ git diff --check
 ```
 
 Expected results are branch `agent/relationship-lifecycle`, `main` at merge
-commit `9929968`, and the 29-path relationship-lifecycle worktree described in
-the snapshot. Do not run `git switch main`, `git pull`, `git reset`, or
-`git restore` over this work. Inspect the diff first, then reproduce the
-completed local verification:
+commit `9929968`, implementation commit `03e180c` in the branch history, and no
+uncommitted product change. Draft PR #21 has passed all four Actions jobs and
+both Vercel checks. Do not merge it before the protected migration is complete.
+To reproduce the completed local verification:
 
 ```sh
 npm run check
@@ -696,10 +700,14 @@ The PostgreSQL evidence used an ephemeral PostgreSQL 17 database named
 stopped the container. Recreate an isolated database with that exact name
 before rerunning; the tests refuse to reset any other database.
 
-The immediate continuation is to review this focused diff, commit it, open its
-PR, wait for all four Actions jobs and both Vercel checks, and apply migration
-0005 to the protected database before any Production deployment of the new
-route. Migration 0005 has not been applied remotely.
+The immediate continuation is to apply migration 0005 from an operator
+environment with the protected database password and current pinned CA, verify
+all five checksums and disabled safety gates, run invitation cleanup until it
+reports zero, then update this evidence before marking PR #21 ready or merging
+it. Migration 0005 has not been applied remotely. This Codex host can list the
+Vercel Production variable names but Vercel does not return their sensitive
+values, and no Supabase operator credential is available here; do not bypass
+that protection or merge first.
 
 The repository selects .NET 10 through `global.json`. The relationship-lifecycle
 change does not alter the Windows project, but install a supported .NET 10 SDK
