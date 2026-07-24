@@ -37,6 +37,8 @@ EJECTは、遠隔にいる人が別の人のコンピューター上で物理操
 権限は方向を持ち、明示的に与えます。「AliceとBobが友達」であることは、Bobが
 Aliceをejectできることを意味しません。Aliceが許可、一時停止、制限、取り消しを
 管理します。
+招待制relationship確立は短期・1回限りのcodeで認証済みの既存account 2件を接続しますが、
+EJECT grantは作成しません。このcodeはaccount discoveryや物理操作のcapabilityではありません。
 
 命令発行時に少なくとも次を評価します。
 

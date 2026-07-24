@@ -64,6 +64,9 @@ person identityにはSupabase Authを使い、各Windows deviceには分離さ�
 ECDSA P-256 keyを持たせます。認証済みoutbound requestと署名済みserver responseは、正確なbody
 bytesとreplay-resistant nonceへbindします。詳細は
 [ADR 0005](decisions/0005-identity-and-device-security.ja.md)を参照してください。
+既存accountはdigestだけを保存する10分・1回限りのcodeで非公開relationshipを確立します。この操作は
+方向付きpermissionやaccount検索を作りません。詳細は
+[ADR 0006](decisions/0006-invite-only-relationships.ja.md)を参照してください。
 
 Windows adapterは、そのdevice-key境界をcurrent-user scopeで永続化するCNG ECDSA P-256 keyとして
 実装します。Microsoft Platform Crypto Providerを優先し、Microsoft Software Key Storage Providerだけへ
@@ -81,7 +84,8 @@ control planeにはagent enrollment・poll・result用の固定Node.js POST rout
 device-enrollment作成・revocation routeがあります。さらに、ownerへbindした受信者同意のreadと、
 pauseおよび既存のactive relationshipへの方向付きgrant mutationを持ちます。pauseまたはgrant revokeは
 issuanceと同じrecipient lockで直列化し、影響する`QUEUED`または未確認の`DISPATCHED` commandをatomicに
-取り消します。これらのrouteはrelationshipを作成せず、accountを検索可能にしません。enrollment作成は
+取り消します。分離した認証済みrouteが1回限りのrelationship codeを作成・消費します。このrouteが
+作成するのはrelationshipだけで、accountは検索可能になりません。enrollment作成は
 独立したgateでdefault disabledとなり、databaseやperson authの初期化前に停止します。poll・result
 deliveryは別のenvironment gateを維持し、commandを返すには独立したdatabase global-delivery gateも
 trueである必要があります。person向けpublic eject endpointはなく、Windows agentもまだ接続していません。

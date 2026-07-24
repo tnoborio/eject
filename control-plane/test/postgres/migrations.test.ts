@@ -48,6 +48,10 @@ describe("control-plane migrations", () => {
         filename: "0003_device_enrollment_and_revocation.sql",
         checksum_length: 64,
       },
+      {
+        filename: "0004_invite_only_relationships.sql",
+        checksum_length: 64,
+      },
     ]);
   });
 

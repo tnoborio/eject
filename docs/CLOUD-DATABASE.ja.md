@@ -22,9 +22,10 @@
 Supabase projectはEJECT専用です。`sasara-hub`内のdatabaseではなく、他のSasara serviceと
 application schemaやcredentialを共有しません。
 
-repositoryのmigration 3件はすべて適用済みです。PostgreSQLはTLSを使わない外部接続を拒否します。
-singleton delivery gateは`false`、physical hourly ceilingは未設定で、初期状態のEJECT application
-tableにはperson、device、command、result、private eventがありません。
+repositoryのmigration 4件はすべて適用済みです。PostgreSQLはTLSを使わない外部接続を拒否します。
+singleton delivery gateは`false`、physical hourly ceilingは未設定で、EJECT application tableには
+招待済みperson 1件が存在し、relationship、relationship invitation、device、command、result、
+private eventは存在しません。
 
 ## Environment境界
 
@@ -126,6 +127,10 @@ Vercel projectはGitHubへ接続済みです。pull requestにはproduction data
 deploymentが作られます。`main`へのmergeではprotected database variableを持つProduction deploymentが
 作られ得ますが、agent deliveryは引き続き`404 DELIVERY_DISABLED`を返します。
 
+migration 0004は適用・checksum検証済みのため、そのschemaはrelationship invitation routeをreview・
+deployするまで未使用のまま保持できます。schema適用によってdevice enrollmentや物理deliveryは
+有効になっていません。
+
 次のすべてが完了するまでresponse-signing keyを設定せず、どちらのdelivery gateも有効にしません。
 
 1. device enrollmentとrevocationを実装する
@@ -173,6 +178,30 @@ application row合計0件、新しいdevice metadata column・index、旧owner c
 ```
 
 これはcloud schemaとconnectivityの証拠です。物理trayが開いた証拠ではなく、Stage 0を完了させません。
+
+2026-07-24にmigration 0004を、認証済みSupabase Management APIを通じて、同じadvisory lockを持つ
+1 transactionで適用しました。その後の独立read-only queryにより、repository migration 4件の
+checksum完全一致、PostgreSQL 17、delivery無効、physical ceiling未設定、person 1件、relationship・
+invitation 0件、digestだけを保存するinvitation列、pending codeを1件に限定するunique index、
+accepter identityを保存する列がないことを確認しました。
+
+```json
+{
+  "database": "postgres",
+  "postgres_major": 17,
+  "migrations": [
+    "0001_initial_control_plane.sql",
+    "0002_agent_transport_security.sql",
+    "0003_device_enrollment_and_revocation.sql",
+    "0004_invite_only_relationships.sql"
+  ],
+  "delivery_enabled": false,
+  "physical_hourly_ceiling": null,
+  "people": 1,
+  "relationships": 0,
+  "relationship_invitations": 0
+}
+```
 
 現在のProduction deploymentからも、agent pollingで`{"error":"DELIVERY_DISABLED"}`、agent enrollmentで
 `{"error":"ENROLLMENT_DISABLED"}`という限定されたsemantic bodyを確認しました。この操作では、

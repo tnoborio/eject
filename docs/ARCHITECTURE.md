@@ -67,6 +67,9 @@ Person identity uses Supabase Auth, while each Windows device has a separate
 non-exportable CNG ECDSA P-256 key. Authenticated outbound requests and signed
 server responses bind exact body bytes and replay-resistant nonces. See
 [ADR 0005](decisions/0005-identity-and-device-security.md).
+Existing accounts establish private relationships through digest-only,
+ten-minute, one-use codes that never create directional permission or account
+search. See [ADR 0006](decisions/0006-invite-only-relationships.md).
 
 The Windows adapter implements that device-key boundary as a persistent,
 current-user CNG ECDSA P-256 key. It prefers Microsoft Platform Crypto Provider
@@ -90,7 +93,8 @@ revocation. It also has owner-bound recipient-consent reads and mutations for
 pause and directional grants to existing active relationships. Pausing or
 revoking a grant serializes on the same recipient lock as issuance and
 atomically cancels affected `QUEUED` or unconfirmed `DISPATCHED` commands.
-These routes do not create relationships or make accounts searchable.
+Separate authenticated routes create and consume one-use relationship codes;
+they create only the relationship and keep accounts unsearchable.
 Enrollment creation is independently disabled by default before database or
 person-auth initialization. Poll and result delivery retains its separate
 environment gate, and the independent database global-delivery gate must also
