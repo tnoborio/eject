@@ -25,10 +25,11 @@ The Supabase project is dedicated to EJECT. It is not a database inside
 `sasara-hub`, and it does not share an application schema or credentials with
 another Sasara service.
 
-All three repository migrations are applied. PostgreSQL rejects non-TLS external
+All four repository migrations are applied. PostgreSQL rejects non-TLS external
 connections. The singleton delivery gate is `false`, the physical hourly
-ceiling is unset, and the initial EJECT application tables contain no people,
-devices, commands, results, or private events.
+ceiling is unset, and the EJECT application tables contain one invited person
+and no relationships, relationship invitations, devices, commands, results, or
+private events.
 
 ## Environment boundary
 
@@ -142,6 +143,10 @@ deployments without production database access. Merges to `main` may create a
 Production deployment with the protected database variables, but agent delivery
 continues to return `404 DELIVERY_DISABLED`.
 
+Migration 0004 is applied and its checksum is verified, so its schema may remain
+dormant until the relationship-invitation routes are reviewed and deployed.
+Applying that schema did not enable device enrollment or physical delivery.
+
 Do not configure response-signing keys or enable either delivery gate until all
 of the following are complete:
 
@@ -196,6 +201,31 @@ metadata columns and indexes, and removal of the superseded owner constraint:
 
 This is cloud schema and connectivity evidence. It is not evidence that a
 physical tray has opened and does not complete Stage 0.
+
+On 2026-07-24, migration 0004 was applied through the authenticated Supabase
+Management API in one transaction with the same advisory lock. An independent
+read-only query then verified all four repository checksums, PostgreSQL 17,
+disabled delivery, an unset physical ceiling, one person, zero relationships
+and invitations, the digest-only invitation column, the unique one-pending-code
+index, and the absence of accepter identity storage:
+
+```json
+{
+  "database": "postgres",
+  "postgres_major": 17,
+  "migrations": [
+    "0001_initial_control_plane.sql",
+    "0002_agent_transport_security.sql",
+    "0003_device_enrollment_and_revocation.sql",
+    "0004_invite_only_relationships.sql"
+  ],
+  "delivery_enabled": false,
+  "physical_hourly_ceiling": null,
+  "people": 1,
+  "relationships": 0,
+  "relationship_invitations": 0
+}
+```
 
 The current Production deployment also returned the bounded semantic bodies
 `{"error":"DELIVERY_DISABLED"}` from agent polling and

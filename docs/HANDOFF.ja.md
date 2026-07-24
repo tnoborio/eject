@@ -9,7 +9,7 @@
 
 - **日付:** 2026-07-24
 - **リポジトリ:** `tnoborio/eject`
-- **現在のブランチ:** `main`
+- **現在のブランチ:** `agent/invite-only-relationships`
 - **マージ済みPR:** [#2](https://github.com/tnoborio/eject/pull/2)(Stage 0スパイク)、
   [#3](https://github.com/tnoborio/eject/pull/3)(One Bitロゴ)、
   [#4](https://github.com/tnoborio/eject/pull/4)(ハードウェア検証キット)、
@@ -26,10 +26,12 @@
   [#15](https://github.com/tnoborio/eject/pull/15)(protected migration証拠)、
   [#16](https://github.com/tnoborio/eject/pull/16)(person PKCE session)、
   [#17](https://github.com/tnoborio/eject/pull/17)(protected Windows CNG device key)、
-  [#18](https://github.com/tnoborio/eject/pull/18)(main CNG証拠更新)
-- **現在の検証済み実装:** `main`上のPR #18。現在のcheckoutには英日safe-state Web consoleと認証済み
-  owner device一覧に加え、recipientが操作するpauseと既存relationshipへのgrant/revokeを追加。
-  repositoryのmigration 3件はすべてprotected cloud databaseへ適用し、checksumを検証済み
+  [#18](https://github.com/tnoborio/eject/pull/18)(main CNG証拠更新)、
+  [#19](https://github.com/tnoborio/eject/pull/19)(safe Web console・consent control)
+- **現在の検証済み実装:** `main`上のPR #19、merge commit `40ef7d8`。現在のcheckoutには既存の
+  sign-in済みaccount向けに、digestだけを保存する10分間・一回限りのrelationship invitationを追加。
+  作成するのはrelationshipだけで、EJECT permission、account検索、物理commandは作らない。protected
+  repository migration 4件はすべてprotected cloud databaseへ適用・checksum検証済み
 - **`main`上の検証済みCI:** [Windows spike run 29688104811](https://github.com/tnoborio/eject/actions/runs/29688104811)、
   [protocol contract run 29688208249](https://github.com/tnoborio/eject/actions/runs/29688208249)、
   [control-plane run 29813234824](https://github.com/tnoborio/eject/actions/runs/29813234824)、
@@ -40,6 +42,8 @@
 - **PR #14の検証済みCI:** [control-plane run 29896627535](https://github.com/tnoborio/eject/actions/runs/29896627535)
 - **PR #16の検証済みCI:** [control-plane run 29898326094](https://github.com/tnoborio/eject/actions/runs/29898326094)
 - **PR #17の検証済みCI:** [Windows run 29899184939](https://github.com/tnoborio/eject/actions/runs/29899184939)
+- **PR #19の検証済みCI:** [control-plane run 30053578168](https://github.com/tnoborio/eject/actions/runs/30053578168)。
+  merge前にActions 4 jobとVercel check 2件がすべて成功
 - **現在のプロダクト段階:** Stage 0は物理証拠待ち。Stage 1 protocol、control-plane、
   identity・device-security architectureは採用済み。control planeは認証済みagent pollingとresult
   ingestionまで実装済み。person-session境界はSupabase asymmetric JWTを検証し、現在のEJECT
@@ -51,8 +55,9 @@
   Windows統合より先にWeb体験を進めている。現在のcheckoutは英日serviceを表示し、既存の
   auth・device管理境界へformを接続するが、物理操作はすべて利用不可のままにする。ownerへbindした
   consent controlは受信accessをpauseするか、既存のactive relationship 1件をgrant/revokeする。
-  pause・revokeはissuanceのrecipient lock下で、影響する未確認commandをatomicに取り消す。UIは
-  relationshipを作成せず、account検索も公開しない。Supabase Authはpublic signupを拒否し、完全一致する
+  pause・revokeはissuanceのrecipient lock下で、影響する未確認commandをatomicに取り消す。現在の
+  checkoutは既存のsign-in済みaccount 2件をout-of-bandのone-use codeでrelationshipへ接続する。
+  account検索は公開せず、EJECT permissionも付与しない。Supabase Authはpublic signupを拒否し、完全一致する
   public Production callbackだけを許可し、email code期限を10分に設定済み。
   `https://eject-bice.vercel.app`でperson authを有効化し、最初の招待accountをprovision
   済み。live refresh、account検証、owner-device一覧、logout lifecycleも検証済み。device enrollmentと
@@ -70,6 +75,9 @@
 EJECT controlは無効で、commandを送信しないと明示します。recipient pauseと方向付きgrant/revokeは、
 認証済みownerと既存のactive relationshipだけに作用します。pause・revokeはconsent changeと同じ
 transactionで、影響する`QUEUED`・未確認`DISPATCHED` commandをatomicに取り消します。
+現在のcheckoutは、digestだけを保存する10分間・一回限りのcodeによる明示的なrelationship確立も
+追加します。acceptしても方向付きgrantは作らず、account directory、検索、invitation delivery
+channelも提供しません。
 
 次の作業は完了しています。
 
@@ -415,13 +423,23 @@ docs/decisions/0005-identity-and-device-security.md
     送る。boundedな12文字のopaque refresh tokenも受け付ける。emailを送らない生成linkでprovider
     tokenを検証後、Production refreshはHTTP 204、認証済みowner-device一覧はdevice 0件でHTTP 200、
     Production logoutはHTTP 204を返した。session tokenはlog出力していない。
-61. 現在のcheckoutはformat、ESLint、TypeScript、dependency rule、unit・property test 100件、
+61. PR #19はformat、ESLint、TypeScript、dependency rule、unit・property test 100件、
     blocking critical boundaryのbranch・function・line・statement coverage 100%、隔離した一時databaseに
     対するPostgreSQL 17 integration・concurrency test 26件、Next.js 16.2.10 production buildに成功する。
     実PostgreSQL testにより、consent readがactive relationshipだけを公開すること、grantがactive
     relationshipを必須とすること、revokeがそのactorの未確認commandだけを取り消すこと、pauseが
     recipientの未確認commandをすべて取り消すこと、安全mutationの再実行でcancellation eventを
-    重複作成しないことを証明した。
+    重複作成しないことを証明した。run 30053578168でActions 4 jobとVercel check 2件がmerge前に
+    すべて成功した。
+62. invite-only relationshipのcheckoutはformat、ESLint、TypeScript、dependency rule、protocol
+    test 11件、control-plane unit・property test 107件、critical boundaryのbranch・function・line・
+    statement coverage 100%、PostgreSQL 17 migration・repository・concurrency test 30件、
+    Next.js 16.2.10 production buildに成功する。実PostgreSQL testはdigestだけを保存する10分間の
+    invitation、新codeによる置換、raceで正確に1人だけのaccept、self・expired・restricted・inactive
+    relationshipの拒否、方向付きgrantを変えない既存active relationshipのidempotent acceptを証明した。
+    migration 0004はadvisory lock付きの1 transactionでprotected cloud databaseへ適用済み。その後の
+    独立read-only queryでmigration 4件のchecksum、delivery無効、relationship・invitation 0件、
+    digest列、pending invitationを1件に限定するunique indexを検証した。
 
 run 29899930269の検証済み`main` artifactのチェックサムは次のとおりです。
 
@@ -468,12 +486,17 @@ artifactには期限があり、後続ビルドのチェックサムは変わり
   実装済みで、Productionでは有効である。provider token検証、refresh、認証済みowner-device一覧、
   logoutにはlive証拠がある。人がbrowserで行うPKCE magic-linkまたはOTP操作はまだ完了していない。
   Windows CNG keyのenrollment接続とWindows polling clientは未実装。
-- ownerへbindしたpauseと既存relationshipへのgrant/revokeは、現在のcheckoutへ実databaseの
-  cancellation証拠とともに実装済みだが、未deployでlive browser証拠もない。serviceはrelationship作成、
-  account検索、eject request送信を引き続き提供しない。
+- ownerへbindしたpauseと既存relationshipへのgrant/revokeは、実databaseのcancellation証拠とともに
+  `main`へ実装済み。現在のcheckoutはinvite-only relationship確立を追加するが、未deployで、liveの
+  two-account browser証拠もない。account検索、invitation delivery、disconnect後のreconnect、
+  eject requestは意図的に提供しない。
+- migration 0004は、未deployのrelationship routeより先にprotected cloud databaseへ適用し、独立検証
+  済み。新しいtableは空で、enrollmentや物理deliveryを有効にしない。
+- alpha前にinvitationのretention・cleanupを定義する必要がある。databaseはinvitation digest、timestamp、
+  inviter IDだけを保存し、bearer codeやaccepter identityは保存しない。
 - person JWT adapterはlive Supabase ES256 JWKSとprovision済みactive accountに対して検証済み。
   live signing-key rotationはまだ観測していない。
-- cloud environmentはmigration 3件をすべて適用・検証済みで、招待person 1件が存在する。device、
+- cloud environmentはmigration 4件をすべて適用・検証済みで、招待person 1件が存在する。device、
   enrollment secret、command、result、signing key、private eventは存在しない。person authはliveだが、
   enrollmentとすべての物理deliveryは無効のまま。
 - ADR 0005でauthentication provider、device credential、integrity、replay、revocation、
@@ -532,17 +555,18 @@ gh run download RUN_ID --name eject-windows-x64 --dir artifacts/github-actions
 物理検証は並行要件として残しますが、唯一の開発queueにはしません。SQL migration、blocking CI、
 Kysely issuance、決定論的PostgreSQL race、advisory mutation testing、ADR 0005、認証済みpoll・result
 transport、専用cloud database environment、person-session adapter、server enrollment・revocation境界は
-実装済みで、migration 3件はすべてprotected cloud databaseへ適用済みです。次のsoftware順序は
+実装済みで、migration 4件はすべてprotected cloud databaseへ適用済みです。次のsoftware順序は
 次のとおりです。person PKCE cookie lifecycleとprotected Windows CNG key storeは`main`へ実装済みです。
 後者にはhosted Windows CI証拠がありますが、実機standard-user証拠はありません。現在はWeb体験を
 先行します。現在のcheckoutはdeliveryやaccount検索を有効にせず、安全な英日preview、owner-device UI、
-ownerへbindしたpause・grant・revokeを提供します。次の順序は次のとおりです。
+ownerへbindしたpause・grant・revoke、invite-only relationship確立を提供します。次の順序は次のとおりです。
 
-1. public Production serviceで人が操作するmagic-linkまたはOTP sign-inを1回完了し、browser callback
-   証拠を記録する。
-2. Web consoleとconsent mutationをreview・mergeし、blocking ActionsとVercel checkを記録する。
-3. public account検索を追加せず、two-person prototype向けのinvite-only relationship確立を仕様化し、
-   方向付きEJECT permissionとは分離する。
+1. invite-only relationship changeをreview・publishし、blocking ActionsとVercel checkを記録する。
+   migration 0004とmigration 4件のchecksumは、enrollment・deliveryを無効のまま検証済み。
+2. operator専用pathで2件目の招待済みexisting accountをprovisionし、Productionで人が操作する
+   magic-linkまたはOTP sign-inとtwo-account relationship code acceptを各1回完了する。codeやsessionは
+   logへ残さない。
+3. invitation retentionとdisconnect/reconnect動作を別のreview済みchangeで定義する。
 4. 無効なgateの背後でprotected Windows keyをenrollmentへ接続し、durable replay consumptionと保存済み
    resultのresendを含むoutbound-only pollingを実装する。実機standard-user CNG証拠が得られるまで
    device enrollment作成を無効に保つ。認証済みdevice一覧とrevocationは独立したsafety controlとして
@@ -589,10 +613,11 @@ decisionが必要です。
    server管理のPKCE cookie routeも`main`へ実装済み・default-disabled。sign-in・owner-device UIを実装し、
    safeなVercel Previewとauth-enabled Production serviceを検証済み。最初の招待personとlive provider
    session lifecycleも検証済み。ownerへbindしたpauseと既存relationshipへのgrant/revokeは、atomicな
-   cancellation証拠とともに現在のcheckoutへ実装済み。人がbrowserで行うsign-in・consent証拠、
-   invite-only relationship確立、実機standard-user key証拠、Windows keyのenrollment接続、
-   ローカルreplay防止、1回だけの実行、result report、outbound-only pollingは未実装。protected
-   Windows key作成自体はhosted Windows CIで検証済み。
+   cancellation証拠とともに`main`へ実装済み。invite-only relationship確立はADR 0006に従って現在の
+   checkoutへ実装済みで、migration 0004はprotected cloud databaseへ適用し、checksumを独立検証済み。
+   route changeのpublish、人がbrowserで行うsign-in・two-account consent証拠、実機standard-user key
+   証拠、Windows keyのenrollment接続、ローカルreplay防止、1回だけの実行、result report、
+   outbound-only pollingは未実装。protected Windows key作成自体はhosted Windows CIで検証済み。
 6. **並行するハードウェア証拠** — 機材入手後、レビュー済みレポートと、証拠により狭く
    裏付けられたadapter修正を追加する。
 

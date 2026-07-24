@@ -46,6 +46,7 @@ const errorKeys: Readonly<Record<string, MessageKey>> = {
   ACCOUNT_UNAVAILABLE: "error.ACCOUNT_UNAVAILABLE",
   DEVICE_ALREADY_REGISTERED: "error.DEVICE_ALREADY_REGISTERED",
   CONNECTION_REQUIRED: "error.CONNECTION_REQUIRED",
+  INVITATION_UNAVAILABLE: "error.INVITATION_UNAVAILABLE",
   ORIGIN_NOT_ALLOWED: "error.ORIGIN_NOT_ALLOWED",
   INVALID_REQUEST: "error.INVALID_REQUEST",
   SERVICE_UNAVAILABLE: "error.SERVICE_UNAVAILABLE",
@@ -78,6 +79,11 @@ export function WebConsole({
     readonly secret: string;
     readonly expiresAt: string;
   } | null>(null);
+  const [relationshipInvitation, setRelationshipInvitation] = useState<{
+    readonly code: string;
+    readonly expiresAt: string;
+  } | null>(null);
+  const [invitationCode, setInvitationCode] = useState("");
   const [working, setWorking] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
 
@@ -238,6 +244,8 @@ export function WebConsole({
       setDevices([]);
       setConsent(null);
       setEnrollment(null);
+      setRelationshipInvitation(null);
+      setInvitationCode("");
       setFeedback(t("feedback.signedOut"));
     }
   }
@@ -287,6 +295,37 @@ export function WebConsole({
       setFeedback(
         t(granted ? "feedback.grantCreated" : "feedback.grantRevoked"),
       );
+    }
+  }
+
+  async function createRelationshipInvitation() {
+    const response = await submit(
+      "/api/person/v1/relationship-invitations",
+      {},
+    );
+    if (response === null) return;
+    const value = (await response.json()) as {
+      invitation_code: string;
+      expires_at: string;
+    };
+    setRelationshipInvitation({
+      code: value.invitation_code,
+      expiresAt: value.expires_at,
+    });
+    setFeedback(t("feedback.relationshipInvitationCreated"));
+  }
+
+  async function acceptRelationshipInvitation(
+    event: FormEvent<HTMLFormElement>,
+  ) {
+    event.preventDefault();
+    const response = await submit("/api/person/v1/relationships", {
+      invitation_code: invitationCode,
+    });
+    if (response !== null) {
+      setInvitationCode("");
+      await loadConsent();
+      setFeedback(t("feedback.relationshipConnected"));
     }
   }
 
@@ -532,6 +571,50 @@ export function WebConsole({
                   ? t("consent.resume")
                   : t("consent.pauseIncoming")}
               </button>
+              <h3>{t("relationship.title")}</h3>
+              <p>{t("relationship.description")}</p>
+              <button
+                className="secondary-action"
+                type="button"
+                disabled={working}
+                onClick={() => void createRelationshipInvitation()}
+              >
+                {t("relationship.createInvitation")}
+              </button>
+              {relationshipInvitation !== null ? (
+                <div className="secret" role="status">
+                  <p>{t("relationship.invitationTitle")}</p>
+                  <code>{relationshipInvitation.code}</code>
+                  <p>{t("relationship.invitationNotice")}</p>
+                  <p>
+                    {t("relationship.expires")}:{" "}
+                    {formatDate(relationshipInvitation.expiresAt, locale)}
+                  </p>
+                </div>
+              ) : null}
+              <form
+                onSubmit={(event) => void acceptRelationshipInvitation(event)}
+              >
+                <label htmlFor="relationship-invitation">
+                  {t("relationship.codeLabel")}
+                </label>
+                <input
+                  id="relationship-invitation"
+                  name="relationship_invitation"
+                  type="text"
+                  autoComplete="off"
+                  required
+                  minLength={43}
+                  maxLength={43}
+                  pattern="[A-Za-z0-9_-]{43}"
+                  placeholder={t("relationship.codePlaceholder")}
+                  value={invitationCode}
+                  onChange={(event) => setInvitationCode(event.target.value)}
+                />
+                <button type="submit" disabled={working}>
+                  {t("relationship.acceptInvitation")}
+                </button>
+              </form>
               <h3>{t("consent.connectedTitle")}</h3>
               {consent === null ? null : consent.connected_people.length ? (
                 <div className="device-list">

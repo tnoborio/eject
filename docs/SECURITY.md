@@ -37,6 +37,9 @@ The initial design must account for:
 
 Permission is directional and explicit. “Alice and Bob are friends” does not
 mean Bob may eject Alice. Alice grants, pauses, limits, and revokes that ability.
+Invite-only relationship establishment connects two existing authenticated
+accounts through a short-lived one-use code, but never creates an EJECT grant.
+The code is not an account-discovery or physical-action capability.
 
 Authorization should evaluate, at command issuance time:
 
