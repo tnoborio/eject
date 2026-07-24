@@ -9,10 +9,9 @@
 
 - **日付:** 2026-07-24
 - **リポジトリ:** `tnoborio/eject`
-- **現在のブランチ:** `agent/remove-production-migration-bridge`
-- **現在のworking tree:** merge commit `b55258c`を起点に、完了したone-time Production migration
-  bridgeを削除し、限定された証拠を記録するfocused follow-up。bridgeを汎用migration runnerとして
-  残してはいけない
+- **現在のブランチ:** このhandoff-only follow-up merge後の`main`
+- **現在のworking tree:** product code changeは残っていない。PR #22で完了したone-time Production
+  migration bridgeを削除し、通常Production buildを検証済み
 - **マージ済みPR:** [#2](https://github.com/tnoborio/eject/pull/2)(Stage 0スパイク)、
   [#3](https://github.com/tnoborio/eject/pull/3)(One Bitロゴ)、
   [#4](https://github.com/tnoborio/eject/pull/4)(ハードウェア検証キット)、
@@ -32,10 +31,12 @@
   [#18](https://github.com/tnoborio/eject/pull/18)(main CNG証拠更新)、
   [#19](https://github.com/tnoborio/eject/pull/19)(safe Web console・consent control)、
   [#20](https://github.com/tnoborio/eject/pull/20)(invite-only relationship確立)、
-  [#21](https://github.com/tnoborio/eject/pull/21)(bounded relationship lifecycle)
-- **現在の検証済み実装:** `main`上のPR #21、merge commit `b55258c`。relationship切断、
+  [#21](https://github.com/tnoborio/eject/pull/21)(bounded relationship lifecycle)、
+  [#22](https://github.com/tnoborio/eject/pull/22)(one-time migration bridge削除)
+- **現在の検証済み実装:** `main`上のPR #22、merge commit `739392a`。relationship切断、
   grantを復元しない明示的code再接続、24時間後のinvitation metadata cleanupはdeploy済み。
-  repository migration 5件はすべてprotected cloud databaseへ適用・checksum検証済み
+  repository migration 5件はすべてprotected cloud databaseへ適用・checksum検証済みで、
+  temporary build bridgeは削除済み
 - **`main`上の検証済みCI:** [Windows spike run 29688104811](https://github.com/tnoborio/eject/actions/runs/29688104811)、
   [protocol contract run 29688208249](https://github.com/tnoborio/eject/actions/runs/29688208249)、
   [control-plane run 29813234824](https://github.com/tnoborio/eject/actions/runs/29813234824)、
@@ -53,6 +54,10 @@
 - **PR #21の検証済みCI:** [control-plane run 30080211721](https://github.com/tnoborio/eject/actions/runs/30080211721)。
   merge前にActions 4 jobとVercel check 2件がすべて成功
 - **`main`上のPR #21検証済みCI:** [control-plane run 30080277254](https://github.com/tnoborio/eject/actions/runs/30080277254)。
+  merge後にActions 4 jobがすべて成功
+- **PR #22の検証済みCI:** [control-plane run 30080781288](https://github.com/tnoborio/eject/actions/runs/30080781288)。
+  merge前にActions 4 jobとVercel check 2件がすべて成功
+- **`main`上のPR #22検証済みCI:** [control-plane run 30080846955](https://github.com/tnoborio/eject/actions/runs/30080846955)。
   merge後にActions 4 jobがすべて成功
 - **現在のプロダクト段階:** Stage 0は物理証拠待ち。Stage 1 protocol、control-plane、
   identity・device-security architectureは採用済み。control planeは認証済みagent pollingとresult
@@ -468,6 +473,10 @@ docs/decisions/0005-identity-and-device-security.md
     application row合計1件、cleanup対象invitation 0件を検証した。deploymentは`Ready`へ到達し、
     外部確認で`/`はHTTP 200、pollingは`404 DELIVERY_DISABLED`、enrollmentは
     `404 ENROLLMENT_DISABLED`、未認証disconnection requestは`401 AUTHENTICATION_REQUIRED`を返した。
+65. PR #22はrun 30080781288でActions 4 jobとVercel check 2件すべてに成功後、one-time bridgeを
+    削除し、`739392a`としてmergeした。`main`でもrun 30080846955のActions 4 jobすべてに成功した。
+    通常Production deployment `dpl_91cuRwKTJp2bLa3kT9MVtJ4PG8Nb`はbuild command全体を
+    `next build`へ戻した状態で`Ready`に到達し、deploy済みpoll・enrollment routeは無効のままだった。
 
 run 29899930269の検証済み`main` artifactのチェックサムは次のとおりです。
 
@@ -550,8 +559,7 @@ artifactには期限があり、後続ビルドのチェックサムは変わり
 5. `docs/ARCHITECTURE.md`
 6. このハンドオフ
 
-このworkspaceにはone-time Production migration bridgeを削除するfocused follow-upがあります。
-同期操作より先に正確な再開点を確認してください。
+同期操作より先に正確な`main`再開点を確認してください。
 
 ```sh
 git branch --show-current
@@ -560,9 +568,9 @@ git log -1 --oneline main
 git diff --check
 ```
 
-期待する結果はbranch `agent/remove-production-migration-bridge`、merge commit `b55258c`の`main`、
-snapshotに記載したbridge削除・証拠更新だけです。PR #21はmerge済みで、migration 0005も検証済みです。
-one-time bridgeをbuildへ残してはいけません。完了済みlocal verificationを再現するには次を実行してください。
+期待する結果はPR #22 merge commit `739392a`またはその後のhandoff-only mergeの`main`、
+未commit product changeなし、migration 0005検証済み、build内one-time bridgeなしです。
+完了済みlocal verificationを再現するには次を実行してください。
 
 ```sh
 npm run check
@@ -576,10 +584,9 @@ PostgreSQL証拠では、`eject_test`という名前のephemeral PostgreSQL 17 d
 32件すべて成功後、containerを停止しました。再実行時もその正確な名前の隔離databaseを作成してください。
 testは他のdatabaseをresetしません。
 
-直後の継続作業はone-time Production migration bridgeのfocused削除をpublish・mergeし、通常の
-Production buildと無効なagent routeを検証することです。その後、human-browser relationship
-lifecycle証拠のため2件目の招待accountをprovisionします。credentialを露出させたり、汎用migration
-runnerを再導入したりしてはいけません。
+直後の継続作業はoperator-only pathで2件目の招待accountをprovisionし、codeやsessionをlogへ残さず、
+human-browser sign-in、relationship code accept、disconnect、明示的reconnect証拠を得ることです。
+credentialを露出させたり、汎用migration runnerを再導入したりしてはいけません。
 
 repositoryは`global.json`で.NET 10を選択します。relationship lifecycle changeはWindows projectを
 変更しませんが、hardware work再開時に`dotnet`がなければ対応する.NET 10 SDKをinstallしてください。

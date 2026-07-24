@@ -240,8 +240,10 @@ application row合計1件を独立検証しました。
 続いてProduction deployment `dpl_B4GqXfk457m1qWeRkb5bzYMDFWEo`がrelationship-disconnection routeを
 含んで`Ready`へ到達しました。外部確認では`/`がHTTP 200、agent pollingが
 `404 DELIVERY_DISABLED`、agent enrollmentが`404 ENROLLMENT_DISABLED`、未認証disconnection requestが
-`401 AUTHENTICATION_REQUIRED`を返しました。直後のfollow-upでone-time bridgeを削除し、汎用migration
-runnerとして残しません。
+`401 AUTHENTICATION_REQUIRED`を返しました。PR #22はone-time bridgeを削除しました。その後、
+merge commit `739392a`の通常Production deployment `dpl_91cuRwKTJp2bLa3kT9MVtJ4PG8Nb`が、
+build command全体を`next build`へ戻した状態で`Ready`に到達しました。bridgeを汎用migration runnerとして
+残していません。
 
 現在のProduction deploymentからも、agent pollingで`{"error":"DELIVERY_DISABLED"}`、agent enrollmentで
 `{"error":"ENROLLMENT_DISABLED"}`という限定されたsemantic bodyを確認しました。この操作では、
