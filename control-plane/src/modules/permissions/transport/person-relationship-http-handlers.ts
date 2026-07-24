@@ -3,11 +3,15 @@ import { parsePersonPostRequest } from "@/modules/identity/transport/person-http
 import type {
   AcceptRelationshipInvitationResult,
   CreateRelationshipInvitationResult,
+  DisconnectRelationshipResult,
 } from "../application/manage-relationships";
 
 const invitationPath = "/api/person/v1/relationship-invitations";
 const relationshipPath = "/api/person/v1/relationships";
+const disconnectionPath = "/api/person/v1/relationship-disconnections";
 const invitationCodePattern = /^[A-Za-z0-9_-]{43}$/;
+const uuidPattern =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
 export interface PersonRelationshipHttpDependencies {
   readonly expectedOrigin: string;
@@ -23,6 +27,11 @@ export interface PersonRelationshipHttpDependencies {
     invitationCode: string,
     now: Date,
   ) => Promise<AcceptRelationshipInvitationResult>;
+  readonly disconnectRelationship: (
+    personId: string,
+    otherPersonId: string,
+    now: Date,
+  ) => Promise<DisconnectRelationshipResult>;
   readonly now: () => Date;
 }
 
@@ -93,6 +102,39 @@ export async function handleAcceptRelationshipInvitation(
   });
 }
 
+export async function handleDisconnectRelationship(
+  request: Request,
+  dependencies: PersonRelationshipHttpDependencies,
+): Promise<Response> {
+  const parsed = await parsePersonPostRequest(
+    request,
+    disconnectionPath,
+    dependencies.expectedOrigin,
+    80,
+  );
+  if (!parsed.valid) {
+    return personError(parsed.reason, requestErrorStatus(parsed.reason));
+  }
+  const otherPersonId = parseDisconnectionBody(parsed.body);
+  if (otherPersonId === null) return personError("INVALID_REQUEST", 400);
+  const authentication = await dependencies.authenticate(parsed.accessToken);
+  if (!authentication.authenticated) {
+    return authenticationError(authentication.reason);
+  }
+  if (authentication.context.personId === otherPersonId) {
+    return personError("INVALID_REQUEST", 400);
+  }
+  await dependencies.disconnectRelationship(
+    authentication.context.personId,
+    otherPersonId,
+    dependencies.now(),
+  );
+  return new Response(null, {
+    status: 204,
+    headers: { "cache-control": "no-store" },
+  });
+}
+
 function isEmptyObject(body: Uint8Array): boolean {
   const value = parseJson(body);
   return (
@@ -117,6 +159,22 @@ function parseAcceptanceBody(body: Uint8Array): string | null {
     return null;
   }
   return value.invitation_code;
+}
+
+function parseDisconnectionBody(body: Uint8Array): string | null {
+  const value = parseJson(body);
+  if (
+    typeof value !== "object" ||
+    value === null ||
+    Array.isArray(value) ||
+    Object.keys(value).length !== 1 ||
+    !("person_id" in value) ||
+    typeof value.person_id !== "string" ||
+    !uuidPattern.test(value.person_id)
+  ) {
+    return null;
+  }
+  return value.person_id;
 }
 
 function parseJson(body: Uint8Array): unknown {

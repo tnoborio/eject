@@ -29,9 +29,8 @@ capabilityを有効にせず、どちらかが相手をejectできると暗示�
    EJECT accessは各受信者が別途許可します。
 6. 作成・受理は短いPostgreSQL `SERIALIZABLE` transactionとbounded retryで実行します。受理時はinvitationと
    両account rowを決定論的順序でlockし、codeを消費できるaccepterを正確に1件にします。
-7. pairがすでにactive relationshipを持つ場合は、grantを変更せずcodeをidempotentに消費します。このpathで
-   inactive relationshipを再有効化しません。再接続・切断にはcancellation動作を含む別のreview済みdecisionが
-   必要です。
+7. pairがすでにactive relationshipを持つ場合は、grantを変更せずcodeをidempotentに消費します。再接続・
+   切断は別途[ADR 0007](0007-relationship-lifecycle.ja.md)へ従います。
 8. code、raw request body、email address、relationship内容をlog出力しません。private alpha前に
    invitation rowの保持・削除期間を定義します。
 

@@ -9,7 +9,10 @@
 
 - **日付:** 2026-07-24
 - **リポジトリ:** `tnoborio/eject`
-- **現在のブランチ:** `agent/invite-only-relationships`
+- **現在のブランチ:** `agent/relationship-lifecycle`
+- **現在のworking tree:** relationship lifecycle作業29 pathを意図的に未commitで保持。review前に
+  `main`へswitch、reset、restore、変更破棄をしてはいけない。merge commit `9929968`を起点とする
+  次のfocused change
 - **マージ済みPR:** [#2](https://github.com/tnoborio/eject/pull/2)(Stage 0スパイク)、
   [#3](https://github.com/tnoborio/eject/pull/3)(One Bitロゴ)、
   [#4](https://github.com/tnoborio/eject/pull/4)(ハードウェア検証キット)、
@@ -27,11 +30,11 @@
   [#16](https://github.com/tnoborio/eject/pull/16)(person PKCE session)、
   [#17](https://github.com/tnoborio/eject/pull/17)(protected Windows CNG device key)、
   [#18](https://github.com/tnoborio/eject/pull/18)(main CNG証拠更新)、
-  [#19](https://github.com/tnoborio/eject/pull/19)(safe Web console・consent control)
-- **現在の検証済み実装:** `main`上のPR #19、merge commit `40ef7d8`。現在のcheckoutには既存の
-  sign-in済みaccount向けに、digestだけを保存する10分間・一回限りのrelationship invitationを追加。
-  作成するのはrelationshipだけで、EJECT permission、account検索、物理commandは作らない。protected
-  repository migration 4件はすべてprotected cloud databaseへ適用・checksum検証済み
+  [#19](https://github.com/tnoborio/eject/pull/19)(safe Web console・consent control)、
+  [#20](https://github.com/tnoborio/eject/pull/20)(invite-only relationship確立)
+- **現在の検証済み実装:** `main`上のPR #20、merge commit `9929968`。現在のcheckoutにはrelationship
+  切断、grantを復元しない明示的code再接続、24時間後のinvitation metadata cleanupを追加。protected
+  cloud databaseへ適用・checksum検証済みなのは最初のmigration 4件で、0005はlocalだけに存在
 - **`main`上の検証済みCI:** [Windows spike run 29688104811](https://github.com/tnoborio/eject/actions/runs/29688104811)、
   [protocol contract run 29688208249](https://github.com/tnoborio/eject/actions/runs/29688208249)、
   [control-plane run 29813234824](https://github.com/tnoborio/eject/actions/runs/29813234824)、
@@ -44,6 +47,8 @@
 - **PR #17の検証済みCI:** [Windows run 29899184939](https://github.com/tnoborio/eject/actions/runs/29899184939)
 - **PR #19の検証済みCI:** [control-plane run 30053578168](https://github.com/tnoborio/eject/actions/runs/30053578168)。
   merge前にActions 4 jobとVercel check 2件がすべて成功
+- **PR #20の検証済みCI:** [control-plane run 30056420951](https://github.com/tnoborio/eject/actions/runs/30056420951)。
+  merge前にActions 4 jobとVercel check 2件がすべて成功
 - **現在のプロダクト段階:** Stage 0は物理証拠待ち。Stage 1 protocol、control-plane、
   identity・device-security architectureは採用済み。control planeは認証済みagent pollingとresult
   ingestionまで実装済み。person-session境界はSupabase asymmetric JWTを検証し、現在のEJECT
@@ -55,9 +60,11 @@
   Windows統合より先にWeb体験を進めている。現在のcheckoutは英日serviceを表示し、既存の
   auth・device管理境界へformを接続するが、物理操作はすべて利用不可のままにする。ownerへbindした
   consent controlは受信accessをpauseするか、既存のactive relationship 1件をgrant/revokeする。
-  pause・revokeはissuanceのrecipient lock下で、影響する未確認commandをatomicに取り消す。現在の
-  checkoutは既存のsign-in済みaccount 2件をout-of-bandのone-use codeでrelationshipへ接続する。
-  account検索は公開せず、EJECT permissionも付与しない。Supabase Authはpublic signupを拒否し、完全一致する
+  pause・revokeはissuanceのrecipient lock下で、影響する未確認commandをatomicに取り消す。`main`は
+  既存のsign-in済みaccount 2件をout-of-bandのone-use codeでrelationshipへ接続する。account検索は公開せず、
+  EJECT permissionも付与しない。現在のcheckoutはowner操作の切断を追加し、双方向grantと両方向の未確認
+  commandを取り消す。再接続には新しいcodeのacceptが必要で、grantを復元しない。Supabase Authはpublic
+  signupを拒否し、完全一致する
   public Production callbackだけを許可し、email code期限を10分に設定済み。
   `https://eject-bice.vercel.app`でperson authを有効化し、最初の招待accountをprovision
   済み。live refresh、account検証、owner-device一覧、logout lifecycleも検証済み。device enrollmentと
@@ -75,9 +82,11 @@
 EJECT controlは無効で、commandを送信しないと明示します。recipient pauseと方向付きgrant/revokeは、
 認証済みownerと既存のactive relationshipだけに作用します。pause・revokeはconsent changeと同じ
 transactionで、影響する`QUEUED`・未確認`DISPATCHED` commandをatomicに取り消します。
-現在のcheckoutは、digestだけを保存する10分間・一回限りのcodeによる明示的なrelationship確立も
+`main`には、digestだけを保存する10分間・一回限りのcodeによる明示的なrelationship確立も
 追加します。acceptしても方向付きgrantは作らず、account directory、検索、invitation delivery
-channelも提供しません。
+channelも提供しません。現在のcheckoutはrelationship切断と明示的再接続を追加します。切断は双方向grantと
+両方向の未確認commandをatomicに取り消し、invitation metadataは使用・無効化・失効の24時間後に
+cleanup対象となります。
 
 次の作業は完了しています。
 
@@ -440,6 +449,13 @@ docs/decisions/0005-identity-and-device-security.md
     migration 0004はadvisory lock付きの1 transactionでprotected cloud databaseへ適用済み。その後の
     独立read-only queryでmigration 4件のchecksum、delivery無効、relationship・invitation 0件、
     digest列、pending invitationを1件に限定するunique indexを検証した。
+63. PR #20はrun 30056420951でActions 4 jobとVercel check 2件がmerge前にすべて成功した。
+    relationship lifecycleのcheckoutはformat、ESLint、TypeScript、dependency rule、protocol test 11件、
+    control-plane unit・property test 110件、critical boundaryのbranch・function・line・statement coverage
+    100%、PostgreSQL 17 migration・repository test 32件、Next.js production buildに成功する。実PostgreSQL
+    証拠は、双方向grant削除・command取消のatomic性、idempotent disconnect、grantを復元しない明示的code
+    だけの再接続、24時間のinvitation retention境界を超えたrowだけの削除を証明する。migration 0005は
+    localだけに存在する。
 
 run 29899930269の検証済み`main` artifactのチェックサムは次のとおりです。
 
@@ -487,13 +503,15 @@ artifactには期限があり、後続ビルドのチェックサムは変わり
   logoutにはlive証拠がある。人がbrowserで行うPKCE magic-linkまたはOTP操作はまだ完了していない。
   Windows CNG keyのenrollment接続とWindows polling clientは未実装。
 - ownerへbindしたpauseと既存relationshipへのgrant/revokeは、実databaseのcancellation証拠とともに
-  `main`へ実装済み。現在のcheckoutはinvite-only relationship確立を追加するが、未deployで、liveの
-  two-account browser証拠もない。account検索、invitation delivery、disconnect後のreconnect、
-  eject requestは意図的に提供しない。
+  `main`へ実装済み。invite-only relationship確立も`main`へ実装済みだが、liveのtwo-account browser
+  証拠はない。現在のcheckoutは切断と明示的再接続を追加するが未deploy。account検索、invitation
+  delivery、relationship history、eject requestは意図的に提供しない。
 - migration 0004は、未deployのrelationship routeより先にprotected cloud databaseへ適用し、独立検証
   済み。新しいtableは空で、enrollmentや物理deliveryを有効にしない。
-- alpha前にinvitationのretention・cleanupを定義する必要がある。databaseはinvitation digest、timestamp、
-  inviter IDだけを保存し、bearer codeやaccepter identityは保存しない。
+- migration 0005は隔離したlocal PostgreSQL 17 databaseだけで検証済み。protected cloud databaseには
+  0001–0004だけが存在する。0005を適用・検証するまでrelationship lifecycle動作をdeployしてはいけない。
+- invitation retentionとbounded cleanupは実装済みだが、定期operator scheduleは未作成。databaseは
+  invitation digest、timestamp、inviter IDだけを保存し、bearer codeやaccepter identityは保存しない。
 - person JWT adapterはlive Supabase ES256 JWKSとprovision済みactive accountに対して検証済み。
   live signing-key rotationはまだ観測していない。
 - cloud environmentはmigration 4件をすべて適用・検証済みで、招待person 1件が存在する。device、
@@ -522,18 +540,39 @@ artifactには期限があり、後続ビルドのチェックサムは変わり
 5. `docs/ARCHITECTURE.md`
 6. このハンドオフ
 
-その後、checkoutを同期して検証します。
+このworkspaceには、意図した次の変更が未commitで存在します。同期操作より先に保持し、正確な再開点を
+確認してください。
 
 ```sh
-git switch main
-git pull --ff-only origin main
-dotnet test Eject.slnx --configuration Release
-npm ci --prefix protocol
-npm test --prefix protocol
+git branch --show-current
+git status --short
+git log -1 --oneline main
+git diff --check
 ```
 
-リポジトリは`global.json`で.NET 10を選択します。`dotnet`がない場合は、作業を続ける前に
-対応する.NET 10 SDKをインストールしてください。
+期待する結果はbranch `agent/relationship-lifecycle`、merge commit `9929968`の`main`、
+snapshotに記載した29 pathのrelationship lifecycle working treeです。この作業に対して
+`git switch main`、`git pull`、`git reset`、`git restore`を実行してはいけません。最初にdiffを
+確認し、完了済みlocal verificationを再現してください。
+
+```sh
+npm run check
+npm test
+npm run test:coverage
+npm run build
+```
+
+PostgreSQL証拠では、`eject_test`という名前のephemeral PostgreSQL 17 databaseへ
+`TEST_DATABASE_URL`を設定し、`npm run test:postgres --workspace @eject/control-plane`を実行して
+32件すべて成功後、containerを停止しました。再実行時もその正確な名前の隔離databaseを作成してください。
+testは他のdatabaseをresetしません。
+
+直後の継続作業は、このfocused diffのreview、commit、PR作成、Actions 4 job・Vercel check 2件の成功確認、
+新routeのProduction deploy前のprotected databaseへのmigration 0005適用です。migration 0005はremoteへ
+未適用です。
+
+repositoryは`global.json`で.NET 10を選択します。relationship lifecycle changeはWindows projectを
+変更しませんが、hardware work再開時に`dotnet`がなければ対応する.NET 10 SDKをinstallしてください。
 
 Windowsクロスビルドを再現するには次を実行します。
 
@@ -558,15 +597,16 @@ transport、専用cloud database environment、person-session adapter、server e
 実装済みで、migration 4件はすべてprotected cloud databaseへ適用済みです。次のsoftware順序は
 次のとおりです。person PKCE cookie lifecycleとprotected Windows CNG key storeは`main`へ実装済みです。
 後者にはhosted Windows CI証拠がありますが、実機standard-user証拠はありません。現在はWeb体験を
-先行します。現在のcheckoutはdeliveryやaccount検索を有効にせず、安全な英日preview、owner-device UI、
-ownerへbindしたpause・grant・revoke、invite-only relationship確立を提供します。次の順序は次のとおりです。
+先行します。`main`はdeliveryやaccount検索を有効にせず、安全な英日preview、owner-device UI、ownerへ
+bindしたpause・grant・revoke、invite-only relationship確立を提供します。現在のcheckoutはboundedな
+relationship lifecycleを追加します。次の順序は次のとおりです。
 
-1. invite-only relationship changeをreview・publishし、blocking ActionsとVercel checkを記録する。
-   migration 0004とmigration 4件のchecksumは、enrollment・deliveryを無効のまま検証済み。
+1. relationship lifecycle changeをreview・publishし、route deploy前にmigration 0005を適用する。
+   enrollment・deliveryを無効のまま、migration 5件のchecksumを検証する。
 2. operator専用pathで2件目の招待済みexisting accountをprovisionし、Productionで人が操作する
-   magic-linkまたはOTP sign-inとtwo-account relationship code acceptを各1回完了する。codeやsessionは
-   logへ残さない。
-3. invitation retentionとdisconnect/reconnect動作を別のreview済みchangeで定義する。
+   magic-linkまたはOTP sign-in、two-account relationship code accept、disconnect、明示的reconnectを
+   Productionで完了する。codeやsessionはlogへ残さない。
+3. 定期operator cleanup scheduleを作成・記録する。
 4. 無効なgateの背後でprotected Windows keyをenrollmentへ接続し、durable replay consumptionと保存済み
    resultのresendを含むoutbound-only pollingを実装する。実機standard-user CNG証拠が得られるまで
    device enrollment作成を無効に保つ。認証済みdevice一覧とrevocationは独立したsafety controlとして
@@ -612,12 +652,13 @@ decisionが必要です。
    revocation境界は`main`へ実装済みで、3件目のmigrationもprotected cloud databaseへ適用・検証済み。
    server管理のPKCE cookie routeも`main`へ実装済み・default-disabled。sign-in・owner-device UIを実装し、
    safeなVercel Previewとauth-enabled Production serviceを検証済み。最初の招待personとlive provider
-   session lifecycleも検証済み。ownerへbindしたpauseと既存relationshipへのgrant/revokeは、atomicな
-   cancellation証拠とともに`main`へ実装済み。invite-only relationship確立はADR 0006に従って現在の
-   checkoutへ実装済みで、migration 0004はprotected cloud databaseへ適用し、checksumを独立検証済み。
-   route changeのpublish、人がbrowserで行うsign-in・two-account consent証拠、実機standard-user key
-   証拠、Windows keyのenrollment接続、ローカルreplay防止、1回だけの実行、result report、
-   outbound-only pollingは未実装。protected Windows key作成自体はhosted Windows CIで検証済み。
+   session lifecycleも検証済み。ownerへbindしたpause、既存relationshipへのgrant/revoke、invite-only
+   relationship確立はatomic cancellation・one-use code証拠とともに`main`へ実装済み。現在のcheckoutは
+   ADR 0007の切断、grantを復元しない明示的再接続、bounded invitation retentionを追加し、migration
+   0005はlocalだけに存在する。lifecycle changeのpublish、protected migration適用、定期cleanup schedule、
+   人がbrowserで行うsign-in・two-account consent証拠、実機standard-user key証拠、Windows keyの
+   enrollment接続、ローカルreplay防止、1回だけの実行、result report、outbound-only pollingは未実装。
+   protected Windows key作成自体はhosted Windows CIで検証済み。
 6. **並行するハードウェア証拠** — 機材入手後、レビュー済みレポートと、証拠により狭く
    裏付けられたadapter修正を追加する。
 

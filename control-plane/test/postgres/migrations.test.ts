@@ -52,6 +52,10 @@ describe("control-plane migrations", () => {
         filename: "0004_invite_only_relationships.sql",
         checksum_length: 64,
       },
+      {
+        filename: "0005_relationship_lifecycle.sql",
+        checksum_length: 64,
+      },
     ]);
   });
 

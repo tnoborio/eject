@@ -40,6 +40,9 @@ mean Bob may eject Alice. Alice grants, pauses, limits, and revokes that ability
 Invite-only relationship establishment connects two existing authenticated
 accounts through a short-lived one-use code, but never creates an EJECT grant.
 The code is not an account-discovery or physical-action capability.
+Either person may disconnect. Disconnection removes both directional grants and
+cancels unconfirmed commands in both directions before commit. Reconnection
+requires a new accepted code and restores no grant.
 
 Authorization should evaluate, at command issuance time:
 

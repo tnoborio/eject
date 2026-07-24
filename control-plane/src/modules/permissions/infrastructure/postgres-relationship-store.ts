@@ -9,6 +9,7 @@ interface DatabaseError {
 export class PostgresRelationshipStore implements RelationshipStore {
   public constructor(
     private readonly database: Kysely<ControlPlaneDatabase>,
+    private readonly newId: () => string,
     private readonly maximumAttempts = 3,
   ) {}
 
@@ -16,6 +17,11 @@ export class PostgresRelationshipStore implements RelationshipStore {
     input: Parameters<RelationshipStore["createInvitation"]>[0],
   ): ReturnType<RelationshipStore["createInvitation"]> {
     return this.withRetry(async (transaction) => {
+      await this.cleanupInTransaction(
+        transaction,
+        new Date(input.now.getTime() - 24 * 60 * 60_000),
+        100,
+      );
       const inviter = await sql<{ account_status: string }>`
         SELECT account_status FROM people
         WHERE person_id = ${input.inviterId}::uuid
@@ -50,6 +56,11 @@ export class PostgresRelationshipStore implements RelationshipStore {
     input: Parameters<RelationshipStore["acceptInvitation"]>[0],
   ): ReturnType<RelationshipStore["acceptInvitation"]> {
     return this.withRetry(async (transaction) => {
+      await this.cleanupInTransaction(
+        transaction,
+        new Date(input.now.getTime() - 24 * 60 * 60_000),
+        100,
+      );
       const invitation = await sql<{
         invitation_id: string;
         inviter_id: string;
@@ -106,9 +117,6 @@ export class PostgresRelationshipStore implements RelationshipStore {
           AND person_high_id = ${highId}::uuid
         FOR UPDATE
       `.execute(transaction);
-      if (relationship.rows[0]?.active === false) {
-        return "INVITATION_UNAVAILABLE";
-      }
 
       await sql`
         UPDATE relationship_invitations
@@ -117,6 +125,20 @@ export class PostgresRelationshipStore implements RelationshipStore {
       `.execute(transaction);
       if (relationship.rows[0]?.active === true) {
         return "ALREADY_CONNECTED";
+      }
+      if (relationship.rows[0]?.active === false) {
+        await sql`
+          DELETE FROM eject_grants
+          WHERE (recipient_id = ${lowId}::uuid AND actor_id = ${highId}::uuid)
+             OR (recipient_id = ${highId}::uuid AND actor_id = ${lowId}::uuid)
+        `.execute(transaction);
+        await sql`
+          UPDATE relationships
+          SET active = true, created_at = ${input.now}, ended_at = NULL
+          WHERE person_low_id = ${lowId}::uuid
+            AND person_high_id = ${highId}::uuid
+        `.execute(transaction);
+        return "CONNECTED";
       }
       await sql`
         INSERT INTO relationships (
@@ -127,6 +149,126 @@ export class PostgresRelationshipStore implements RelationshipStore {
       `.execute(transaction);
       return "CONNECTED";
     });
+  }
+
+  public async disconnectRelationship(
+    input: Parameters<RelationshipStore["disconnectRelationship"]>[0],
+  ): ReturnType<RelationshipStore["disconnectRelationship"]> {
+    const lowId =
+      input.personId < input.otherPersonId
+        ? input.personId
+        : input.otherPersonId;
+    const highId =
+      input.personId < input.otherPersonId
+        ? input.otherPersonId
+        : input.personId;
+    return this.withRetry(async (transaction) => {
+      await sql`
+        INSERT INTO recipient_eject_state (
+          recipient_id, window_started_at
+        )
+        SELECT person_id, ${input.now}
+        FROM people
+        WHERE person_id IN (${lowId}::uuid, ${highId}::uuid)
+        ON CONFLICT (recipient_id) DO NOTHING
+      `.execute(transaction);
+      const lockedPeople = await sql<{ recipient_id: string }>`
+        SELECT recipient_id FROM recipient_eject_state
+        WHERE recipient_id IN (${lowId}::uuid, ${highId}::uuid)
+        ORDER BY recipient_id
+        FOR UPDATE
+      `.execute(transaction);
+      if (lockedPeople.rows.length !== 2) return "UNCHANGED";
+
+      const relationship = await sql<{ active: boolean }>`
+        SELECT active FROM relationships
+        WHERE person_low_id = ${lowId}::uuid
+          AND person_high_id = ${highId}::uuid
+        FOR UPDATE
+      `.execute(transaction);
+      if (relationship.rows[0]?.active !== true) return "UNCHANGED";
+
+      await sql`
+        UPDATE relationships
+        SET active = false, ended_at = ${input.now}
+        WHERE person_low_id = ${lowId}::uuid
+          AND person_high_id = ${highId}::uuid
+      `.execute(transaction);
+      await sql`
+        DELETE FROM eject_grants
+        WHERE (recipient_id = ${lowId}::uuid AND actor_id = ${highId}::uuid)
+           OR (recipient_id = ${highId}::uuid AND actor_id = ${lowId}::uuid)
+      `.execute(transaction);
+      const commands = await sql<{
+        command_id: string;
+        request_id: string;
+      }>`
+        SELECT command_id, request_id FROM eject_commands
+        WHERE (
+          (recipient_id = ${lowId}::uuid AND actor_id = ${highId}::uuid)
+          OR
+          (recipient_id = ${highId}::uuid AND actor_id = ${lowId}::uuid)
+        )
+          AND status IN ('QUEUED', 'DISPATCHED')
+        ORDER BY recipient_id, command_id
+        FOR UPDATE
+      `.execute(transaction);
+      for (const command of commands.rows) {
+        await sql`
+          UPDATE eject_commands
+          SET status = 'CANCELLED',
+              cancellation_reason = 'PERMISSION_REVOKED'
+          WHERE command_id = ${command.command_id}::uuid
+        `.execute(transaction);
+        await sql`
+          INSERT INTO eject_lifecycle_events (
+            event_id, request_id, command_id, state, reason_code, occurred_at
+          ) VALUES (
+            ${this.newId()}::uuid, ${command.request_id}::uuid,
+            ${command.command_id}::uuid, 'CANCELLED',
+            'PERMISSION_REVOKED', ${input.now}
+          )
+        `.execute(transaction);
+      }
+      return "DISCONNECTED";
+    });
+  }
+
+  public async cleanupInvitations(
+    input: Parameters<RelationshipStore["cleanupInvitations"]>[0],
+  ): ReturnType<RelationshipStore["cleanupInvitations"]> {
+    if (
+      !Number.isSafeInteger(input.limit) ||
+      input.limit < 1 ||
+      input.limit > 500
+    ) {
+      throw new Error("Relationship invitation cleanup limit is invalid");
+    }
+    return this.withRetry((transaction) =>
+      this.cleanupInTransaction(transaction, input.before, input.limit),
+    );
+  }
+
+  private async cleanupInTransaction(
+    transaction: Transaction<ControlPlaneDatabase>,
+    before: Date,
+    limit: number,
+  ): Promise<number> {
+    const deleted = await sql<{ invitation_id: string }>`
+      WITH stale AS (
+        SELECT invitation_id
+        FROM relationship_invitations
+        WHERE COALESCE(used_at, invalidated_at, expires_at) < ${before}
+        ORDER BY COALESCE(used_at, invalidated_at, expires_at), invitation_id
+        LIMIT ${limit}
+        FOR UPDATE SKIP LOCKED
+      )
+      DELETE FROM relationship_invitations invitation
+      USING stale
+      WHERE invitation.invitation_id = stale.invitation_id
+      RETURNING invitation.invitation_id
+    `.execute(transaction);
+    return deleted.rows.length;
   }
 
   private async withRetry<T>(

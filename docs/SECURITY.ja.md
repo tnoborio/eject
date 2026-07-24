@@ -39,6 +39,8 @@ Aliceをejectできることを意味しません。Aliceが許可、一時停�
 管理します。
 招待制relationship確立は短期・1回限りのcodeで認証済みの既存account 2件を接続しますが、
 EJECT grantは作成しません。このcodeはaccount discoveryや物理操作のcapabilityではありません。
+どちらのpersonも切断できます。切断はcommit前に双方向grantを削除し、両方向の未確認commandを
+取り消します。再接続には新しいcodeのacceptが必要で、grantを復元しません。
 
 命令発行時に少なくとも次を評価します。
 

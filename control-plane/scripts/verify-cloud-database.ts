@@ -44,6 +44,7 @@ async function main(): Promise<void> {
         (
           (SELECT count(*) FROM people) +
           (SELECT count(*) FROM relationships) +
+          (SELECT count(*) FROM relationship_invitations) +
           (SELECT count(*) FROM eject_grants) +
           (SELECT count(*) FROM eject_blocks) +
           (SELECT count(*) FROM recipient_access_policies) +

@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   createAcceptRelationshipInvitation,
+  createCleanupRelationshipInvitations,
+  createDisconnectRelationship,
   createRelationshipInvitation,
   type RelationshipInvitationCrypto,
   type RelationshipStore,
@@ -74,6 +76,30 @@ describe("relationship invitation application", () => {
     expect(secret.digest).toHaveLength(32);
     expect(crypto.digestSecret(secret.value)).toEqual(secret.digest);
   });
+
+  it("disconnects a selected relationship without broadening the request", async () => {
+    const store = fakeStore();
+    const disconnect = createDisconnectRelationship({ store });
+    await expect(disconnect(inviterId, accepterId, now)).resolves.toBe(
+      "DISCONNECTED",
+    );
+    expect(store.disconnectRelationship).toHaveBeenCalledWith({
+      personId: inviterId,
+      otherPersonId: accepterId,
+      now,
+    });
+  });
+
+  it("deletes invitation metadata only after the 24-hour boundary", async () => {
+    const store = fakeStore();
+    store.cleanupInvitations.mockResolvedValueOnce(12);
+    const cleanup = createCleanupRelationshipInvitations({ store });
+    await expect(cleanup(now)).resolves.toBe(12);
+    expect(store.cleanupInvitations).toHaveBeenCalledWith({
+      before: new Date(now.getTime() - 24 * 60 * 60_000),
+      limit: 500,
+    });
+  });
 });
 
 function fakeCrypto(): RelationshipInvitationCrypto {
@@ -89,9 +115,13 @@ function fakeCrypto(): RelationshipInvitationCrypto {
 function fakeStore(): RelationshipStore & {
   createInvitation: ReturnType<typeof vi.fn>;
   acceptInvitation: ReturnType<typeof vi.fn>;
+  disconnectRelationship: ReturnType<typeof vi.fn>;
+  cleanupInvitations: ReturnType<typeof vi.fn>;
 } {
   return {
     createInvitation: vi.fn(async () => "CREATED" as const),
     acceptInvitation: vi.fn(async () => "CONNECTED" as const),
+    disconnectRelationship: vi.fn(async () => "DISCONNECTED" as const),
+    cleanupInvitations: vi.fn(async () => 0),
   };
 }

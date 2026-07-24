@@ -10,7 +10,11 @@ the order in which work should continue.
 
 - **Date:** 2026-07-24
 - **Repository:** `tnoborio/eject`
-- **Current branch:** `agent/invite-only-relationships`
+- **Current branch:** `agent/relationship-lifecycle`
+- **Current working tree:** intentionally uncommitted relationship-lifecycle
+  work across 29 paths. Do not switch to `main`, reset, restore, or discard
+  these changes before reviewing them. They are the next focused change, based
+  on merge commit `9929968`
 - **Merged PRs:** [#2](https://github.com/tnoborio/eject/pull/2) (Stage 0
   spike), [#3](https://github.com/tnoborio/eject/pull/3) (One Bit logo),
   [#4](https://github.com/tnoborio/eject/pull/4) (hardware validation kit),
@@ -29,14 +33,15 @@ the order in which work should continue.
   (person PKCE sessions), and [#17](https://github.com/tnoborio/eject/pull/17)
   (protected Windows CNG device keys),
   [#18](https://github.com/tnoborio/eject/pull/18) (main CNG evidence refresh),
-  and [#19](https://github.com/tnoborio/eject/pull/19) (safe web console and
-  consent controls)
-- **Current verified implementation:** PR #19, merge commit `40ef7d8`, on
-  `main`. The current checkout adds digest-only, ten-minute, one-use
-  relationship invitations for existing signed-in accounts. It creates only a
-  relationship, never EJECT permission, account search, or a physical command.
-  All four repository migrations are applied and checksum-verified in the
-  protected cloud database
+  [#19](https://github.com/tnoborio/eject/pull/19) (safe web console and
+  consent controls), and [#20](https://github.com/tnoborio/eject/pull/20)
+  (invite-only relationship establishment)
+- **Current verified implementation:** PR #20, merge commit `9929968`, on
+  `main`. The current checkout adds relationship disconnection, explicit
+  code-based reconnection without grant restoration, and 24-hour invitation
+  metadata cleanup. The first four repository migrations are applied and
+  checksum-verified in the protected cloud database; migration 0005 is local
+  only
 - **Verified CI on `main`:** [Windows spike run 29688104811](https://github.com/tnoborio/eject/actions/runs/29688104811),
   [protocol contract run 29688208249](https://github.com/tnoborio/eject/actions/runs/29688208249),
   [control-plane run 29813234824](https://github.com/tnoborio/eject/actions/runs/29813234824),
@@ -48,6 +53,8 @@ the order in which work should continue.
 - **Verified CI for PR #16:** [control-plane run 29898326094](https://github.com/tnoborio/eject/actions/runs/29898326094)
 - **Verified CI for PR #17:** [Windows run 29899184939](https://github.com/tnoborio/eject/actions/runs/29899184939)
 - **Verified CI for PR #19:** [control-plane run 30053578168](https://github.com/tnoborio/eject/actions/runs/30053578168);
+  all four Actions jobs and both Vercel checks passed before merge
+- **Verified CI for PR #20:** [control-plane run 30056420951](https://github.com/tnoborio/eject/actions/runs/30056420951);
   all four Actions jobs and both Vercel checks passed before merge
 - **Current product phase:** Stage 0 awaits physical evidence; Stage 1 protocol,
   control-plane, and identity/device-security architecture are accepted. The
@@ -66,9 +73,12 @@ the order in which work should continue.
   keeps all physical action unavailable. Owner-bound consent controls now pause
   incoming access or grant/revoke one existing active relationship. Pause and
   revoke atomically cancel affected unconfirmed commands under the issuance
-  recipient lock. The current checkout also creates a relationship through an
+  recipient lock. `main` also creates a relationship through an
   out-of-band one-use code between two existing signed-in accounts. It exposes
-  no account search and does not grant EJECT permission. Supabase Auth rejects
+  no account search and does not grant EJECT permission. The current checkout
+  adds owner-authored disconnection: it removes both grants and cancels
+  unconfirmed commands in both directions. Reconnection needs a new accepted
+  code and restores no grant. Supabase Auth rejects
   public sign-up, allows only the exact public
   Production callback, and uses a ten-minute email-code lifetime. Person auth
   is enabled at
@@ -91,10 +101,13 @@ disabled and explicitly sends no command. Recipient pause and directional
 grant/revoke operate only for the authenticated owner and existing active
 relationships. Pause and revoke cancel affected `QUEUED` and unconfirmed
 `DISPATCHED` commands atomically with the consent change.
-The current checkout adds explicit relationship establishment with a
+`main` includes explicit relationship establishment with a
 digest-only, ten-minute, one-use code. Acceptance creates no directional grant,
 and the application provides no account directory, lookup, or invitation
-delivery channel.
+delivery channel. The current checkout adds relationship disconnection and
+explicit reconnection. Disconnection removes both grants and both directions of
+unconfirmed commands atomically; invitation metadata becomes cleanup-eligible
+24 hours after use, invalidation, or expiry.
 
 The following work is complete:
 
@@ -540,6 +553,16 @@ The following facts have direct build or test evidence:
     read-only query verified all four checksums, disabled delivery, zero
     relationships and invitations, the digest column, and the unique pending
     invitation index.
+63. PR #20 passed all four Actions jobs and both Vercel checks before merge in
+    run 30056420951. The relationship-lifecycle checkout passes formatting,
+    ESLint, TypeScript, dependency rules, all 11 protocol tests, 110
+    control-plane unit and property tests, 100% critical
+    branch/function/line/statement coverage, 32 PostgreSQL 17 migration and
+    repository tests, and the Next.js production build. Real-PostgreSQL evidence
+    proves atomic bidirectional grant removal and command cancellation,
+    idempotent disconnect, explicit code-only reconnection without grant
+    restoration, and deletion only beyond the 24-hour invitation-retention
+    boundary. Migration 0005 remains local only.
 
 The verified `main` artifact from run 29899930269 had this checksum:
 
@@ -596,16 +619,20 @@ Record the failure and narrow the supported capability contract instead.
   browser has not yet completed the PKCE magic-link or OTP interaction. Wiring
   the Windows CNG key into enrollment and the Windows polling client remain.
 - Owner-bound pause and existing-relationship grant/revoke are on `main` with
-  real-database cancellation evidence. The current checkout adds invite-only
-  relationship establishment, but it is not deployed and has no live
-  two-account browser evidence. It intentionally provides no account search,
-  invitation delivery, reconnect-after-disconnect behavior, or eject request.
+  real-database cancellation evidence. Invite-only relationship establishment
+  is also on `main`, but it has no live two-account browser evidence. The
+  current checkout adds disconnection and explicit reconnection, but is not
+  deployed. It intentionally provides no account search, invitation delivery,
+  relationship history, or eject request.
 - Migration 0004 is applied and independently verified in the protected cloud
   database, ahead of the undeployed relationship routes. Its new table remains
   empty and does not enable enrollment or physical delivery.
-- Invitation retention and cleanup must be defined before alpha. The database
-  stores only invitation digests, timestamps, and the inviter ID, never the
-  bearer code or accepter identity.
+- Migration 0005 is verified only against an isolated local PostgreSQL 17
+  database. The protected cloud database still has migrations 0001–0004; do not
+  deploy relationship lifecycle behavior until 0005 is applied and verified.
+- Invitation retention and bounded cleanup are implemented, but no periodic
+  operator schedule exists yet. The database stores only invitation digests,
+  timestamps, and the inviter ID, never the bearer code or accepter identity.
 - The person JWT adapter has been verified against the live Supabase ES256 JWKS
   and a provisioned active account. Live signing-key rotation has not been
   observed.
@@ -640,18 +667,43 @@ Read these files before changing product behavior:
 5. `docs/ARCHITECTURE.md`
 6. this handoff
 
-Then synchronize and verify the checkout:
+This workspace already contains the intended uncommitted next change. Preserve
+it and confirm the exact resume point before any synchronization:
 
 ```sh
-git switch main
-git pull --ff-only origin main
-dotnet test Eject.slnx --configuration Release
-npm ci --prefix protocol
-npm test --prefix protocol
+git branch --show-current
+git status --short
+git log -1 --oneline main
+git diff --check
 ```
 
-The repository selects .NET 10 through `global.json`. If `dotnet` is not
-installed, install a supported .NET 10 SDK before continuing.
+Expected results are branch `agent/relationship-lifecycle`, `main` at merge
+commit `9929968`, and the 29-path relationship-lifecycle worktree described in
+the snapshot. Do not run `git switch main`, `git pull`, `git reset`, or
+`git restore` over this work. Inspect the diff first, then reproduce the
+completed local verification:
+
+```sh
+npm run check
+npm test
+npm run test:coverage
+npm run build
+```
+
+The PostgreSQL evidence used an ephemeral PostgreSQL 17 database named
+`eject_test`, ran `npm run test:postgres --workspace
+@eject/control-plane` with `TEST_DATABASE_URL`, passed all 32 tests, and then
+stopped the container. Recreate an isolated database with that exact name
+before rerunning; the tests refuse to reset any other database.
+
+The immediate continuation is to review this focused diff, commit it, open its
+PR, wait for all four Actions jobs and both Vercel checks, and apply migration
+0005 to the protected database before any Production deployment of the new
+route. Migration 0005 has not been applied remotely.
+
+The repository selects .NET 10 through `global.json`. The relationship-lifecycle
+change does not alter the Windows project, but install a supported .NET 10 SDK
+before resuming hardware work if `dotnet` is unavailable.
 
 To reproduce the Windows cross-build:
 
@@ -678,20 +730,20 @@ environment, person-session adapter, and server enrollment/revocation boundary
 are implemented, and all four migrations are applied to the protected cloud
 database. The person PKCE cookie lifecycle and protected Windows CNG key store
 are on `main`; the latter has hosted Windows CI evidence but no real standard-user
-hardware evidence. The web experience is now being advanced first. The current
-checkout provides a safe bilingual preview, owner-device UI, owner-bound
+hardware evidence. The web experience is now being advanced first. `main`
+provides a safe bilingual preview, owner-device UI, owner-bound
 pause/grant/revoke, and invite-only relationship establishment without enabling
-delivery or account search. The next sequence is:
+delivery or account search. The current checkout adds the bounded relationship
+lifecycle. The next sequence is:
 
-1. review and publish the invite-only relationship change, then record its
-   blocking Actions and Vercel checks; migration 0004 and all four checksums are
-   already verified while enrollment and delivery remain disabled;
+1. review and publish the relationship-lifecycle change, apply migration 0005
+   before deploying its route, and verify all five checksums while enrollment
+   and delivery remain disabled;
 2. provision a second invited existing account through the operator-only path,
    then complete one human-browser magic-link or OTP sign-in and one
-   two-account relationship-code acceptance on Production without logging the
-   code or session;
-3. define invitation retention and disconnect/reconnect behavior in a separate
-   reviewed change; and
+   two-account relationship-code acceptance, disconnect, and explicit
+   reconnection on Production without logging the code or session;
+3. establish and record the periodic operator cleanup schedule; and
 4. wire the protected Windows key to enrollment and implement outbound-only
    polling behind the disabled gates, including durable replay consumption and
    stored-result resend; keep device-enrollment creation disabled until real
@@ -752,10 +804,11 @@ snapshot links). Keep subsequent changes small and reviewable:
    invited person and live provider session lifecycle are verified. Protected
    Windows key creation is implemented and verified in hosted Windows CI but is
    not connected to enrollment. Owner-bound pause and existing-relationship
-   grant/revoke are on `main` with atomic cancellation evidence. Invite-only
-   relationship establishment is implemented in the current checkout under ADR
-   0006, and migration 0004 is applied and independently checksum-verified in
-   the protected cloud database. Publishing the route change, human-browser
+   grant/revoke and invite-only relationship establishment are on `main` with
+   atomic cancellation and one-use-code evidence. The current checkout adds ADR
+   0007 disconnection, explicit no-grant reconnection, and bounded invitation
+   retention; migration 0005 is local only. Publishing the lifecycle change,
+   protected migration application, periodic cleanup scheduling, human-browser
    sign-in and two-account consent evidence, real standard-user key evidence,
    local replay protection, one attempt, result report, and outbound-only
    polling remain.

@@ -26,6 +26,8 @@ export type AcceptRelationshipInvitationResult =
       readonly reason: "INVITATION_UNAVAILABLE";
     };
 
+export type DisconnectRelationshipResult = "DISCONNECTED" | "UNCHANGED";
+
 export interface RelationshipStore {
   createInvitation(input: {
     readonly invitationId: string;
@@ -40,6 +42,17 @@ export interface RelationshipStore {
     readonly invitationDigest: Uint8Array;
     readonly now: Date;
   }): Promise<"CONNECTED" | "ALREADY_CONNECTED" | "INVITATION_UNAVAILABLE">;
+
+  disconnectRelationship(input: {
+    readonly personId: string;
+    readonly otherPersonId: string;
+    readonly now: Date;
+  }): Promise<DisconnectRelationshipResult>;
+
+  cleanupInvitations(input: {
+    readonly before: Date;
+    readonly limit: number;
+  }): Promise<number>;
 }
 
 export function createRelationshipInvitation(dependencies: {
@@ -87,5 +100,32 @@ export function createAcceptRelationshipInvitation(dependencies: {
     return result === "INVITATION_UNAVAILABLE"
       ? { outcome: "REJECTED", reason: result }
       : { outcome: result };
+  };
+}
+
+export function createDisconnectRelationship(dependencies: {
+  readonly store: RelationshipStore;
+}) {
+  return async function disconnect(
+    personId: string,
+    otherPersonId: string,
+    now: Date,
+  ): Promise<DisconnectRelationshipResult> {
+    return dependencies.store.disconnectRelationship({
+      personId,
+      otherPersonId,
+      now,
+    });
+  };
+}
+
+export function createCleanupRelationshipInvitations(dependencies: {
+  readonly store: RelationshipStore;
+}) {
+  return async function cleanup(now: Date, limit = 500): Promise<number> {
+    return dependencies.store.cleanupInvitations({
+      before: new Date(now.getTime() - 24 * 60 * 60_000),
+      limit,
+    });
   };
 }

@@ -1,14 +1,17 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { POST as invitationRoute } from "../src/app/api/person/v1/relationship-invitations/route";
+import { POST as disconnectionRoute } from "../src/app/api/person/v1/relationship-disconnections/route";
 import { POST as relationshipRoute } from "../src/app/api/person/v1/relationships/route";
 import {
   handleAcceptRelationshipInvitation,
   handleCreateRelationshipInvitation,
+  handleDisconnectRelationship,
   type PersonRelationshipHttpDependencies,
 } from "../src/modules/permissions/transport/person-relationship-http-handlers";
 
 const origin = "https://eject.test";
 const personId = "11111111-1111-4111-8111-111111111111";
+const otherPersonId = "22222222-2222-4222-8222-222222222222";
 const token = "header.payload.signature";
 const invitationCode = "A".repeat(43);
 const now = new Date("2026-07-24T00:00:00.000Z");
@@ -114,6 +117,40 @@ describe("person relationship HTTP handlers", () => {
     ).resolves.toMatchObject({ status: 404 });
   });
 
+  it("disconnects only one explicit other person and does not expose existence", async () => {
+    const dependencies = relationshipDependencies();
+    const response = await handleDisconnectRelationship(
+      personRequest("/api/person/v1/relationship-disconnections", {
+        person_id: otherPersonId,
+      }),
+      dependencies,
+    );
+    expect(response.status).toBe(204);
+    expect(dependencies.disconnectRelationship).toHaveBeenCalledWith(
+      personId,
+      otherPersonId,
+      now,
+    );
+
+    dependencies.disconnectRelationship.mockResolvedValueOnce("UNCHANGED");
+    await expect(
+      handleDisconnectRelationship(
+        personRequest("/api/person/v1/relationship-disconnections", {
+          person_id: otherPersonId,
+        }),
+        dependencies,
+      ),
+    ).resolves.toMatchObject({ status: 204 });
+    await expect(
+      handleDisconnectRelationship(
+        personRequest("/api/person/v1/relationship-disconnections", {
+          person_id: personId,
+        }),
+        dependencies,
+      ),
+    ).resolves.toMatchObject({ status: 400 });
+  });
+
   it("keeps relationship routes disabled before dependency initialization", async () => {
     process.env.EJECT_PERSON_AUTH_ENABLED = "false";
     await expect(
@@ -128,6 +165,13 @@ describe("person relationship HTTP handlers", () => {
         }),
       ),
     ).resolves.toMatchObject({ status: 404 });
+    await expect(
+      disconnectionRoute(
+        personRequest("/api/person/v1/relationship-disconnections", {
+          person_id: otherPersonId,
+        }),
+      ),
+    ).resolves.toMatchObject({ status: 404 });
   });
 });
 
@@ -135,6 +179,7 @@ function relationshipDependencies(): PersonRelationshipHttpDependencies & {
   authenticate: ReturnType<typeof vi.fn>;
   createInvitation: ReturnType<typeof vi.fn>;
   acceptInvitation: ReturnType<typeof vi.fn>;
+  disconnectRelationship: ReturnType<typeof vi.fn>;
 } {
   return {
     expectedOrigin: origin,
@@ -150,6 +195,7 @@ function relationshipDependencies(): PersonRelationshipHttpDependencies & {
     acceptInvitation: vi.fn(async () => ({
       outcome: "CONNECTED" as const,
     })),
+    disconnectRelationship: vi.fn(async () => "DISCONNECTED" as const),
     now: () => now,
   };
 }

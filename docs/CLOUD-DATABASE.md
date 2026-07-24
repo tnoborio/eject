@@ -25,11 +25,13 @@ The Supabase project is dedicated to EJECT. It is not a database inside
 `sasara-hub`, and it does not share an application schema or credentials with
 another Sasara service.
 
-All four repository migrations are applied. PostgreSQL rejects non-TLS external
-connections. The singleton delivery gate is `false`, the physical hourly
-ceiling is unset, and the EJECT application tables contain one invited person
-and no relationships, relationship invitations, devices, commands, results, or
-private events.
+The first four repository migrations are applied. Migration
+`0005_relationship_lifecycle.sql` exists only in the current development
+checkout and is not applied to the protected cloud database. PostgreSQL rejects
+non-TLS external connections. The singleton delivery gate is `false`, the
+physical hourly ceiling is unset, and the EJECT application tables contain one
+invited person and no relationships, relationship invitations, devices,
+commands, results, or private events.
 
 ## Environment boundary
 
@@ -136,6 +138,17 @@ Its output contains only bounded operational facts and an aggregate EJECT row
 count. It does not print the connection string, host credential, row contents,
 or event identifiers.
 
+After migration 0005 is deployed, run invitation cleanup from the same
+operator-only environment:
+
+```sh
+npm run relationships:cleanup
+```
+
+Each run deletes at most 500 rows that have been used, invalidated, or expired
+for more than 24 hours, and prints only the deleted count. Run until it reports
+zero. Do not configure database credentials in a public scheduler or browser.
+
 ## Deployment behavior
 
 The Vercel project is connected to GitHub. Pull requests receive Preview
@@ -146,6 +159,8 @@ continues to return `404 DELIVERY_DISABLED`.
 Migration 0004 is applied and its checksum is verified, so its schema may remain
 dormant until the relationship-invitation routes are reviewed and deployed.
 Applying that schema did not enable device enrollment or physical delivery.
+Do not deploy relationship disconnection or reconnection behavior until
+migration 0005 is applied and all five repository checksums are verified.
 
 Do not configure response-signing keys or enable either delivery gate until all
 of the following are complete:
