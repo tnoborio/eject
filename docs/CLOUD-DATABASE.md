@@ -88,6 +88,27 @@ Never configure `EJECT_PROVISIONING_SUPABASE_SECRET_KEY` in Vercel. The deployed
 application needs only the publishable key; its fixed sign-in request uses
 `create_user = false`.
 
+## Production email OTP delivery
+
+As of 2026-07-27, Supabase Auth uses Resend custom SMTP with a sender on the
+verified `sasara.io` domain. The SMTP credential exists only in the provider
+configuration; it is not present in the repository or Vercel.
+
+An independent Management API read-back verified that external email is
+enabled, the SMTP endpoint is Resend on port 465, public sign-up remains
+disabled, and email OTPs remain eight digits with a ten-minute expiry. The
+magic-link template now contains the bounded `{{ .Token }}` value in English
+and Japanese and contains no `{{ .ConfirmationURL }}`.
+
+A fresh Production request returned HTTP 202 and delivered an email containing
+one unique eight-digit code in its text and HTML alternatives, with no URL. The
+OTP endpoint returned HTTP 204; the protected owner-device and consent routes
+then returned HTTP 200 with zero devices, zero relationships, and incoming
+access unpaused. Logout returned HTTP 204, and the protected device route
+returned HTTP 401 afterward. No email address, OTP, provider credential, or
+session value was logged. The Gmail connector only searched and read the
+message, and all temporary PKCE and cookie files were removed.
+
 ## TLS trust
 
 The application requires a base64-encoded X.509 CA in

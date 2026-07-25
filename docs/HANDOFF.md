@@ -8,12 +8,12 @@ the order in which work should continue.
 
 ## Snapshot
 
-- **Date:** 2026-07-24
+- **Date:** 2026-07-27
 - **Repository:** `tnoborio/eject`
-- **Current branch:** `main` after this handoff-only follow-up is merged
-- **Current working tree:** no product-code change remains. PR #22 removed the
-  completed one-time Production migration bridge; the ordinary Production
-  build is verified
+- **Current branch:** `main` after this handoff-only evidence follow-up is
+  merged
+- **Current working tree:** no product-code change remains. Resend SMTP,
+  bounded Production OTP delivery, session access, and logout are verified
 - **Merged PRs:** [#2](https://github.com/tnoborio/eject/pull/2) (Stage 0
   spike), [#3](https://github.com/tnoborio/eject/pull/3) (One Bit logo),
   [#4](https://github.com/tnoborio/eject/pull/4) (hardware validation kit),
@@ -588,6 +588,33 @@ The following facts have direct build or test evidence:
     deployment `dpl_91cuRwKTJp2bLa3kT9MVtJ4PG8Nb` reached `Ready` with
     `next build` as the complete build command, and the deployed poll and
     enrollment routes remained disabled.
+66. On 2026-07-25, two fresh Production magic-link requests for the provisioned
+    invited account returned `202` and delivered two sign-in emails. Both
+    one-use verification links immediately redirected to the callback with
+    `error_code=otp_expired`; the callback failed closed with
+    `400 AUTHENTICATION_FAILED`, and the protected device and consent routes
+    remained `401`. The current email template contained no numeric OTP. No
+    person session was established, no token, email address, or link was logged,
+    and the temporary PKCE and cookie files were removed. The invalidation cause
+    is not yet proven. A subsequent bounded Management API attempt to replace
+    the link with the configured eight-digit OTP was rejected with HTTP 400
+    because hosted free-tier projects cannot customize templates while using
+    the default email provider. A read-back proved the original template
+    remained unchanged; no custom SMTP field is configured, public signup
+    remains disabled, and the ten-minute eight-digit OTP settings remain
+    unchanged.
+67. On 2026-07-27, Resend custom SMTP was connected with a sender on the
+    verified `sasara.io` domain. A bounded Management API update replaced the
+    consumable link with an English/Japanese `{{ .Token }}` template and an
+    independent read-back verified Resend port 465, no confirmation URL, public
+    signup still disabled, and the unchanged eight-digit, ten-minute OTP
+    settings. A fresh Production request returned `202` and delivered one
+    unique code with no link. OTP verification returned `204`; protected device
+    and consent routes returned `200` with zero devices, zero relationships,
+    and pause false. Logout returned `204`, and the protected device route
+    returned `401` afterward. No email, OTP, SMTP credential, or session value
+    was logged; Gmail access was read-only and temporary auth files were
+    removed.
 
 The verified `main` artifact from run 29899930269 had this checksum:
 
@@ -714,11 +741,11 @@ The PostgreSQL evidence used an ephemeral PostgreSQL 17 database named
 stopped the container. Recreate an isolated database with that exact name
 before rerunning; the tests refuse to reset any other database.
 
-The immediate continuation is to provision a second invited account through
-the operator-only path, then collect human-browser sign-in, relationship-code
-acceptance, disconnection, and explicit reconnection evidence without logging a
-code or session. Do not expose a credential or reintroduce a general migration
-runner.
+The immediate continuation is to complete one human-browser sign-in through the
+now-verified bounded OTP path, provision a second invited account through the
+operator-only path, and collect two-account relationship-code acceptance,
+disconnection, and explicit reconnection evidence without logging a code or
+session. Do not expose a credential or reintroduce a general migration runner.
 
 The repository selects .NET 10 through `global.json`. The relationship-lifecycle
 change does not alter the Windows project, but install a supported .NET 10 SDK
@@ -755,14 +782,13 @@ pause/grant/revoke, and invite-only relationship establishment without enabling
 delivery or account search. Bounded relationship disconnection and explicit
 reconnection are also deployed. The next sequence is:
 
-1. remove the completed one-time Production migration bridge and verify the
-   ordinary build while enrollment and delivery remain disabled;
-2. provision a second invited existing account through the operator-only path,
-   then complete one human-browser magic-link or OTP sign-in and one
+1. complete one human-browser sign-in through the verified bounded OTP path,
+   then provision a second invited existing account through the operator-only
+   path and complete one
    two-account relationship-code acceptance, disconnect, and explicit
    reconnection on Production without logging the code or session;
-3. establish and record the periodic operator cleanup schedule; and
-4. wire the protected Windows key to enrollment and implement outbound-only
+2. establish and record the periodic operator cleanup schedule; and
+3. wire the protected Windows key to enrollment and implement outbound-only
    polling behind the disabled gates, including durable replay consumption and
    stored-result resend; keep device-enrollment creation disabled until real
    standard-user CNG evidence exists. Authenticated device listing and
