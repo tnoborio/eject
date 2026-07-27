@@ -7,11 +7,11 @@
 
 ## スナップショット
 
-- **日付:** 2026-07-24
+- **日付:** 2026-07-27
 - **リポジトリ:** `tnoborio/eject`
-- **現在のブランチ:** このhandoff-only follow-up merge後の`main`
-- **現在のworking tree:** product code changeは残っていない。PR #22で完了したone-time Production
-  migration bridgeを削除し、通常Production buildを検証済み
+- **現在のブランチ:** このhandoff-only evidence follow-up merge後の`main`
+- **現在のworking tree:** product code changeは残っていない。Resend SMTP、限定Production OTP
+  delivery、session access、logoutを検証済み
 - **マージ済みPR:** [#2](https://github.com/tnoborio/eject/pull/2)(Stage 0スパイク)、
   [#3](https://github.com/tnoborio/eject/pull/3)(One Bitロゴ)、
   [#4](https://github.com/tnoborio/eject/pull/4)(ハードウェア検証キット)、
@@ -477,6 +477,24 @@ docs/decisions/0005-identity-and-device-security.md
     削除し、`739392a`としてmergeした。`main`でもrun 30080846955のActions 4 jobすべてに成功した。
     通常Production deployment `dpl_91cuRwKTJp2bLa3kT9MVtJ4PG8Nb`はbuild command全体を
     `next build`へ戻した状態で`Ready`に到達し、deploy済みpoll・enrollment routeは無効のままだった。
+66. 2026-07-25、provision済み招待accountに対する新しいProduction magic-link requestを2回行い、
+    いずれも`202`を返してsign-in emailを配送した。両方のone-use verification linkは直ちに
+    `error_code=otp_expired`付きでcallbackへredirectされ、callbackは
+    `400 AUTHENTICATION_FAILED`でfail closedし、保護されたdevice・consent routeは`401`のままだった。
+    現在のemail templateには数値OTPが含まれていなかった。person sessionは成立せず、token、email
+    address、linkはlogへ残しておらず、一時PKCE・cookie fileも削除した。無効化原因はまだ未確定である。
+    続いて既存Management API経路からlinkを設定済み8桁OTPへ置き換える限定変更を試したが、default
+    email providerを使うhosted free-tier projectではtemplate変更が許可されないためHTTP 400で
+    拒否された。read-backで元templateが不変であることを証明した。custom SMTP項目はすべて未設定、
+    public signupは無効のまま、10分・8桁のOTP設定も不変である。
+67. 2026-07-27、verified済み`sasara.io` domainのsenderを持つResend custom SMTPを接続した。
+    限定Management API変更で消費型linkを英日`{{ .Token }}` templateへ置き換え、独立read-backで
+    Resend port 465、confirmation URLなし、public signup無効のまま、8桁・10分のOTP設定が不変で
+    あることを検証した。新しいProduction requestは`202`を返し、linkなしの一意なcodeを1件配送した。
+    OTP verificationは`204`、保護されたdevice・consent routeは`200`を返し、device 0件、
+    relationship 0件、pause falseを確認した。logoutは`204`、その後の保護device routeは`401`を
+    返した。email、OTP、SMTP credential、session値はlogへ残さず、Gmail accessはread-only、
+    一時auth fileは削除済みである。
 
 run 29899930269の検証済み`main` artifactのチェックサムは次のとおりです。
 
@@ -584,9 +602,10 @@ PostgreSQL証拠では、`eject_test`という名前のephemeral PostgreSQL 17 d
 32件すべて成功後、containerを停止しました。再実行時もその正確な名前の隔離databaseを作成してください。
 testは他のdatabaseをresetしません。
 
-直後の継続作業はoperator-only pathで2件目の招待accountをprovisionし、codeやsessionをlogへ残さず、
-human-browser sign-in、relationship code accept、disconnect、明示的reconnect証拠を得ることです。
-credentialを露出させたり、汎用migration runnerを再導入したりしてはいけません。
+直後の継続作業は、現在検証済みの限定OTP pathでhuman-browser sign-inを1回完了し、
+operator-only pathで2件目の招待accountをprovisionして、codeやsessionをlogへ残さずtwo-account
+relationship code accept、disconnect、明示的reconnect証拠を得ることです。credentialを
+露出させたり、汎用migration runnerを再導入したりしてはいけません。
 
 repositoryは`global.json`で.NET 10を選択します。relationship lifecycle changeはWindows projectを
 変更しませんが、hardware work再開時に`dotnet`がなければ対応する.NET 10 SDKをinstallしてください。
@@ -618,13 +637,11 @@ transport、専用cloud database environment、person-session adapter、server e
 bindしたpause・grant・revoke、invite-only relationship確立を提供します。bounded relationship切断と
 明示的再接続もdeploy済みです。次の順序は次のとおりです。
 
-1. 完了したone-time Production migration bridgeを削除し、enrollment・deliveryを無効のまま通常buildを
-   検証する。
-2. operator専用pathで2件目の招待済みexisting accountをprovisionし、Productionで人が操作する
-   magic-linkまたはOTP sign-in、two-account relationship code accept、disconnect、明示的reconnectを
-   Productionで完了する。codeやsessionはlogへ残さない。
-3. 定期operator cleanup scheduleを作成・記録する。
-4. 無効なgateの背後でprotected Windows keyをenrollmentへ接続し、durable replay consumptionと保存済み
+1. 検証済みの限定OTP pathでhuman-browser sign-inを1回完了し、operator専用pathで2件目の招待済み
+   existing accountをprovisionして、two-account relationship code accept、disconnect、
+   明示的reconnectをProductionで完了する。codeやsessionはlogへ残さない。
+2. 定期operator cleanup scheduleを作成・記録する。
+3. 無効なgateの背後でprotected Windows keyをenrollmentへ接続し、durable replay consumptionと保存済み
    resultのresendを含むoutbound-only pollingを実装する。実機standard-user CNG証拠が得られるまで
    device enrollment作成を無効に保つ。認証済みdevice一覧とrevocationは独立したsafety controlとして
    利用可能にしてよい。

@@ -78,6 +78,22 @@ scriptはconfirmed Supabase Auth identityを作成し、同じUUIDを持つEJECT
 `EJECT_PROVISIONING_SUPABASE_SECRET_KEY`をVercelへ設定してはいけません。deployed applicationが必要と
 するのはpublishable keyだけで、固定sign-in requestは`create_user = false`を使います。
 
+## Production email OTP delivery
+
+2026-07-27時点で、Supabase Authはverified済み`sasara.io` domainのsenderを持つResend custom SMTPを
+使います。SMTP credentialはprovider設定内だけに存在し、repositoryやVercelには存在しません。
+
+独立したManagement API read-backで、external email有効、port 465のResend SMTP endpoint、
+public sign-up無効、email OTPが8桁・有効期限10分のままであることを検証しました。magic-link
+templateは英日両方で限定された`{{ .Token }}`値を含み、`{{ .ConfirmationURL }}`を含みません。
+
+新しいProduction requestはHTTP 202を返し、text・HTML alternative内に同一の一意な8桁codeを1件だけ
+含み、URLを含まないemailを配送しました。OTP endpointはHTTP 204を返し、その後、保護された
+owner-device・consent routeはHTTP 200を返しました。device 0件、relationship 0件、incoming accessの
+pauseなしを確認しました。logoutはHTTP 204、その後の保護device routeはHTTP 401を返しました。
+email address、OTP、provider credential、session値はlogへ残していません。Gmail connectorはmessageの
+検索・読取だけに使い、一時PKCE・cookie fileはすべて削除しました。
+
 ## TLS trust
 
 applicationは、Supabase hostnameに対してbase64 encodeしたX.509 CAを
