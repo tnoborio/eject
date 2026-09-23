@@ -6,6 +6,20 @@ This document is the starting point for a new EJECT development session. It
 records what is implemented, what has been verified, what remains unknown, and
 the order in which work should continue.
 
+## Review follow-up — 2026-09-23
+
+A code and MVP review of local `main` at `fcce1ca` is recorded in
+[the review report](REVIEW-2026-09-23.md). Local static checks, 11 protocol
+tests, 110 control-plane tests, and the production build passed. OTP retry
+failure was reproduced with synthetic input. No cloud or physical evidence
+was refreshed and no product code or delivery gate changed.
+
+Before the planned browser validation, repair OTP retry and connect session
+refresh. Before remote delivery, resolve eject-back expiry and late-result
+recording, and complete device readiness/availability transitions as well as
+the Windows client. Hardware evidence remains mandatory. The snapshot below
+is the historical July deployment record, not a September live-service check.
+
 ## Snapshot
 
 - **Date:** 2026-07-27
