@@ -2,6 +2,19 @@ import { describe, expect, it, vi } from "vitest";
 import { PersonSessionRecovery } from "../src/app/person-session-recovery";
 
 describe("person session recovery", () => {
+  it("calls an injected fetch without giving it the recovery instance as receiver", async () => {
+    const receiverSensitive = vi.fn(function (this: unknown) {
+      if (this !== undefined) throw new TypeError("illegal receiver");
+      return Promise.resolve(response(200));
+    });
+    const recovery = new PersonSessionRecovery(receiverSensitive, vi.fn());
+
+    await expect(recovery.fetch("/devices")).resolves.toMatchObject({
+      status: 200,
+    });
+    expect(receiverSensitive).toHaveBeenCalledWith("/devices", undefined);
+  });
+
   it("coordinates concurrent expired requests through one refresh and retries each once", async () => {
     const fetcher = vi
       .fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>()

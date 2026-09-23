@@ -59,6 +59,27 @@ compatibility remain unverified.
 Authentication PR #25 remains draft pending independent re-review. This
 hardware-readiness investigation does not authorize merging/deploying the PR.
 
+## Browser rollback and fetch repair — 2026-09-23
+
+PR #25 merged at `682685d6a2c468de29027d46209f5b5e16dbdd5a` after Actions
+run `35850561379` passed, but authorized fresh-Chromium verification found a
+browser-only regression before any person API request: storing the native
+`fetch` function as an object member caused an illegal receiver invocation.
+The UI remained at `CHECKING SESSION`. The owner restored the prior deployment
+`eject-dqpgs286t-sasara.vercel.app` (`dpl_JBqJzjjwM2kicscpdnLtQWrRMxc8`);
+fresh browser verification there received the expected device 401, rendered
+`NO ACTIVE SESSION`, and confirmed the disabled eject control and delivery
+gates. The failed deployment was `dpl_3ETWuXsZuohz9QJxkCxhtnV95V25`.
+
+The follow-up branch calls the injected fetch as an unbound callable, retaining
+mock injection, and has both a receiver-sensitive unit regression and a fresh
+local Chromium check with person auth enabled and mocked person endpoints. The
+local browser check observed device and consent requests, rendered `SESSION
+AUTHENTICATED`, and used no live accounts or browser profiles. It is not a
+live-account or physical-action verification. Keep production on the restored
+deployment until the follow-up PR passes independent review and authorized
+deployment verification.
+
 ## Snapshot
 
 - **Date:** 2026-07-27

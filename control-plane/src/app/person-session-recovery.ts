@@ -4,15 +4,18 @@ export type PersonFetch = (
 ) => Promise<Response>;
 
 export class PersonSessionRecovery {
+  private readonly fetcher: PersonFetch;
   private sessionGeneration = 0;
   private refreshGeneration = 0;
   private signedOut = false;
   private refreshInFlight: Promise<boolean> | null = null;
 
   constructor(
-    private readonly fetcher: PersonFetch,
+    fetcher: PersonFetch,
     private readonly onUnauthorized: () => void,
-  ) {}
+  ) {
+    this.fetcher = (input, init) => fetcher(input, init);
+  }
 
   startSession(): void {
     this.signedOut = false;
