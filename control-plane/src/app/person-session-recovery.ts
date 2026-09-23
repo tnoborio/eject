@@ -46,10 +46,22 @@ export class PersonSessionRecovery {
     }
 
     const refreshed = await this.refresh(requestSession, requestRefresh);
-    if (!refreshed || this.signedOut || init?.signal?.aborted) return response;
+    if (
+      !refreshed ||
+      !this.isCurrent(requestSession) ||
+      init?.signal?.aborted
+    ) {
+      return response;
+    }
 
     const retried = await this.fetcher(input, init);
-    if (retried.status === 401 && !this.signedOut) this.rejectSession();
+    if (
+      retried.status === 401 &&
+      this.isCurrent(requestSession) &&
+      !init?.signal?.aborted
+    ) {
+      this.rejectSession();
+    }
     return retried;
   }
 

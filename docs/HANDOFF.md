@@ -21,17 +21,43 @@ invalidates the browser session, waits for an already in-flight refresh to
 settle before sending its cookie-clearing request, and prevents delayed
 protected JSON or completion feedback from writing into a later session.
 
-The follow-up passed `npm run check`, `npm test` (11 protocol and 116
+The follow-up passed `npm run check`, `npm test` (11 protocol and 117
 control-plane tests), `npm run test:coverage` (the configured 100% threshold),
 and `npm run build` locally. The new recovery tests cover concurrent and
 staggered 401s, bounded retry, rejected and unavailable refresh, refresh then
-logout cookie ordering, and delayed protected JSON after logout. Browser E2E,
-real OTP, cloud, and physical evidence were not run. Await the PR's
+logout cookie ordering, delayed protected JSON after logout, and a stale
+retried 401 after a new login. Browser E2E, real OTP, cloud, and physical
+evidence were not run. Await the PR's
 real-PostgreSQL CI and independent review before browser validation. Before
 remote delivery, resolve eject-back expiry and late-result recording, and
 complete device readiness/availability transitions as well as the Windows
 client. Hardware evidence remains mandatory. The snapshot below is the
 historical July deployment record, not a September live-service check.
+
+## A1X validation infrastructure — 2026-09-23
+
+The owner reported a tray-style optical drive but cannot currently locate it
+for A1X, and pointed to the existing Orchestrator Windows worker. A bounded,
+non-ejecting readiness job
+completed on A1X with exit code 0: worker v3, non-elevated user, PowerShell
+5.1, .NET SDK 6.0.423, and zero currently enumerated optical drives. No disc
+contents, screenshots, credentials, or broad hardware inventory were read.
+Keystone check-only job metadata also shows a successful run on this worker.
+The supplied `~/repos/keystone-call-of-catsh` path was not found on this Linux
+host or at the corresponding Windows user-home path; its repository CI
+configuration has not been inspected.
+
+The physical test is deferred until the drive can be found and connected. Use
+this owner-operated worker for non-ejecting checks and only as test infrastructure for transferring
+reviewed self-contained Windows x64 EJECT artifacts and collecting bounded
+reports. Do not import its general PowerShell execution capability into the
+EJECT agent. A self-contained build avoids installing .NET 10 on A1X solely
+to run EJECT. Confirm the drive connection and enumerate again before a
+deliberate, locally approved single attempt. Physical opening and hardware
+compatibility remain unverified.
+
+Authentication PR #25 remains draft pending independent re-review. This
+hardware-readiness investigation does not authorize merging/deploying the PR.
 
 ## Snapshot
 

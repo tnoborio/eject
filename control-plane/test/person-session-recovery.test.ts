@@ -96,6 +96,32 @@ describe("person session recovery", () => {
     expect(rejectedRecovery.isActive()).toBe(false);
   });
 
+  it("does not let an old retried 401 invalidate a newer login", async () => {
+    let resolveRetry: ((value: Response) => void) | undefined;
+    const retry = new Promise<Response>((resolve) => {
+      resolveRetry = resolve;
+    });
+    const fetcher = vi
+      .fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>()
+      .mockResolvedValueOnce(response(401))
+      .mockResolvedValueOnce(response(204))
+      .mockImplementationOnce(() => retry);
+    const unauthorized = vi.fn();
+    const recovery = new PersonSessionRecovery(fetcher, unauthorized);
+
+    const stale = recovery.fetch("/devices");
+    await vi.waitFor(() => expect(fetcher).toHaveBeenCalledTimes(3));
+    await recovery.endSession();
+    recovery.startSession();
+    const currentIdentity = recovery.identity();
+    resolveRetry?.(response(401));
+
+    await expect(stale).resolves.toMatchObject({ status: 401 });
+    expect(unauthorized).not.toHaveBeenCalled();
+    expect(recovery.isCurrent(currentIdentity)).toBe(true);
+    expect(fetcher).toHaveBeenCalledTimes(3);
+  });
+
   it("settles an in-flight refresh before the caller can send logout", async () => {
     let resolveRefresh: ((value: Response) => void) | undefined;
     const refresh = new Promise<Response>((resolve) => {
