@@ -46,6 +46,22 @@ worker v3、非昇格の一般ユーザー、PowerShell 5.1、.NET SDK 6.0.423�
 認証PR #25は独立再レビュー待ちでDraftのまま。今回の実機準備調査はPRのマージ・本番反映の
 承認を意味しない。
 
+## browser rollbackとfetch修正 — 2026-09-23
+
+PR #25はActions run `35850561379`成功後に`682685d6a2c468de29027d46209f5b5e16dbdd5a`でmergeされたが、
+承認済みfresh Chromium検証でperson API requestより前のbrowser専用regressionを発見した。native `fetch`を
+object memberとして保存したためillegal receiver invocationになり、UIは`CHECKING SESSION`のままになった。
+所有者は直前deploymentの`eject-dqpgs286t-sasara.vercel.app`
+（`dpl_JBqJzjjwM2kicscpdnLtQWrRMxc8`）をrestoreした。そこでfresh browser検証は期待どおりのdevice 401、
+`NO ACTIVE SESSION`、disabled eject controlとdelivery gateを確認した。失敗したdeploymentは
+`dpl_3ETWuXsZuohz9QJxkCxhtnV95V25`である。
+
+follow-up branchはinjected fetchをunbound callableとして呼び、mock injectionを保持する。receiver-sensitive
+unit regressionに加え、person auth有効・person endpointをmockしたfresh local Chromium checkを追加した。
+このlocal browser checkはdevice/consent request、`SESSION AUTHENTICATED`を確認し、live accountとbrowser
+profileを使っていない。live accountまたはphysical actionの検証ではない。follow-up PRの独立reviewと承認済み
+deployment検証まではrestore済みproductionを維持する。
+
 ## スナップショット
 
 - **日付:** 2026-07-27
