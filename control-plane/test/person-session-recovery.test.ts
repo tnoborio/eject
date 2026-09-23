@@ -96,7 +96,7 @@ describe("person session recovery", () => {
     expect(rejectedRecovery.isActive()).toBe(false);
   });
 
-  it("does not retry an aborted request or restore a session ended during refresh", async () => {
+  it("settles an in-flight refresh before the caller can send logout", async () => {
     let resolveRefresh: ((value: Response) => void) | undefined;
     const refresh = new Promise<Response>((resolve) => {
       resolveRefresh = resolve;
@@ -104,17 +104,26 @@ describe("person session recovery", () => {
     const fetcher = vi
       .fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>()
       .mockResolvedValueOnce(response(401))
-      .mockImplementationOnce(() => refresh);
+      .mockImplementationOnce(() => refresh)
+      .mockResolvedValueOnce(response(204));
     const unauthorized = vi.fn();
     const recovery = new PersonSessionRecovery(fetcher, unauthorized);
     const controller = new AbortController();
     const pending = recovery.fetch("/devices", { signal: controller.signal });
     await vi.waitFor(() => expect(fetcher).toHaveBeenCalledTimes(2));
     controller.abort();
-    recovery.endSession();
+    const logout = recovery
+      .endSession()
+      .then(() => fetcher("/api/person/v1/auth/logout"));
+    expect(fetcher).toHaveBeenCalledTimes(2);
     resolveRefresh?.(response(204));
     await expect(pending).resolves.toMatchObject({ status: 401 });
-    expect(fetcher).toHaveBeenCalledTimes(2);
+    await expect(logout).resolves.toMatchObject({ status: 204 });
+    expect(fetcher.mock.calls.map(([path]) => path)).toEqual([
+      "/devices",
+      "/api/person/v1/auth/refresh",
+      "/api/person/v1/auth/logout",
+    ]);
     expect(unauthorized).not.toHaveBeenCalled();
     expect(recovery.isActive()).toBe(false);
   });

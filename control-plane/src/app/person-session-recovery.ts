@@ -4,7 +4,8 @@ export type PersonFetch = (
 ) => Promise<Response>;
 
 export class PersonSessionRecovery {
-  private epoch = 0;
+  private sessionGeneration = 0;
+  private refreshGeneration = 0;
   private signedOut = false;
   private refreshInFlight: Promise<boolean> | null = null;
 
@@ -15,26 +16,36 @@ export class PersonSessionRecovery {
 
   startSession(): void {
     this.signedOut = false;
-    this.epoch += 1;
+    this.sessionGeneration += 1;
   }
 
-  endSession(): void {
+  endSession(): Promise<void> {
     this.signedOut = true;
-    this.epoch += 1;
+    this.sessionGeneration += 1;
+    return this.refreshInFlight?.then(() => undefined) ?? Promise.resolve();
   }
 
   isActive(): boolean {
     return !this.signedOut;
   }
 
+  identity(): number {
+    return this.sessionGeneration;
+  }
+
+  isCurrent(identity: number): boolean {
+    return !this.signedOut && identity === this.sessionGeneration;
+  }
+
   async fetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
-    const requestEpoch = this.epoch;
+    const requestSession = this.sessionGeneration;
+    const requestRefresh = this.refreshGeneration;
     const response = await this.fetcher(input, init);
     if (response.status !== 401 || this.signedOut || init?.signal?.aborted) {
       return response;
     }
 
-    const refreshed = await this.refresh(requestEpoch);
+    const refreshed = await this.refresh(requestSession, requestRefresh);
     if (!refreshed || this.signedOut || init?.signal?.aborted) return response;
 
     const retried = await this.fetcher(input, init);
@@ -42,11 +53,17 @@ export class PersonSessionRecovery {
     return retried;
   }
 
-  private refresh(requestEpoch: number): Promise<boolean> {
-    if (requestEpoch !== this.epoch) return Promise.resolve(!this.signedOut);
+  private refresh(
+    requestSession: number,
+    requestRefresh: number,
+  ): Promise<boolean> {
+    if (requestSession !== this.sessionGeneration || this.signedOut) {
+      return Promise.resolve(false);
+    }
+    if (requestRefresh !== this.refreshGeneration) return Promise.resolve(true);
     if (this.refreshInFlight !== null) return this.refreshInFlight;
 
-    const refreshEpoch = this.epoch;
+    const refreshSession = this.sessionGeneration;
     this.refreshInFlight = this.fetcher("/api/person/v1/auth/refresh", {
       method: "POST",
       credentials: "same-origin",
@@ -54,9 +71,11 @@ export class PersonSessionRecovery {
       body: "{}",
     })
       .then((response) => {
-        if (this.signedOut || refreshEpoch !== this.epoch) return false;
+        if (this.signedOut || refreshSession !== this.sessionGeneration) {
+          return false;
+        }
         if (response.status === 204) {
-          this.epoch += 1;
+          this.refreshGeneration += 1;
           return true;
         }
         if (response.status === 401) this.rejectSession();
@@ -71,7 +90,7 @@ export class PersonSessionRecovery {
 
   private rejectSession(): void {
     if (this.signedOut) return;
-    this.endSession();
+    void this.endSession();
     this.onUnauthorized();
   }
 }

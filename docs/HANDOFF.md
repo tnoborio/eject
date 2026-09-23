@@ -16,19 +16,22 @@ installs the HttpOnly session. Its web console now coordinates protected-route
 401 responses through one refresh request and retries each original request at
 most once after a successful rotation. Terminal authentication rejection clears
 protected UI data and one-time secrets; refresh network and 5xx failures do not
-retry a mutation or represent successful authentication or logout.
+retry a mutation or represent successful authentication or logout. Logout first
+invalidates the browser session, waits for an already in-flight refresh to
+settle before sending its cookie-clearing request, and prevents delayed
+protected JSON or completion feedback from writing into a later session.
 
-The follow-up passed `npm run check`, `npm test` (11 protocol and 115
+The follow-up passed `npm run check`, `npm test` (11 protocol and 116
 control-plane tests), `npm run test:coverage` (the configured 100% threshold),
 and `npm run build` locally. The new recovery tests cover concurrent and
-staggered 401s, bounded retry, rejected and unavailable refresh, and an
-abort/logout race. Browser E2E, real OTP, cloud, and physical evidence were
-not run. Await the PR's real-PostgreSQL CI and independent review before
-browser validation. Before remote delivery, resolve eject-back expiry and
-late-result recording, and complete device readiness/availability transitions
-as well as the Windows client. Hardware evidence remains mandatory. The
-snapshot below is the historical July deployment record, not a September
-live-service check.
+staggered 401s, bounded retry, rejected and unavailable refresh, refresh then
+logout cookie ordering, and delayed protected JSON after logout. Browser E2E,
+real OTP, cloud, and physical evidence were not run. Await the PR's
+real-PostgreSQL CI and independent review before browser validation. Before
+remote delivery, resolve eject-back expiry and late-result recording, and
+complete device readiness/availability transitions as well as the Windows
+client. Hardware evidence remains mandatory. The snapshot below is the
+historical July deployment record, not a September live-service check.
 
 ## Snapshot
 

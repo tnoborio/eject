@@ -8,6 +8,7 @@ import {
   type FormEvent,
 } from "react";
 import type { Locale, MessageKey, Messages } from "@/i18n/load-messages";
+import { readCurrentPersonJson } from "./person-session-data";
 import { PersonSessionRecovery } from "./person-session-recovery";
 
 interface Capabilities {
@@ -95,14 +96,18 @@ export function WebConsole({
   const [feedback, setFeedback] = useState<string | null>(null);
   const recovery = useRef<PersonSessionRecovery | null>(null);
 
+  function clearProtectedData(): void {
+    setAuthenticated(false);
+    setDevices([]);
+    setConsent(null);
+    setEnrollment(null);
+    setRelationshipInvitation(null);
+    setInvitationCode("");
+  }
+
   if (recovery.current === null) {
     recovery.current = new PersonSessionRecovery(fetch, () => {
-      setAuthenticated(false);
-      setDevices([]);
-      setConsent(null);
-      setEnrollment(null);
-      setRelationshipInvitation(null);
-      setInvitationCode("");
+      clearProtectedData();
       setFeedback(messages["error.AUTHENTICATION_REQUIRED"]);
     });
   }
@@ -110,17 +115,23 @@ export function WebConsole({
   const t = useCallback((key: MessageKey) => messages[key], [messages]);
 
   const loadConsent = useCallback(async (signal?: AbortSignal) => {
+    const identity = recovery.current!.identity();
     const response = await recovery.current!.fetch("/api/person/v1/consent", {
       cache: "no-store",
       credentials: "same-origin",
       signal: signal ?? null,
     });
-    if (!recovery.current!.isActive()) return;
+    if (!recovery.current!.isCurrent(identity)) return;
     if (!response.ok) {
       setConsent(null);
       return;
     }
-    const body = (await response.json()) as ConsentSnapshot;
+    const body = await readCurrentPersonJson<ConsentSnapshot>(
+      response,
+      recovery.current!,
+      identity,
+    );
+    if (body === null) return;
     setConsent(body);
   }, []);
 
@@ -130,6 +141,7 @@ export function WebConsole({
         setAuthenticated(false);
         return;
       }
+      const identity = recovery.current!.identity();
       try {
         const response = await recovery.current!.fetch(
           "/api/person/v1/device-enrollments",
@@ -139,7 +151,7 @@ export function WebConsole({
             signal: signal ?? null,
           },
         );
-        if (!recovery.current!.isActive()) return;
+        if (!recovery.current!.isCurrent(identity)) return;
         if (response.status === 401) {
           setAuthenticated(false);
           setDevices([]);
@@ -151,12 +163,17 @@ export function WebConsole({
           setConsent(null);
           return;
         }
-        const body = (await response.json()) as { devices?: DeviceSummary[] };
+        const body = await readCurrentPersonJson<{ devices?: DeviceSummary[] }>(
+          response,
+          recovery.current!,
+          identity,
+        );
+        if (body === null) return;
         setAuthenticated(true);
         setDevices(Array.isArray(body.devices) ? body.devices : []);
         await loadConsent(signal);
       } catch {
-        if (recovery.current!.isActive()) {
+        if (recovery.current!.isCurrent(identity)) {
           setAuthenticated(null);
           setConsent(null);
         }
@@ -194,6 +211,7 @@ export function WebConsole({
   async function submit(
     path: string,
     body: Readonly<Record<string, unknown>>,
+    identity = recovery.current!.identity(),
   ): Promise<Response | null> {
     setWorking(true);
     setFeedback(t("feedback.working"));
@@ -204,19 +222,30 @@ export function WebConsole({
         headers: { "content-type": "application/json" },
         body: JSON.stringify(body),
       } as const;
-      const response = path.startsWith("/api/person/v1/auth/")
-        ? await fetch(path, request)
-        : await recovery.current!.fetch(path, request);
+      const protectedRequest = !path.startsWith("/api/person/v1/auth/");
+      const response = protectedRequest
+        ? await recovery.current!.fetch(path, request)
+        : await fetch(path, request);
+      if (protectedRequest && !recovery.current!.isCurrent(identity)) {
+        return null;
+      }
       if (!response.ok) {
         const value = (await response.json().catch(() => null)) as {
           error?: string;
         } | null;
-        setFeedback(localizedError(value?.error ?? null));
+        if (!protectedRequest || recovery.current!.isCurrent(identity)) {
+          setFeedback(localizedError(value?.error ?? null));
+        }
         return null;
       }
       return response;
     } catch {
-      setFeedback(t("error.SERVICE_UNAVAILABLE"));
+      if (
+        path.startsWith("/api/person/v1/auth/") ||
+        recovery.current!.isCurrent(identity)
+      ) {
+        setFeedback(t("error.SERVICE_UNAVAILABLE"));
+      }
       return null;
     } finally {
       setWorking(false);
@@ -241,34 +270,37 @@ export function WebConsole({
     if (response !== null) {
       setOtp("");
       recovery.current!.startSession();
+      const identity = recovery.current!.identity();
       await loadDevices();
-      setFeedback(t("identity.authenticated"));
+      if (recovery.current!.isCurrent(identity)) {
+        setFeedback(t("identity.authenticated"));
+      }
     }
   }
 
   async function logout() {
-    recovery.current!.endSession();
+    const pendingRefresh = recovery.current!.endSession();
+    clearProtectedData();
+    await pendingRefresh;
     const response = await submit("/api/person/v1/auth/logout", {});
     if (response !== null) {
-      setAuthenticated(false);
-      setDevices([]);
-      setConsent(null);
-      setEnrollment(null);
-      setRelationshipInvitation(null);
-      setInvitationCode("");
       setFeedback(t("feedback.signedOut"));
-    } else {
-      recovery.current!.startSession();
     }
   }
 
   async function createEnrollment() {
-    const response = await submit("/api/person/v1/device-enrollments", {});
+    const identity = recovery.current!.identity();
+    const response = await submit(
+      "/api/person/v1/device-enrollments",
+      {},
+      identity,
+    );
     if (response === null) return;
-    const value = (await response.json()) as {
+    const value = await readCurrentPersonJson<{
       enrollment_secret: string;
       expires_at: string;
-    };
+    }>(response, recovery.current!, identity);
+    if (value === null) return;
     setEnrollment({
       secret: value.enrollment_secret,
       expiresAt: value.expires_at,
@@ -277,10 +309,15 @@ export function WebConsole({
   }
 
   async function revokeDevice(deviceId: string) {
-    const response = await submit("/api/person/v1/device-revocations", {
-      device_id: deviceId,
-    });
-    if (response !== null) {
+    const identity = recovery.current!.identity();
+    const response = await submit(
+      "/api/person/v1/device-revocations",
+      {
+        device_id: deviceId,
+      },
+      identity,
+    );
+    if (response !== null && recovery.current!.isCurrent(identity)) {
       setEnrollment(null);
       setFeedback(t("feedback.deviceRevoked"));
       await loadDevices();
@@ -288,38 +325,55 @@ export function WebConsole({
   }
 
   async function setPaused(paused: boolean) {
-    const response = await submit("/api/person/v1/consent", { paused });
-    if (response !== null) {
+    const identity = recovery.current!.identity();
+    const response = await submit(
+      "/api/person/v1/consent",
+      { paused },
+      identity,
+    );
+    if (response !== null && recovery.current!.isCurrent(identity)) {
       await loadConsent();
-      setFeedback(
-        t(paused ? "feedback.consentPaused" : "feedback.consentResumed"),
-      );
+      if (recovery.current!.isCurrent(identity)) {
+        setFeedback(
+          t(paused ? "feedback.consentPaused" : "feedback.consentResumed"),
+        );
+      }
     }
   }
 
   async function setGrant(personId: string, granted: boolean) {
-    const response = await submit("/api/person/v1/consent-grants", {
-      person_id: personId,
-      granted,
-    });
-    if (response !== null) {
+    const identity = recovery.current!.identity();
+    const response = await submit(
+      "/api/person/v1/consent-grants",
+      {
+        person_id: personId,
+        granted,
+      },
+      identity,
+    );
+    if (response !== null && recovery.current!.isCurrent(identity)) {
       await loadConsent();
-      setFeedback(
-        t(granted ? "feedback.grantCreated" : "feedback.grantRevoked"),
-      );
+      if (recovery.current!.isCurrent(identity)) {
+        setFeedback(
+          t(granted ? "feedback.grantCreated" : "feedback.grantRevoked"),
+        );
+      }
     }
   }
 
   async function createRelationshipInvitation() {
+    const identity = recovery.current!.identity();
     const response = await submit(
       "/api/person/v1/relationship-invitations",
       {},
+      identity,
     );
     if (response === null) return;
-    const value = (await response.json()) as {
+    const value = await readCurrentPersonJson<{
       invitation_code: string;
       expires_at: string;
-    };
+    }>(response, recovery.current!, identity);
+    if (value === null) return;
     setRelationshipInvitation({
       code: value.invitation_code,
       expiresAt: value.expires_at,
@@ -331,24 +385,35 @@ export function WebConsole({
     event: FormEvent<HTMLFormElement>,
   ) {
     event.preventDefault();
-    const response = await submit("/api/person/v1/relationships", {
-      invitation_code: invitationCode,
-    });
-    if (response !== null) {
+    const identity = recovery.current!.identity();
+    const response = await submit(
+      "/api/person/v1/relationships",
+      {
+        invitation_code: invitationCode,
+      },
+      identity,
+    );
+    if (response !== null && recovery.current!.isCurrent(identity)) {
       setInvitationCode("");
       await loadConsent();
-      setFeedback(t("feedback.relationshipConnected"));
+      if (recovery.current!.isCurrent(identity)) {
+        setFeedback(t("feedback.relationshipConnected"));
+      }
     }
   }
 
   async function disconnectRelationship(personId: string) {
+    const identity = recovery.current!.identity();
     const response = await submit(
       "/api/person/v1/relationship-disconnections",
       { person_id: personId },
+      identity,
     );
-    if (response !== null) {
+    if (response !== null && recovery.current!.isCurrent(identity)) {
       await loadConsent();
-      setFeedback(t("feedback.relationshipDisconnected"));
+      if (recovery.current!.isCurrent(identity)) {
+        setFeedback(t("feedback.relationshipDisconnected"));
+      }
     }
   }
 
