@@ -5,6 +5,47 @@
 この文書は、新しいEJECT開発セッションの開始点です。実装済みの内容、検証済みの内容、
 未確認事項、今後の作業順序を記録します。
 
+## レビュー追記 — 2026-09-23
+
+ローカル`main`の`fcce1ca`を対象としたコード・MVPレビューを
+[レビュー資料](REVIEW-2026-09-23.ja.md)に記録した。フォローアップbranchでは、rejectまたは
+一時的に利用不可のOTP検証で元の10分間PKCE challengeをreplacement cookieを発行せずに保持する。
+成功時は引き続きchallengeをclearし、HttpOnly sessionを設定する。Web consoleはprotected routeの
+401を単一のrefresh requestへ集約し、rotation成功後に限り元requestを最大一回retryする。
+認証の最終的なrejectではprotected UI dataとone-time secretをclearする。refreshのnetwork/5xx失敗時は
+mutationをretryせず、認証またはlogout成功として表示しない。
+logoutはまずbrowser sessionをinvalidateし、既にin-flightのrefreshがsettleしてからcookieをclearする
+requestを送る。遅延したprotected JSONと完了feedbackも後のsessionへ書き込ませない。
+
+フォローアップはローカルで`npm run check`、`npm test`（protocol 11件、control-plane 117件）、
+`npm run test:coverage`（設定済み100% threshold）、`npm run build`に成功した。新しいrecovery testは
+concurrent/staggered 401、bounded retry、reject/unavailable refresh、refreshからlogoutへのcookie順序、
+logout後の遅延protected JSON、新しいlogin後の古いretried 401を対象にする。browser E2E、実OTP、cloud、実機の証拠は実行していない。
+browser検証の前にPRのreal PostgreSQL CIと独立reviewを待つ。遠隔配送前にEJECT BACKの期限と遅延結果の
+記録を解決し、Windows clientに加え、端末の準備完了・接続状態の遷移を完成させる。実機の証拠は引き続き必須。
+以下のsnapshotは7月のdeploy記録であり、9月の本番再確認ではない。
+
+## A1Xの実機検証基盤 — 2026-09-23
+
+所有者はトレイ式光学ドライブを持っているが、現在A1X用に見つけられないと報告し、既存Orchestrator
+Windows workerを利用できることを確認した。A1Xで排出しない限定的な準備診断が終了コード0で成功した。
+worker v3、非昇格の一般ユーザー、PowerShell 5.1、.NET SDK 6.0.423で、
+現在列挙された光学ドライブは0台。ディスク内容、画面撮影、認証情報、
+広範なハードウェア情報は取得していない。同workerではKeystoneのcheck-onlyジョブも
+成功したことをジョブのメタデータで確認した。
+指定された`~/repos/keystone-call-of-catsh`はこのLinuxホストとWindowsユーザーホームの
+対応するパスにはなく、そのリポジトリのCI設定自体は未確認。
+
+物理試験はドライブを見つけて接続できるまで延期する。この所有者用workerは排出しないcheckと、
+レビュー済みの自己完結型Windows x64 EJECT成果物の転送、
+限定的な検証結果の回収に使う。汎用PowerShell実行機能をEJECTエージェントへ取り込まない。
+自己完結型ビルドなら、EJECTの実行だけのためにA1Xへ.NET 10をインストールする必要はない。
+ドライブの接続を確認して再列挙した後、ローカルで承認した意図的な単発試行へ進む。
+物理的なトレイ開放と機器の対応可否はまだ未検証。
+
+認証PR #25は独立再レビュー待ちでDraftのまま。今回の実機準備調査はPRのマージ・本番反映の
+承認を意味しない。
+
 ## スナップショット
 
 - **日付:** 2026-07-27

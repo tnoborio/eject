@@ -117,8 +117,8 @@ export async function handleVerifyPersonOtp(
     input.token,
   );
   const headers = noStoreHeaders();
-  appendClearPersonPkceCookies(headers);
   if (result.outcome === "AUTHENTICATED") {
+    appendClearPersonPkceCookies(headers);
     appendPersonSessionCookies(headers, result.tokens);
     return new Response(null, { status: 204, headers });
   }
