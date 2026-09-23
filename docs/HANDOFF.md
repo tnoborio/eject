@@ -9,16 +9,26 @@ the order in which work should continue.
 ## Review follow-up — 2026-09-23
 
 A code and MVP review of local `main` at `fcce1ca` is recorded in
-[the review report](REVIEW-2026-09-23.md). Local static checks, 11 protocol
-tests, 110 control-plane tests, and the production build passed. OTP retry
-failure was reproduced with synthetic input. No cloud or physical evidence
-was refreshed and no product code or delivery gate changed.
+[the review report](REVIEW-2026-09-23.md). The follow-up branch preserves the
+original ten-minute PKCE challenge on rejected or temporarily unavailable OTP
+verification without issuing replacement cookies; success still clears it and
+installs the HttpOnly session. Its web console now coordinates protected-route
+401 responses through one refresh request and retries each original request at
+most once after a successful rotation. Terminal authentication rejection clears
+protected UI data and one-time secrets; refresh network and 5xx failures do not
+retry a mutation or represent successful authentication or logout.
 
-Before the planned browser validation, repair OTP retry and connect session
-refresh. Before remote delivery, resolve eject-back expiry and late-result
-recording, and complete device readiness/availability transitions as well as
-the Windows client. Hardware evidence remains mandatory. The snapshot below
-is the historical July deployment record, not a September live-service check.
+The follow-up passed `npm run check`, `npm test` (11 protocol and 115
+control-plane tests), `npm run test:coverage` (the configured 100% threshold),
+and `npm run build` locally. The new recovery tests cover concurrent and
+staggered 401s, bounded retry, rejected and unavailable refresh, and an
+abort/logout race. Browser E2E, real OTP, cloud, and physical evidence were
+not run. Await the PR's real-PostgreSQL CI and independent review before
+browser validation. Before remote delivery, resolve eject-back expiry and
+late-result recording, and complete device readiness/availability transitions
+as well as the Windows client. Hardware evidence remains mandatory. The
+snapshot below is the historical July deployment record, not a September
+live-service check.
 
 ## Snapshot
 

@@ -1,0 +1,125 @@
+import { describe, expect, it, vi } from "vitest";
+import { PersonSessionRecovery } from "../src/app/person-session-recovery";
+
+describe("person session recovery", () => {
+  it("coordinates concurrent expired requests through one refresh and retries each once", async () => {
+    const fetcher = vi
+      .fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>()
+      .mockResolvedValueOnce(response(401))
+      .mockResolvedValueOnce(response(401))
+      .mockResolvedValueOnce(response(204))
+      .mockResolvedValueOnce(response(200))
+      .mockResolvedValueOnce(response(200));
+    const recovery = new PersonSessionRecovery(fetcher, vi.fn());
+
+    await expect(
+      Promise.all([recovery.fetch("/devices"), recovery.fetch("/consent")]),
+    ).resolves.toEqual([
+      expect.objectContaining({ status: 200 }),
+      expect.objectContaining({ status: 200 }),
+    ]);
+    expect(fetcher.mock.calls.map(([path]) => path)).toEqual([
+      "/devices",
+      "/consent",
+      "/api/person/v1/auth/refresh",
+      "/devices",
+      "/consent",
+    ]);
+  });
+
+  it("retries a staggered stale 401 after another request rotated the session", async () => {
+    let resolveFirst: ((value: Response) => void) | undefined;
+    const first = new Promise<Response>((resolve) => {
+      resolveFirst = resolve;
+    });
+    const fetcher = vi
+      .fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>()
+      .mockImplementationOnce(() => first)
+      .mockResolvedValueOnce(response(401))
+      .mockResolvedValueOnce(response(204))
+      .mockResolvedValueOnce(response(200))
+      .mockResolvedValueOnce(response(200));
+    const recovery = new PersonSessionRecovery(fetcher, vi.fn());
+    const stale = recovery.fetch("/devices");
+    await expect(recovery.fetch("/consent")).resolves.toMatchObject({
+      status: 200,
+    });
+    resolveFirst?.(response(401));
+    await expect(stale).resolves.toMatchObject({ status: 200 });
+    expect(
+      fetcher.mock.calls.filter(
+        ([path]) => path === "/api/person/v1/auth/refresh",
+      ),
+    ).toHaveLength(1);
+  });
+
+  it("does not retry after temporary refresh failure or terminally rejected refresh", async () => {
+    const unavailable = vi
+      .fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>()
+      .mockResolvedValueOnce(response(401))
+      .mockResolvedValueOnce(response(503));
+    const unavailableUnauthorized = vi.fn();
+    const unavailableRecovery = new PersonSessionRecovery(
+      unavailable,
+      unavailableUnauthorized,
+    );
+    await expect(
+      unavailableRecovery.fetch("/pause", { method: "POST" }),
+    ).resolves.toMatchObject({ status: 401 });
+    expect(unavailable).toHaveBeenCalledTimes(2);
+    expect(unavailableUnauthorized).not.toHaveBeenCalled();
+
+    const offline = vi
+      .fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>()
+      .mockResolvedValueOnce(response(401))
+      .mockRejectedValueOnce(new TypeError("network unavailable"));
+    const offlineRecovery = new PersonSessionRecovery(offline, vi.fn());
+    await expect(
+      offlineRecovery.fetch("/revoke", { method: "POST" }),
+    ).resolves.toMatchObject({ status: 401 });
+    expect(offline).toHaveBeenCalledTimes(2);
+
+    const rejected = vi
+      .fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>()
+      .mockResolvedValueOnce(response(401))
+      .mockResolvedValueOnce(response(401));
+    const rejectedUnauthorized = vi.fn();
+    const rejectedRecovery = new PersonSessionRecovery(
+      rejected,
+      rejectedUnauthorized,
+    );
+    await expect(
+      rejectedRecovery.fetch("/pause", { method: "POST" }),
+    ).resolves.toMatchObject({ status: 401 });
+    expect(rejected).toHaveBeenCalledTimes(2);
+    expect(rejectedUnauthorized).toHaveBeenCalledTimes(1);
+    expect(rejectedRecovery.isActive()).toBe(false);
+  });
+
+  it("does not retry an aborted request or restore a session ended during refresh", async () => {
+    let resolveRefresh: ((value: Response) => void) | undefined;
+    const refresh = new Promise<Response>((resolve) => {
+      resolveRefresh = resolve;
+    });
+    const fetcher = vi
+      .fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>()
+      .mockResolvedValueOnce(response(401))
+      .mockImplementationOnce(() => refresh);
+    const unauthorized = vi.fn();
+    const recovery = new PersonSessionRecovery(fetcher, unauthorized);
+    const controller = new AbortController();
+    const pending = recovery.fetch("/devices", { signal: controller.signal });
+    await vi.waitFor(() => expect(fetcher).toHaveBeenCalledTimes(2));
+    controller.abort();
+    recovery.endSession();
+    resolveRefresh?.(response(204));
+    await expect(pending).resolves.toMatchObject({ status: 401 });
+    expect(fetcher).toHaveBeenCalledTimes(2);
+    expect(unauthorized).not.toHaveBeenCalled();
+    expect(recovery.isActive()).toBe(false);
+  });
+});
+
+function response(status: number): Response {
+  return new Response(null, { status });
+}

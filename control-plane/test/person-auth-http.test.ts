@@ -155,20 +155,42 @@ describe("person auth HTTP", () => {
     expect(dependencies.lifecycle.exchangeCode).not.toHaveBeenCalled();
   });
 
-  it("verifies email OTP only in the initiating browser and installs the session", async () => {
+  it("keeps the original bounded challenge after rejected or unavailable OTP attempts, then clears it on success", async () => {
+    const dependencies = dependenciesStub();
+    const otpRequest = () => {
+      const request = post("/api/person/v1/auth/verify-otp", {
+        email: "person@example.com",
+        token: "123456",
+      });
+      request.headers.set("cookie", challengeCookie);
+      return request;
+    };
+    vi.mocked(dependencies.lifecycle.verifyEmailOtp)
+      .mockResolvedValueOnce({ outcome: "REJECTED" })
+      .mockResolvedValueOnce({ outcome: "UNAVAILABLE" })
+      .mockResolvedValueOnce({ outcome: "AUTHENTICATED", tokens });
+
+    const rejected = await handleVerifyPersonOtp(otpRequest(), dependencies);
+    expect(rejected.status).toBe(401);
+    expect(rejected.headers.getSetCookie()).toHaveLength(0);
+    const unavailable = await handleVerifyPersonOtp(otpRequest(), dependencies);
+    expect(unavailable.status).toBe(503);
+    expect(unavailable.headers.getSetCookie()).toHaveLength(0);
+    const response = await handleVerifyPersonOtp(otpRequest(), dependencies);
+    expect(response.status).toBe(204);
+    expect(response.headers.getSetCookie()).toHaveLength(4);
+    expect(dependencies.lifecycle.verifyEmailOtp).toHaveBeenCalledTimes(3);
+  });
+
+  it("rejects OTP verification without a current initiating challenge", async () => {
     const dependencies = dependenciesStub();
     const request = post("/api/person/v1/auth/verify-otp", {
       email: "person@example.com",
       token: "123456",
     });
-    request.headers.set("cookie", challengeCookie);
     const response = await handleVerifyPersonOtp(request, dependencies);
-    expect(response.status).toBe(204);
-    expect(response.headers.getSetCookie()).toHaveLength(4);
-    expect(dependencies.lifecycle.verifyEmailOtp).toHaveBeenCalledWith(
-      "person@example.com",
-      "123456",
-    );
+    expect(response.status).toBe(400);
+    expect(dependencies.lifecycle.verifyEmailOtp).not.toHaveBeenCalled();
   });
 
   it("rotates refresh cookies and clears rejected sessions", async () => {

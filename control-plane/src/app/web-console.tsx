@@ -1,7 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
 import type { Locale, MessageKey, Messages } from "@/i18n/load-messages";
+import { PersonSessionRecovery } from "./person-session-recovery";
 
 interface Capabilities {
   readonly personAuth: boolean;
@@ -86,14 +93,29 @@ export function WebConsole({
   const [invitationCode, setInvitationCode] = useState("");
   const [working, setWorking] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
+  const recovery = useRef<PersonSessionRecovery | null>(null);
+
+  if (recovery.current === null) {
+    recovery.current = new PersonSessionRecovery(fetch, () => {
+      setAuthenticated(false);
+      setDevices([]);
+      setConsent(null);
+      setEnrollment(null);
+      setRelationshipInvitation(null);
+      setInvitationCode("");
+      setFeedback(messages["error.AUTHENTICATION_REQUIRED"]);
+    });
+  }
 
   const t = useCallback((key: MessageKey) => messages[key], [messages]);
 
-  const loadConsent = useCallback(async () => {
-    const response = await fetch("/api/person/v1/consent", {
+  const loadConsent = useCallback(async (signal?: AbortSignal) => {
+    const response = await recovery.current!.fetch("/api/person/v1/consent", {
       cache: "no-store",
       credentials: "same-origin",
+      signal: signal ?? null,
     });
+    if (!recovery.current!.isActive()) return;
     if (!response.ok) {
       setConsent(null);
       return;
@@ -102,46 +124,22 @@ export function WebConsole({
     setConsent(body);
   }, []);
 
-  const loadDevices = useCallback(async () => {
-    if (!capabilities.personAuth) {
-      setAuthenticated(false);
-      return;
-    }
-    try {
-      const response = await fetch("/api/person/v1/device-enrollments", {
-        cache: "no-store",
-        credentials: "same-origin",
-      });
-      if (response.status === 401) {
+  const loadDevices = useCallback(
+    async (signal?: AbortSignal) => {
+      if (!capabilities.personAuth) {
         setAuthenticated(false);
-        setDevices([]);
-        setConsent(null);
         return;
       }
-      if (!response.ok) {
-        setAuthenticated(null);
-        setConsent(null);
-        return;
-      }
-      const body = (await response.json()) as { devices?: DeviceSummary[] };
-      setAuthenticated(true);
-      setDevices(Array.isArray(body.devices) ? body.devices : []);
-      await loadConsent();
-    } catch {
-      setAuthenticated(null);
-      setConsent(null);
-    }
-  }, [capabilities.personAuth, loadConsent]);
-
-  useEffect(() => {
-    if (!capabilities.personAuth) return;
-    const controller = new AbortController();
-    void fetch("/api/person/v1/device-enrollments", {
-      cache: "no-store",
-      credentials: "same-origin",
-      signal: controller.signal,
-    })
-      .then(async (response) => {
+      try {
+        const response = await recovery.current!.fetch(
+          "/api/person/v1/device-enrollments",
+          {
+            cache: "no-store",
+            credentials: "same-origin",
+            signal: signal ?? null,
+          },
+        );
+        if (!recovery.current!.isActive()) return;
         if (response.status === 401) {
           setAuthenticated(false);
           setDevices([]);
@@ -156,25 +154,32 @@ export function WebConsole({
         const body = (await response.json()) as { devices?: DeviceSummary[] };
         setAuthenticated(true);
         setDevices(Array.isArray(body.devices) ? body.devices : []);
-        const consentResponse = await fetch("/api/person/v1/consent", {
-          cache: "no-store",
-          credentials: "same-origin",
-          signal: controller.signal,
-        });
-        if (consentResponse.ok) {
-          setConsent((await consentResponse.json()) as ConsentSnapshot);
-        } else {
-          setConsent(null);
-        }
-      })
-      .catch((error: unknown) => {
-        if (!(error instanceof DOMException && error.name === "AbortError")) {
+        await loadConsent(signal);
+      } catch {
+        if (recovery.current!.isActive()) {
           setAuthenticated(null);
           setConsent(null);
         }
+      }
+    },
+    [capabilities.personAuth, loadConsent],
+  );
+
+  useEffect(() => {
+    if (!capabilities.personAuth) return;
+    const controller = new AbortController();
+    queueMicrotask(() => {
+      void loadDevices(controller.signal).catch((error: unknown) => {
+        if (!(error instanceof DOMException && error.name === "AbortError")) {
+          if (recovery.current!.isActive()) {
+            setAuthenticated(null);
+            setConsent(null);
+          }
+        }
       });
+    });
     return () => controller.abort();
-  }, [capabilities.personAuth]);
+  }, [capabilities.personAuth, loadDevices]);
 
   function localizedError(code: string | null): string {
     const key = code === null ? undefined : errorKeys[code];
@@ -193,12 +198,15 @@ export function WebConsole({
     setWorking(true);
     setFeedback(t("feedback.working"));
     try {
-      const response = await fetch(path, {
+      const request = {
         method: "POST",
         credentials: "same-origin",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(body),
-      });
+      } as const;
+      const response = path.startsWith("/api/person/v1/auth/")
+        ? await fetch(path, request)
+        : await recovery.current!.fetch(path, request);
       if (!response.ok) {
         const value = (await response.json().catch(() => null)) as {
           error?: string;
@@ -232,12 +240,14 @@ export function WebConsole({
     });
     if (response !== null) {
       setOtp("");
+      recovery.current!.startSession();
       await loadDevices();
       setFeedback(t("identity.authenticated"));
     }
   }
 
   async function logout() {
+    recovery.current!.endSession();
     const response = await submit("/api/person/v1/auth/logout", {});
     if (response !== null) {
       setAuthenticated(false);
@@ -247,6 +257,8 @@ export function WebConsole({
       setRelationshipInvitation(null);
       setInvitationCode("");
       setFeedback(t("feedback.signedOut"));
+    } else {
+      recovery.current!.startSession();
     }
   }
 
