@@ -6,6 +6,59 @@ This document is the starting point for a new EJECT development session. It
 records what is implemented, what has been verified, what remains unknown, and
 the order in which work should continue.
 
+## Current deployment and next action — 2026-09-24
+
+PRs [#25](https://github.com/tnoborio/eject/pull/25) and
+[#26](https://github.com/tnoborio/eject/pull/26) are merged. The verified
+application revision is `7398c32ef6a004e552f96cbb5097813c6d64a6a6` on `main`.
+PR #26 received an independent
+approved review for `682685d` to `56c0129`, including a fresh-Chromium native
+fetch reproduction. All four post-merge checks passed in
+[run 35851500917](https://github.com/tnoborio/eject/actions/runs/35851500917).
+Production deployment `dpl_Dm4gUqhSpbxGNJRMi8HpriJ1LriN`
+(`eject-3kddtye2x-sasara.vercel.app`) was promoted after the temporary rollback;
+the stable origin `https://eject-bice.vercel.app` resolves to this deployment.
+
+Fresh Chromium at the stable origin verified HTTP 200, anonymous session
+rendering, a disabled EJECT button, unauthenticated device-list HTTP 401,
+`DELIVERY_DISABLED` and `ENROLLMENT_DISABLED` responses. Separate fresh browser
+contexts using the deployed page and intercepted synthetic person APIs passed
+expired-session recovery, pause after refresh, and incorrect-then-correct OTP
+UI flow. Those synthetic checks sent no email and are not real account,
+provider-cookie, or two-account consent evidence.
+
+The owner supplied both test addresses and delegated naming. The existing
+active person was preserved and the second invited person was provisioned.
+The dedicated Supabase project was inactive; it was resumed and reached
+`ACTIVE_HEALTHY`. The database delivery gate remains disabled. A fresh browser
+completed real provider OTP sign-in for the first account, including HTTP 401
+for an incorrect code followed by HTTP 204 for the correct code in the same
+challenge. Initial consent has zero connections and is not paused.
+
+On 2026-09-24, the second account completed real emailed-OTP sign-in.
+Separate Chromium contexts against Production then verified connection without
+an automatic grant, explicit grants in both directions, pause/resume,
+revocation, disconnection, and a new-code reconnection with neither grant
+restored. The first account's protected consent request initially returned
+401 after the overnight wait; reloading the page restored access before the
+relationship test. This is live recovery evidence, not a measurement of
+refresh concurrency or rotation internals.
+
+After validation, the test pair was disconnected and both browser sessions
+signed out (HTTP 204), with subsequent protected device requests returning
+401. A read-only database check found zero active relationships between the
+test pair, zero mutual grants, zero test-owned devices or recipient commands,
+and neither account paused. Delivery remained disabled. The isolated test
+browser was closed. No addresses, codes, cookies, or private event logs are
+included in this document.
+
+Next: schedule bounded invitation cleanup, then resolve eject-back expiry and
+late-result recording before remote delivery; continue Windows readiness and
+client work. Physical validation remains deferred until the optical drive is
+available; delivery and enrollment remain disabled. Earlier sections below
+retain historical evidence and are superseded by this current status where
+they describe pending review, deployment, or two-account validation.
+
 ## Review follow-up — 2026-09-23
 
 A code and MVP review of local `main` at `fcce1ca` is recorded in
@@ -56,8 +109,8 @@ to run EJECT. Confirm the drive connection and enumerate again before a
 deliberate, locally approved single attempt. Physical opening and hardware
 compatibility remain unverified.
 
-Authentication PR #25 remains draft pending independent re-review. This
-hardware-readiness investigation does not authorize merging/deploying the PR.
+The hardware-readiness investigation did not enable physical delivery. Later
+merge/deployment authorization and verification are recorded above.
 
 ## Browser rollback and fetch repair — 2026-09-23
 
