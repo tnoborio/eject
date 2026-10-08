@@ -20,19 +20,26 @@ cloud verifierはpublicの全tableのRLS、APIの実効table/column権限、接�
 全tableのownerでFORCEなし、または`BYPASSRLS`を持つことを検査します。
 出力は件数と限定された事実だけにし、databaseの生のerrorは出力しません。
 
-ローカルでは`npm run check --workspace @eject/control-plane`とcontrol-planeの
-unit/property test全118件に成功しました。PostgreSQL suiteは`postgres:17`で
-superuserでも`BYPASSRLS`でもないownerを使い35件成功、APIロール専用3件skipでした。
-既存のSupabase PostgreSQL 17.6.1.158 imageでは全38件成功しました。
-suiteのschema resetのため、使い捨てのSupabase test databaseとpublic schemaのownerだけを
-その`postgres`テストロールに設定しました。ownerの読み書き、anon SELECTの拒否、
-一時的なSELECT付与後も0行、既存・将来の直接grant取り消し、危険なverifier状態の拒否を確認しました。
-0006を外すと新しいRLS回帰testは未保護table 19件で失敗し、戻すと成功しました。
-一時container 2個は停止・削除済みです。本番TLS検証とSecurity Advisorの確認は
-operatorの次作業であり、ローカルの証拠には含みません。
+PR #28の`fa375a3`に対する独立reviewはchanges-requestedでした。修正では専用error型を使って
+検証・設定の固定診断文を表示し、driver由来の文字列は伏せます。CIは`anon`と`authenticated`を作り、
+BYPASSRLSなし・非superuserのtable ownerで実行します。role切り替え用membershipからAPI権限は
+継承しません。migration回帰fixtureは0006が取り消すべき直接grantとschema default grantを付与します。
+runbookにアプリロールの読み取り専用事前確認、owner混在時のrollback、緊急時の一時復旧、
+`supabase_admin`の残存default grant、想定どおりの19件の`rls_enabled_no_policy` INFOを追記しました。
+このINFOを消すためにpolicyを追加しません。修正後の独立再reviewは未完了です。
+
+ローカルでは`npm run check --workspace @eject/control-plane`とunit/property test全128件に成功しました。
+既存`postgres:17` imageでCI構成を再現し、PostgreSQL全38件がskip 0で成功しました。
+既存Supabase PostgreSQL 17.6.1.158 imageでも全38件成功しました。schema resetのため、
+使い捨てのSupabase databaseとpublic schemaのownerだけを`postgres`テストロールに設定しました。
+REVOKE blockを外すとAPI権限回帰testが失敗しました。固定診断文をすべて隠す改変ではunit 7件、
+全Error文言を通す改変では上流Errorの2件が失敗し、すべて元に戻しました。
+事前確認SQLは通常ownerでbypass false/他owner 0件、anonでfalse/19件、Supabase postgresでtrue/0件を
+返しました。前回の0006除外でも未保護table 19件で失敗しています。一時containerは停止・削除済みです。
+本番TLS検証とSecurity Advisorの確認はoperatorの次作業であり、ローカルの証拠には含みません。
 
 review・merge後の次の行動は、[運用手順](CLOUD-DATABASE.ja.md)のoperator環境で、
-**本人がprojectを再開 → `npm run migrate` → アプリの接続ロールで
+**本人がprojectを再開 → アプリロールの読み取り専用事前確認 → `npm run migrate` → アプリの接続ロールで
 `npm run verify:cloud-database` → Advisorの警告解消を確認**です。
 再開前にreview済みrevisionと環境を準備します。既存accountがあるため
 `--expect-empty`は付けません。`main`へのmergeでVercel Production deployが作られ得ますが、

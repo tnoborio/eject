@@ -1,4 +1,5 @@
 import type { Pool, PoolClient } from "pg";
+import { VerificationError } from "./verification-error";
 
 export interface DatabaseSecurity {
   public_tables: number;
@@ -37,19 +38,23 @@ export async function inspectDatabaseSecurity(
   `);
   const state = result.rows[0];
   if (state === undefined)
-    throw new Error("Database security state is missing");
+    throw new VerificationError("Database security state is missing");
   return state;
 }
 
 export function assertDatabaseSecurity(state: DatabaseSecurity): void {
   if (state.public_tables === 0 || state.tables_without_rls !== 0) {
-    throw new Error("Public tables must all have row-level security enabled");
+    throw new VerificationError(
+      "Public tables must all have row-level security enabled",
+    );
   }
   if (state.api_table_privileges !== 0) {
-    throw new Error("Data API roles must have no public table privileges");
+    throw new VerificationError(
+      "Data API roles must have no public table privileges",
+    );
   }
   if (!state.connection_bypasses_rls) {
-    throw new Error(
+    throw new VerificationError(
       "Database connection role must own all public tables without FORCE RLS or have BYPASSRLS",
     );
   }

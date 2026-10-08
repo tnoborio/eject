@@ -23,22 +23,34 @@ public table's RLS, effective API table/column privileges, and whether the
 connection owns every public table without FORCE or has `BYPASSRLS`. Output is
 limited to counts and bounded facts; raw database errors are not printed.
 
+The independent review of PR #28 at `fa375a3` requested changes. The follow-up
+preserves bounded verification/configuration error messages using dedicated
+error types, while redacting untrusted driver text. CI now creates `anon` and
+`authenticated` and runs as a non-superuser table owner without BYPASSRLS;
+role-switch membership does not inherit API privileges. The migration regression
+fixture seeds the direct and schema-default grants that 0006 must revoke.
+The runbook adds a read-only application-role preflight, mixed-owner rollback
+and temporary incident recovery guidance, `supabase_admin`'s unchanged defaults,
+and the expected 19 `rls_enabled_no_policy` INFO findings. Do not add policies to
+silence those findings. The follow-up still needs independent re-review.
+
 Local verification passed `npm run check --workspace @eject/control-plane`
-and all 118 control-plane unit/property tests. The PostgreSQL suite passed
-35 tests with three API-role-specific skips on `postgres:17` using a
-non-superuser owner without `BYPASSRLS`, and all 38 tests on the existing
-Supabase PostgreSQL 17.6.1.158 image. Only the disposable Supabase test database
-and public-schema ownership were assigned to its `postgres` test role to allow
-the suite's schema reset. Tests proved owner reads/writes, anon SELECT denial,
-zero visible rows after a temporary SELECT grant, current/future direct grant
-revocation, and rejection of unsafe verifier states. Removing 0006 made the new
-RLS regression test fail with 19 unprotected tables; restoring it passed.
-Both temporary containers were stopped and removed. Production TLS verification
+and all 128 control-plane unit/property tests. Reproducing the CI setup on the
+existing `postgres:17` image passed all 38 PostgreSQL tests with zero skips,
+as did the existing Supabase PostgreSQL 17.6.1.158 image. Only the disposable
+Supabase database/public-schema ownership was assigned to its `postgres` test
+role for schema resets. Removing the REVOKE block made the API-grant regression
+fail. Replacing safe diagnostics with a generic message failed seven unit cases;
+allowing all Error messages through failed both untrusted-Error cases. All
+mutations were restored. The preflight query returned bypass false/other-owner
+count zero for the plain owner, false/19 for anon, and true/zero for Supabase
+postgres. Earlier removal of 0006 also failed with 19 unprotected tables.
+Temporary containers were stopped and removed. Production TLS verification
 and Security Advisor confirmation remain operator work, not local evidence.
 
-Next, after review and merge: **the owner resumes the project → runs
-`npm run migrate` → runs `npm run verify:cloud-database` using the application's
-connection role → confirms Security Advisor findings are cleared**, from the
+Next, after review and merge: **the owner resumes the project → performs the
+read-only application-role preflight → runs `npm run migrate` → runs
+`npm run verify:cloud-database` using the application's connection role → confirms Security Advisor findings are cleared**, from the
 operator environment described in [the runbook](CLOUD-DATABASE.md). Prepare the
 reviewed revision and environment before resumption. Existing accounts mean
 `--expect-empty` must be omitted. Merging to `main` may create a Vercel

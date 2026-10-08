@@ -68,6 +68,15 @@ RLSはFORCEせず、直接接続するロールは全application tableのowner�
 cloud verifierはRLS漏れ、継承やPUBLIC経由を含むData APIの実効table権限、
 不適切な接続ロールを拒否します。今後のmigrationもこの境界を維持します。
 
+具体的な別object作成ロールは`supabase_admin`です。このロールのpublic schemaの既定ACLは
+`anon` / `authenticated`への全権限付与が残り、`postgres`では取り消せません。
+dashboardやManagement APIから`supabase_admin`でtableを作ると、RLSなしで直ちに露出し得ます。
+verifierはRLS漏れとAPIの実効table権限を検知します。schema変更はrepositoryのmigrationだけで行い、
+これらのprovider経路では作成しません。
+
+Security AdvisorのINFO `rls_enabled_no_policy`は19 table分出るのが想定どおりです。
+policyなしのRLSは意図した設計であり、このINFOを消すためにpolicyを追加してはいけません。
+
 migrationはrepositoryに準備済みで、停止中のcloud projectには未適用です。
 再開・適用・検証・Security Advisorでの確認は[運用手順](CLOUD-DATABASE.ja.md)を参照してください。
 

@@ -9,6 +9,11 @@ import {
   inspectDatabaseSecurity,
 } from "./database-security";
 
+import {
+  VerificationError,
+  reportVerificationFailure,
+} from "./verification-error";
+
 const migrationPattern = /^\d{4}_[a-z0-9_]+\.sql$/;
 
 interface MigrationRow {
@@ -27,7 +32,9 @@ async function main(): Promise<void> {
   const expectEmpty = parseArguments(process.argv.slice(2));
   const poolConfig = postgresPoolConfigFromEnvironment(process.env, 1);
   if (poolConfig.ssl === undefined || poolConfig.ssl === false) {
-    throw new Error("Cloud database verification requires a pinned TLS CA");
+    throw new VerificationError(
+      "Cloud database verification requires a pinned TLS CA",
+    );
   }
   const pool = new Pool(poolConfig);
   try {
@@ -71,19 +78,25 @@ async function main(): Promise<void> {
     `);
     const snapshot = state.rows[0];
     if (snapshot === undefined)
-      throw new Error("Database safety row is missing");
+      throw new VerificationError("Database safety row is missing");
     if (!snapshot.server_version_num.startsWith("17")) {
-      throw new Error("Cloud database is not PostgreSQL 17");
+      throw new VerificationError("Cloud database is not PostgreSQL 17");
     }
     if (snapshot.delivery_enabled) {
-      throw new Error("Cloud database delivery must remain disabled");
+      throw new VerificationError(
+        "Cloud database delivery must remain disabled",
+      );
     }
     if (snapshot.physical_hourly_ceiling !== null) {
-      throw new Error("Cloud database physical ceiling must remain unset");
+      throw new VerificationError(
+        "Cloud database physical ceiling must remain unset",
+      );
     }
     const applicationRows = Number(snapshot.application_rows);
     if (expectEmpty && applicationRows !== 0) {
-      throw new Error("Cloud database contains EJECT application rows");
+      throw new VerificationError(
+        "Cloud database contains EJECT application rows",
+      );
     }
 
     console.log(
@@ -110,7 +123,9 @@ function parseArguments(arguments_: readonly string[]): boolean {
   if (arguments_.length === 0) return false;
   if (arguments_.length === 1 && arguments_[0] === "--expect-empty")
     return true;
-  throw new Error("Usage: npm run verify:cloud-database -- [--expect-empty]");
+  throw new VerificationError(
+    "Usage: npm run verify:cloud-database -- [--expect-empty]",
+  );
 }
 
 async function expectedMigrations(directory: string): Promise<MigrationRow[]> {
@@ -132,7 +147,7 @@ function assertMigrations(
   applied: readonly MigrationRow[],
 ): void {
   if (expected.length !== applied.length) {
-    throw new Error(
+    throw new VerificationError(
       "Cloud database migration set does not match the repository",
     );
   }
@@ -143,13 +158,11 @@ function assertMigrations(
       actual.filename !== migration.filename ||
       actual.checksum !== migration.checksum
     ) {
-      throw new Error("Cloud database migration checksum or filename mismatch");
+      throw new VerificationError(
+        "Cloud database migration checksum or filename mismatch",
+      );
     }
   }
 }
 
-void main().catch(() => {
-  // Driver errors can contain identifiers, connection details, or row contents.
-  console.error("Cloud database verification failed");
-  process.exitCode = 1;
-});
+void main().catch(reportVerificationFailure);

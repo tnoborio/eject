@@ -52,6 +52,16 @@ function EXECUTE privilege is not removed by role-specific revocation. EJECT's
 migrations currently create no functions. Any future callable function needs an
 explicit privilege review before it can expose application data.
 
+The concrete other object creator is `supabase_admin`: its public-schema default
+ACL still grants all privileges to `anon` / `authenticated`, and `postgres`
+cannot revoke those defaults. A table created through the dashboard or Management
+API as `supabase_admin` can therefore be exposed immediately without RLS. The
+verifier detects missing RLS and effective API table privileges. Change schema
+only through repository migrations, never through those provider paths.
+
+Security Advisor's INFO `rls_enabled_no_policy` is expected for all 19 tables:
+policy-free RLS is intentional. Do not add policies to silence these INFO findings.
+
 The application connection must own all application tables or have `BYPASSRLS`.
 The verifier conservatively checks every public table, including the migration
 ledger, and rejects forced RLS for an owner without bypass. Run verification
@@ -61,18 +71,64 @@ Every future public table must enable RLS in its own migration; PostgreSQL tests
 check the whole schema after all migrations.
 
 After review and merge, the owner must complete this sequence in the operator
-environment: **resume → migrate → verify → Security Advisor confirmation**.
+environment: **resume → role preflight → migrate → verify → Security Advisor
+confirmation**.
 Have the reviewed revision and operator environment ready before resuming;
 the repository change alone does not protect the resumed database.
 
 1. Resume the project and wait for it to be healthy.
-2. Apply repository migrations using the session pooler and the existing
+2. Run the read-only role preflight below using the application connection. Stop
+   if neither bypass nor ownership is confirmed.
+3. Apply repository migrations using the session pooler and the existing
    migration role, following the commands below.
-3. Run `npm run verify:cloud-database` with the application's connection role
+4. Run `npm run verify:cloud-database` with the application's connection role
    and pinned TLS CA. Existing accounts mean `--expect-empty` must be omitted.
-4. Refresh Security Advisor and confirm the `rls_disabled_in_public` findings
+5. Refresh Security Advisor and confirm the `rls_disabled_in_public` findings
    are cleared. A failed verifier or remaining warning needs investigation
    before treating the boundary as verified.
+
+### Read-only role preflight before migration 0006
+
+Before `npm run migrate`, execute this once in a read-only SQL session using the
+role from the application's `DATABASE_URL`, with the pinned CA and verified TLS.
+Do not substitute the dashboard's role or a more privileged operator role.
+The result contains only a boolean and a count, with no table or row identifiers.
+
+```sql
+BEGIN READ ONLY;
+SELECT r.rolbypassrls,
+       (SELECT count(*) FROM pg_class AS c
+        JOIN pg_namespace AS n ON n.oid = c.relnamespace
+        WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p')
+          AND c.relowner <> r.oid) AS public_tables_owned_by_other_roles
+FROM pg_roles AS r
+WHERE r.rolname = current_user;
+COMMIT;
+```
+
+Proceed only if `rolbypassrls = true` **or**
+`public_tables_owned_by_other_roles = 0`. If neither holds, **do not apply 0006**;
+resolve the connection/ownership mismatch through a reviewed change first.
+This preflight applies before 0006, whose DDL does not FORCE RLS; after applying,
+the full verifier also checks forced RLS and effective API privileges.
+
+BYPASSRLS permits data access, not ownership-only DDL. The migration role must
+also be allowed to alter every target table. If ownership is mixed and it cannot
+act as an affected table's owner, 0006 fails with `must be owner` and the existing
+transaction runner rolls back all of 0006. Do not treat application bypass as
+proof that the migration role can alter other roles' tables.
+
+### Emergency recovery
+
+If the application is unexpectedly blocked after applying 0006, an incident
+operator with table-owner authority can temporarily use
+`ALTER TABLE public.<affected_table> DISABLE ROW LEVEL SECURITY;` for the
+identified affected table (replace the placeholder). Preserve the API privilege
+revocations, keep delivery/enrollment disabled, and verify that API access stays
+closed. Disabling RLS weakens defense in depth and is a temporary incident action,
+not normal schema management. Record the affected scope and restore the intended
+boundary through the next reviewed forward-only migration; never edit 0006 or
+its ledger checksum. Do not add Data API policies as a recovery shortcut.
 
 ## Environment boundary
 
@@ -173,6 +229,7 @@ describes `verify-full` as the strongest mode.
 English SQL files in `control-plane/migrations/` remain the only EJECT schema
 source of truth. Do not edit the database schema in the provider dashboard.
 
+Complete the read-only role preflight above before applying 0006.
 For an operator session, obtain the database password and current Supabase CA
 through the provider controls without writing either to the repository. Use the
 session pooler on port 5432 for migrations, then run:
@@ -204,7 +261,8 @@ Use `--expect-empty` only for a newly provisioned empty database. The verifier r
 Its output contains only bounded operational facts and an aggregate EJECT row
 count, migration count, security counts, and booleans. Database names, migration
 filenames, other object identifiers, credentials, and row contents are not
-printed, including on failure. The JSON evidence below predates this output format.
+printed, including on failure. Dedicated verification/configuration errors retain
+their bounded diagnostic messages; untrusted upstream errors use a generic message. The JSON evidence below predates this output format.
 
 After migration 0005 is deployed, run invitation cleanup from the same
 operator-only environment:
