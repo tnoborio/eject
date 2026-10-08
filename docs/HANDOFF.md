@@ -32,7 +32,8 @@ fixture seeds the direct and schema-default grants that 0006 must revoke.
 The runbook adds a read-only application-role preflight, mixed-owner rollback
 and temporary incident recovery guidance, `supabase_admin`'s unchanged defaults,
 and the expected 19 `rls_enabled_no_policy` INFO findings. Do not add policies to
-silence those findings. The follow-up still needs independent re-review.
+silence those findings. Independent re-review approved the follow-up at
+`5d9dfc1`, including real PostgreSQL 17 CI with no skipped API-role tests.
 
 Local verification passed `npm run check --workspace @eject/control-plane`
 and all 128 control-plane unit/property tests. Reproducing the CI setup on the
@@ -97,8 +98,7 @@ relationship test. This is live recovery evidence, not a measurement of
 refresh concurrency or rotation internals.
 
 After validation, the test pair was disconnected and both browser sessions
-signed out (HTTP 204), with subsequent protected device requests returning
-401. A read-only database check found zero active relationships between the
+signed out (HTTP 204), with subsequent protected device requests returning 401. A read-only database check found zero active relationships between the
 test pair, zero mutual grants, zero test-owned devices or recipient commands,
 and neither account paused. Delivery remained disabled. The isolated test
 browser was closed. No addresses, codes, cookies, or private event logs are

@@ -26,7 +26,8 @@ BYPASSRLSなし・非superuserのtable ownerで実行します。role切り替�
 継承しません。migration回帰fixtureは0006が取り消すべき直接grantとschema default grantを付与します。
 runbookにアプリロールの読み取り専用事前確認、owner混在時のrollback、緊急時の一時復旧、
 `supabase_admin`の残存default grant、想定どおりの19件の`rls_enabled_no_policy` INFOを追記しました。
-このINFOを消すためにpolicyを追加しません。修正後の独立再reviewは未完了です。
+このINFOを消すためにpolicyを追加しません。修正後の独立再reviewは`5d9dfc1`で承認され、
+API role testをskipしないreal PostgreSQL 17 CIも通過しました。
 
 ローカルでは`npm run check --workspace @eject/control-plane`とunit/property test全128件に成功しました。
 既存`postgres:17` imageでCI構成を再現し、PostgreSQL全38件がskip 0で成功しました。
