@@ -5,6 +5,40 @@
 この文書は、新しいEJECT開発セッションの開始点です。実装済みの内容、検証済みの内容、
 未確認事項、今後の作業順序を記録します。
 
+## Data API遮断を準備済み・本番未適用 — 2026-10-08
+
+所有者の報告では、専用Supabase projectは無操作による自動停止中です。
+2026-09-27にSecurity AdvisorからCriticalの`rls_disabled_in_public`警告がありました。
+forward-only migration `0006_close_data_api_access.sql`をrepositoryに追加し、
+0001〜0005は変更していません。**0006は本番未適用です。**
+この作業ではproduction credential・cloud接続・Supabase/Vercel操作を使用していません。
+
+全18 application tableとmigration台帳でpolicy・FORCEなしのRLSを有効にします。
+存在する`anon` / `authenticated`からpublicのtable・sequence・functionの権限と、
+migration実行ロールのpublic schemaのdefault grantを取り消します。
+cloud verifierはpublicの全tableのRLS、APIの実効table/column権限、接続ロールが
+全tableのownerでFORCEなし、または`BYPASSRLS`を持つことを検査します。
+出力は件数と限定された事実だけにし、databaseの生のerrorは出力しません。
+
+ローカルでは`npm run check --workspace @eject/control-plane`とcontrol-planeの
+unit/property test全118件に成功しました。PostgreSQL suiteは`postgres:17`で
+superuserでも`BYPASSRLS`でもないownerを使い35件成功、APIロール専用3件skipでした。
+既存のSupabase PostgreSQL 17.6.1.158 imageでは全38件成功しました。
+suiteのschema resetのため、使い捨てのSupabase test databaseとpublic schemaのownerだけを
+その`postgres`テストロールに設定しました。ownerの読み書き、anon SELECTの拒否、
+一時的なSELECT付与後も0行、既存・将来の直接grant取り消し、危険なverifier状態の拒否を確認しました。
+0006を外すと新しいRLS回帰testは未保護table 19件で失敗し、戻すと成功しました。
+一時container 2個は停止・削除済みです。本番TLS検証とSecurity Advisorの確認は
+operatorの次作業であり、ローカルの証拠には含みません。
+
+review・merge後の次の行動は、[運用手順](CLOUD-DATABASE.ja.md)のoperator環境で、
+**本人がprojectを再開 → `npm run migrate` → アプリの接続ロールで
+`npm run verify:cloud-database` → Advisorの警告解消を確認**です。
+再開前にreview済みrevisionと環境を準備します。既存accountがあるため
+`--expect-empty`は付けません。`main`へのmergeでVercel Production deployが作られ得ますが、
+migrationは適用されません。配送・端末登録は無効を維持します。
+この手順を以下の過去の次作業より優先し、2026-09-24の同意検証は過去の証拠として保持します。
+
 ## 現在の本番反映と次の作業 — 2026-09-24
 
 PR [#25](https://github.com/tnoborio/eject/pull/25)と

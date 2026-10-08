@@ -6,6 +6,46 @@ This document is the starting point for a new EJECT development session. It
 records what is implemented, what has been verified, what remains unknown, and
 the order in which work should continue.
 
+## Data API closure prepared; production pending — 2026-10-08
+
+The owner reports that the dedicated Supabase project is paused after
+inactivity. Security Advisor reported critical `rls_disabled_in_public`
+findings on 2026-09-27. Forward-only migration
+`0006_close_data_api_access.sql` is added to the repository; migrations 0001–0005
+are unchanged. **0006 has not been applied to production.** This work used no
+production credentials, cloud connection, or Supabase/Vercel operation.
+
+The migration enables RLS without policies or FORCE on all 18 application
+tables and the migration ledger. It revokes public table, sequence, and
+function privileges and the migration role's public-schema default grants from
+existing `anon` / `authenticated` roles. The cloud verifier now checks every
+public table's RLS, effective API table/column privileges, and whether the
+connection owns every public table without FORCE or has `BYPASSRLS`. Output is
+limited to counts and bounded facts; raw database errors are not printed.
+
+Local verification passed `npm run check --workspace @eject/control-plane`
+and all 118 control-plane unit/property tests. The PostgreSQL suite passed
+35 tests with three API-role-specific skips on `postgres:17` using a
+non-superuser owner without `BYPASSRLS`, and all 38 tests on the existing
+Supabase PostgreSQL 17.6.1.158 image. Only the disposable Supabase test database
+and public-schema ownership were assigned to its `postgres` test role to allow
+the suite's schema reset. Tests proved owner reads/writes, anon SELECT denial,
+zero visible rows after a temporary SELECT grant, current/future direct grant
+revocation, and rejection of unsafe verifier states. Removing 0006 made the new
+RLS regression test fail with 19 unprotected tables; restoring it passed.
+Both temporary containers were stopped and removed. Production TLS verification
+and Security Advisor confirmation remain operator work, not local evidence.
+
+Next, after review and merge: **the owner resumes the project → runs
+`npm run migrate` → runs `npm run verify:cloud-database` using the application's
+connection role → confirms Security Advisor findings are cleared**, from the
+operator environment described in [the runbook](CLOUD-DATABASE.md). Prepare the
+reviewed revision and environment before resumption. Existing accounts mean
+`--expect-empty` must be omitted. Merging to `main` may create a Vercel
+Production deployment; it does not apply this migration. Delivery and enrollment
+remain disabled. This sequence takes priority over the historical next actions
+below; the 2026-09-24 consent evidence remains historical evidence.
+
 ## Current deployment and next action — 2026-09-24
 
 PRs [#25](https://github.com/tnoborio/eject/pull/25) and

@@ -55,6 +55,22 @@ EJECT grantは作成しません。このcodeはaccount discoveryや物理操作
 アプリ側でも命令の対象端末、完全性、有効期限、命令IDを検証します。サーバー認可は
 ローカル検証の代わりにはなりません。
 
+## DatabaseのData API境界
+
+EJECTが使うSupabaseのAPIはAuthだけです。application dataにはcontrol-planeから
+`pg`と`DATABASE_URL`（Supavisor）で接続し、Supabase Data API（PostgREST）は使いません。
+publishable keyやperson sessionでEJECT tableへ直接アクセスできてはいけません。
+
+migration 0006は全application tableと`schema_migrations`にpolicyなしでRLSを有効にし、
+publicのtable・sequence・functionについて`anon` / `authenticated`の権限と、
+migration実行ロールのschema単位のdefault privilegesを取り消します。
+RLSはFORCEせず、直接接続するロールは全application tableのownerか`BYPASSRLS`が必要です。
+cloud verifierはRLS漏れ、継承やPUBLIC経由を含むData APIの実効table権限、
+不適切な接続ロールを拒否します。今後のmigrationもこの境界を維持します。
+
+migrationはrepositoryに準備済みで、停止中のcloud projectには未適用です。
+再開・適用・検証・Security Advisorでの確認は[運用手順](CLOUD-DATABASE.ja.md)を参照してください。
+
 ## 能力の封じ込め
 
 命令プロトコルは閉じた種類だけを持ちます。初期の物理命令は

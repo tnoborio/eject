@@ -25,11 +25,54 @@ The Supabase project is dedicated to EJECT. It is not a database inside
 `sasara-hub`, and it does not share an application schema or credentials with
 another Sasara service.
 
-All five repository migrations are applied and checksum-verified. PostgreSQL
+Migrations 0001–0005 were applied and checksum-verified. The following row
+snapshot is historical (2026-07-24), not a current production query. PostgreSQL
 rejects non-TLS external connections. The singleton delivery gate is `false`,
 the physical hourly ceiling is unset, and the EJECT application tables contain
 one invited person and no relationships, relationship invitations, devices,
 commands, results, or private events.
+
+## RLS and the Data API boundary — 2026-10-08
+
+The owner reports that the project is paused after inactivity. Security Advisor
+reported critical `rls_disabled_in_public` findings on 2026-09-27. Migration
+`0006_close_data_api_access.sql` is now in the repository but has **not** been
+applied to production. No cloud connection or provider operation was performed
+for this change.
+
+EJECT uses Supabase Auth, not the Data API (PostgREST). The control plane connects
+with `pg` through `DATABASE_URL` and Supavisor. Migration 0006 enables RLS on all
+18 application tables and `schema_migrations`, creates no policies, and does not
+use FORCE RLS. It revokes all privileges from existing `anon` and `authenticated`
+roles on public tables, sequences, and functions, and removes their public-schema
+default grants for objects created by the migration role. Missing API roles are
+skipped so plain PostgreSQL remains supported. Other object-creator roles and
+future explicit grants require separate review; PostgreSQL's implicit PUBLIC
+function EXECUTE privilege is not removed by role-specific revocation. EJECT's
+migrations currently create no functions. Any future callable function needs an
+explicit privilege review before it can expose application data.
+
+The application connection must own all application tables or have `BYPASSRLS`.
+The verifier conservatively checks every public table, including the migration
+ledger, and rejects forced RLS for an owner without bypass. Run verification
+with the application's connection role, not only a privileged operator role.
+Do not work around a failure by adding Data API policies or widening privileges.
+Every future public table must enable RLS in its own migration; PostgreSQL tests
+check the whole schema after all migrations.
+
+After review and merge, the owner must complete this sequence in the operator
+environment: **resume → migrate → verify → Security Advisor confirmation**.
+Have the reviewed revision and operator environment ready before resuming;
+the repository change alone does not protect the resumed database.
+
+1. Resume the project and wait for it to be healthy.
+2. Apply repository migrations using the session pooler and the existing
+   migration role, following the commands below.
+3. Run `npm run verify:cloud-database` with the application's connection role
+   and pinned TLS CA. Existing accounts mean `--expect-empty` must be omitted.
+4. Refresh Security Advisor and confirm the `rls_disabled_in_public` findings
+   are cleared. A failed verifier or remaining warning needs investigation
+   before treating the boundary as verified.
 
 ## Environment boundary
 
@@ -137,7 +180,7 @@ session pooler on port 5432 for migrations, then run:
 ```sh
 cd control-plane
 npm run migrate
-npm run verify:cloud-database -- --expect-empty
+npm run verify:cloud-database
 ```
 
 `DATABASE_URL` and `EJECT_DATABASE_SSL_CA_B64` must already be present in that
@@ -145,17 +188,23 @@ process environment. The migration runner takes a PostgreSQL advisory lock,
 applies each file transactionally, and verifies stored SHA-256 checksums before
 skipping an applied migration.
 
-Omit `--expect-empty` after real accounts exist. The verifier still requires:
+Use `--expect-empty` only for a newly provisioned empty database. The verifier requires:
 
 - the exact repository migration names and checksums;
 - PostgreSQL major version 17;
 - a pinned TLS CA and a successful verified connection;
+- RLS enabled on every public table, including `schema_migrations`;
+- no effective public table or column privileges for existing `anon` /
+  `authenticated` roles (including PUBLIC and inherited grants);
+- a connection role that owns every public table without FORCE RLS or has
+  `BYPASSRLS`;
 - `delivery_enabled = false`; and
 - `physical_hourly_ceiling IS NULL`.
 
 Its output contains only bounded operational facts and an aggregate EJECT row
-count. It does not print the connection string, host credential, row contents,
-or event identifiers.
+count, migration count, security counts, and booleans. Database names, migration
+filenames, other object identifiers, credentials, and row contents are not
+printed, including on failure. The JSON evidence below predates this output format.
 
 After migration 0005 is deployed, run invitation cleanup from the same
 operator-only environment:

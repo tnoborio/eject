@@ -4,6 +4,11 @@ import { resolve } from "node:path";
 import { Pool } from "pg";
 import { postgresPoolConfigFromEnvironment } from "../src/infrastructure/postgres/pool-config";
 
+import {
+  assertDatabaseSecurity,
+  inspectDatabaseSecurity,
+} from "./database-security";
+
 const migrationPattern = /^\d{4}_[a-z0-9_]+\.sql$/;
 
 interface MigrationRow {
@@ -12,7 +17,6 @@ interface MigrationRow {
 }
 
 interface DatabaseState {
-  database_name: string;
   server_version_num: string;
   delivery_enabled: boolean;
   physical_hourly_ceiling: number | null;
@@ -30,6 +34,9 @@ async function main(): Promise<void> {
     const migrations = await expectedMigrations(
       resolve(process.cwd(), "migrations"),
     );
+    const security = await inspectDatabaseSecurity(pool);
+    assertDatabaseSecurity(security);
+
     const applied = await pool.query<MigrationRow>(
       "SELECT filename, checksum FROM schema_migrations ORDER BY filename",
     );
@@ -37,7 +44,6 @@ async function main(): Promise<void> {
 
     const state = await pool.query<DatabaseState>(`
       SELECT
-        current_database() AS database_name,
         current_setting('server_version_num') AS server_version_num,
         policy.delivery_enabled,
         policy.physical_hourly_ceiling,
@@ -83,10 +89,10 @@ async function main(): Promise<void> {
     console.log(
       JSON.stringify(
         {
-          database: snapshot.database_name,
           postgres_major: 17,
           tls: "CA_AND_HOSTNAME_VERIFIED",
-          migrations: migrations.map(({ filename }) => filename),
+          migrations: migrations.length,
+          ...security,
           delivery_enabled: false,
           physical_hourly_ceiling: null,
           application_rows: applicationRows,
@@ -137,18 +143,13 @@ function assertMigrations(
       actual.filename !== migration.filename ||
       actual.checksum !== migration.checksum
     ) {
-      throw new Error(
-        `Cloud database migration mismatch: ${migration.filename}`,
-      );
+      throw new Error("Cloud database migration checksum or filename mismatch");
     }
   }
 }
 
-void main().catch((error: unknown) => {
-  console.error(
-    error instanceof Error
-      ? error.message
-      : "Cloud database verification failed",
-  );
+void main().catch(() => {
+  // Driver errors can contain identifiers, connection details, or row contents.
+  console.error("Cloud database verification failed");
   process.exitCode = 1;
 });
