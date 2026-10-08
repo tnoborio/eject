@@ -77,7 +77,7 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     env:
-      TEST_DATABASE_URL: postgresql://eject:eject@127.0.0.1:5432/eject_test
+      TEST_DATABASE_URL: postgresql://eject_owner:eject@127.0.0.1:5432/eject_test
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
@@ -87,6 +87,9 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Create API roles and a non-bypass table owner
+        run: |
+          docker exec -i "${{ job.services.postgres.id }}" psql -U eject -d eject_test -v ON_ERROR_STOP=1 < control-plane/test/postgres/setup-ci.sql
       - run: npm run test:postgres --workspace @eject/control-plane
 
   build:

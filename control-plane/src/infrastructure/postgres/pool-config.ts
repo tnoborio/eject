@@ -4,6 +4,9 @@ import type { PoolConfig } from "pg";
 const SUPABASE_ROOT_2021_SHA256 =
   "80:70:25:AD:50:D4:ED:21:9D:2C:9C:7D:29:9C:00:4F:82:4E:B0:0C:F7:F6:5A:FE:F6:07:D0:7B:72:E6:CA:FA";
 
+// Only bounded, locally constructed configuration messages belong to this type.
+export class PoolConfigurationError extends Error {}
+
 type Environment = Readonly<Record<string, string | undefined>>;
 
 export function postgresPoolConfigFromEnvironment(
@@ -19,7 +22,7 @@ export function postgresPoolConfigFromEnvironment(
   const encodedCa = environment.EJECT_DATABASE_SSL_CA_B64;
   if (encodedCa === undefined || encodedCa === "") {
     if (isSupabase) {
-      throw new Error(
+      throw new PoolConfigurationError(
         "EJECT_DATABASE_SSL_CA_B64 is required for a Supabase database",
       );
     }
@@ -30,7 +33,9 @@ export function postgresPoolConfigFromEnvironment(
   const ca = decodeCertificate(encodedCa);
   const certificate = parseCertificate(ca);
   if (isSupabase && certificate.fingerprint256 !== SUPABASE_ROOT_2021_SHA256) {
-    throw new Error("The Supabase database CA fingerprint is not trusted");
+    throw new PoolConfigurationError(
+      "The Supabase database CA fingerprint is not trusted",
+    );
   }
 
   return {
@@ -43,7 +48,9 @@ export function postgresPoolConfigFromEnvironment(
 function requiredEnvironment(environment: Environment, name: string): string {
   const value = environment[name];
   if (value === undefined || value === "") {
-    throw new Error(`Required database environment is missing: ${name}`);
+    throw new PoolConfigurationError(
+      `Required database environment is missing: ${name}`,
+    );
   }
   return value;
 }
@@ -52,11 +59,11 @@ function parseDatabaseUrl(connectionString: string): URL {
   try {
     const url = new URL(connectionString);
     if (url.protocol !== "postgres:" && url.protocol !== "postgresql:") {
-      throw new Error("unsupported protocol");
+      throw new PoolConfigurationError("unsupported protocol");
     }
     return url;
   } catch {
-    throw new Error("DATABASE_URL is not a PostgreSQL URL");
+    throw new PoolConfigurationError("DATABASE_URL is not a PostgreSQL URL");
   }
 }
 
@@ -65,7 +72,7 @@ function rejectConnectionStringSslOptions(databaseUrl: URL): void {
     (name) => databaseUrl.searchParams.has(name),
   );
   if (conflicting !== undefined) {
-    throw new Error(
+    throw new PoolConfigurationError(
       `DATABASE_URL must not contain ${conflicting} when EJECT_DATABASE_SSL_CA_B64 is set`,
     );
   }
@@ -73,13 +80,17 @@ function rejectConnectionStringSslOptions(databaseUrl: URL): void {
 
 function decodeCertificate(encoded: string): string {
   if (!/^[A-Za-z0-9+/]+={0,2}$/.test(encoded)) {
-    throw new Error("EJECT_DATABASE_SSL_CA_B64 is not canonical base64");
+    throw new PoolConfigurationError(
+      "EJECT_DATABASE_SSL_CA_B64 is not canonical base64",
+    );
   }
   const certificate = Buffer.from(encoded, "base64");
   const canonicalInput = encoded.replace(/=+$/, "");
   const canonicalDecoded = certificate.toString("base64").replace(/=+$/, "");
   if (canonicalInput !== canonicalDecoded) {
-    throw new Error("EJECT_DATABASE_SSL_CA_B64 is not canonical base64");
+    throw new PoolConfigurationError(
+      "EJECT_DATABASE_SSL_CA_B64 is not canonical base64",
+    );
   }
   return certificate.toString("utf8");
 }
@@ -88,6 +99,8 @@ function parseCertificate(pem: string): X509Certificate {
   try {
     return new X509Certificate(pem);
   } catch {
-    throw new Error("EJECT_DATABASE_SSL_CA_B64 is not an X.509 certificate");
+    throw new PoolConfigurationError(
+      "EJECT_DATABASE_SSL_CA_B64 is not an X.509 certificate",
+    );
   }
 }

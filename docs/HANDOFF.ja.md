@@ -5,6 +5,48 @@
 この文書は、新しいEJECT開発セッションの開始点です。実装済みの内容、検証済みの内容、
 未確認事項、今後の作業順序を記録します。
 
+## Data API遮断を準備済み・本番未適用 — 2026-10-08
+
+所有者の報告では、専用Supabase projectは無操作による自動停止中です。
+2026-09-27にSecurity AdvisorからCriticalの`rls_disabled_in_public`警告がありました。
+forward-only migration `0006_close_data_api_access.sql`をrepositoryに追加し、
+0001〜0005は変更していません。**0006は本番未適用です。**
+この作業ではproduction credential・cloud接続・Supabase/Vercel操作を使用していません。
+
+全18 application tableとmigration台帳でpolicy・FORCEなしのRLSを有効にします。
+存在する`anon` / `authenticated`からpublicのtable・sequence・functionの権限と、
+migration実行ロールのpublic schemaのdefault grantを取り消します。
+cloud verifierはpublicの全tableのRLS、APIの実効table/column権限、接続ロールが
+全tableのownerでFORCEなし、または`BYPASSRLS`を持つことを検査します。
+出力は件数と限定された事実だけにし、databaseの生のerrorは出力しません。
+
+PR #28の`fa375a3`に対する独立reviewはchanges-requestedでした。修正では専用error型を使って
+検証・設定の固定診断文を表示し、driver由来の文字列は伏せます。CIは`anon`と`authenticated`を作り、
+BYPASSRLSなし・非superuserのtable ownerで実行します。role切り替え用membershipからAPI権限は
+継承しません。migration回帰fixtureは0006が取り消すべき直接grantとschema default grantを付与します。
+runbookにアプリロールの読み取り専用事前確認、owner混在時のrollback、緊急時の一時復旧、
+`supabase_admin`の残存default grant、想定どおりの19件の`rls_enabled_no_policy` INFOを追記しました。
+このINFOを消すためにpolicyを追加しません。修正後の独立再reviewは`5d9dfc1`で承認され、
+API role testをskipしないreal PostgreSQL 17 CIも通過しました。
+
+ローカルでは`npm run check --workspace @eject/control-plane`とunit/property test全128件に成功しました。
+既存`postgres:17` imageでCI構成を再現し、PostgreSQL全38件がskip 0で成功しました。
+既存Supabase PostgreSQL 17.6.1.158 imageでも全38件成功しました。schema resetのため、
+使い捨てのSupabase databaseとpublic schemaのownerだけを`postgres`テストロールに設定しました。
+REVOKE blockを外すとAPI権限回帰testが失敗しました。固定診断文をすべて隠す改変ではunit 7件、
+全Error文言を通す改変では上流Errorの2件が失敗し、すべて元に戻しました。
+事前確認SQLは通常ownerでbypass false/他owner 0件、anonでfalse/19件、Supabase postgresでtrue/0件を
+返しました。前回の0006除外でも未保護table 19件で失敗しています。一時containerは停止・削除済みです。
+本番TLS検証とSecurity Advisorの確認はoperatorの次作業であり、ローカルの証拠には含みません。
+
+review・merge後の次の行動は、[運用手順](CLOUD-DATABASE.ja.md)のoperator環境で、
+**本人がprojectを再開 → アプリロールの読み取り専用事前確認 → `npm run migrate` → アプリの接続ロールで
+`npm run verify:cloud-database` → Advisorの警告解消を確認**です。
+再開前にreview済みrevisionと環境を準備します。既存accountがあるため
+`--expect-empty`は付けません。`main`へのmergeでVercel Production deployが作られ得ますが、
+migrationは適用されません。配送・端末登録は無効を維持します。
+この手順を以下の過去の次作業より優先し、2026-09-24の同意検証は過去の証拠として保持します。
+
 ## 現在の本番反映と次の作業 — 2026-09-24
 
 PR [#25](https://github.com/tnoborio/eject/pull/25)と

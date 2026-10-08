@@ -57,6 +57,35 @@ Authorization should evaluate, at command issuance time:
 The agent independently verifies the command's device audience, integrity,
 expiry, and command ID. Server authorization does not replace local validation.
 
+## Database Data API boundary
+
+EJECT uses Supabase only for Auth APIs. Application data is accessed by the
+control plane through `pg` and `DATABASE_URL` (Supavisor), never through the
+Supabase Data API (PostgREST). A publishable key or person session must not grant
+direct access to EJECT tables.
+
+Migration 0006 enables RLS on all application tables and `schema_migrations`
+without policies, and revokes `anon` / `authenticated` privileges on public
+tables, sequences, and functions, including the migration role's schema-scoped
+default privileges. RLS is not forced: the direct connection must own every
+application table or have `BYPASSRLS`. The cloud verifier rejects missing RLS,
+effective Data API table privileges (including inherited and PUBLIC grants),
+and an unsuitable connection role. Future migrations must preserve this boundary.
+
+The concrete other object creator is `supabase_admin`: its public-schema default
+ACL still grants all privileges to `anon` / `authenticated`, and `postgres`
+cannot revoke those defaults. A table created through the dashboard or Management
+API as `supabase_admin` can therefore be exposed immediately without RLS. The
+verifier detects missing RLS and effective API table privileges. Change schema
+only through repository migrations, never through those provider paths.
+
+Security Advisor's INFO `rls_enabled_no_policy` is expected for all 19 tables:
+policy-free RLS is intentional. Do not add policies to silence these INFO findings.
+
+The migration is prepared in the repository; the paused cloud project has not
+received it yet. See [the operator runbook](CLOUD-DATABASE.md) for resumption,
+application, verification, and Security Advisor confirmation.
+
 ## Capability containment
 
 The command protocol has a closed set of types. Initially the only physical

@@ -6,6 +6,59 @@ This document is the starting point for a new EJECT development session. It
 records what is implemented, what has been verified, what remains unknown, and
 the order in which work should continue.
 
+## Data API closure prepared; production pending — 2026-10-08
+
+The owner reports that the dedicated Supabase project is paused after
+inactivity. Security Advisor reported critical `rls_disabled_in_public`
+findings on 2026-09-27. Forward-only migration
+`0006_close_data_api_access.sql` is added to the repository; migrations 0001–0005
+are unchanged. **0006 has not been applied to production.** This work used no
+production credentials, cloud connection, or Supabase/Vercel operation.
+
+The migration enables RLS without policies or FORCE on all 18 application
+tables and the migration ledger. It revokes public table, sequence, and
+function privileges and the migration role's public-schema default grants from
+existing `anon` / `authenticated` roles. The cloud verifier now checks every
+public table's RLS, effective API table/column privileges, and whether the
+connection owns every public table without FORCE or has `BYPASSRLS`. Output is
+limited to counts and bounded facts; raw database errors are not printed.
+
+The independent review of PR #28 at `fa375a3` requested changes. The follow-up
+preserves bounded verification/configuration error messages using dedicated
+error types, while redacting untrusted driver text. CI now creates `anon` and
+`authenticated` and runs as a non-superuser table owner without BYPASSRLS;
+role-switch membership does not inherit API privileges. The migration regression
+fixture seeds the direct and schema-default grants that 0006 must revoke.
+The runbook adds a read-only application-role preflight, mixed-owner rollback
+and temporary incident recovery guidance, `supabase_admin`'s unchanged defaults,
+and the expected 19 `rls_enabled_no_policy` INFO findings. Do not add policies to
+silence those findings. Independent re-review approved the follow-up at
+`5d9dfc1`, including real PostgreSQL 17 CI with no skipped API-role tests.
+
+Local verification passed `npm run check --workspace @eject/control-plane`
+and all 128 control-plane unit/property tests. Reproducing the CI setup on the
+existing `postgres:17` image passed all 38 PostgreSQL tests with zero skips,
+as did the existing Supabase PostgreSQL 17.6.1.158 image. Only the disposable
+Supabase database/public-schema ownership was assigned to its `postgres` test
+role for schema resets. Removing the REVOKE block made the API-grant regression
+fail. Replacing safe diagnostics with a generic message failed seven unit cases;
+allowing all Error messages through failed both untrusted-Error cases. All
+mutations were restored. The preflight query returned bypass false/other-owner
+count zero for the plain owner, false/19 for anon, and true/zero for Supabase
+postgres. Earlier removal of 0006 also failed with 19 unprotected tables.
+Temporary containers were stopped and removed. Production TLS verification
+and Security Advisor confirmation remain operator work, not local evidence.
+
+Next, after review and merge: **the owner resumes the project → performs the
+read-only application-role preflight → runs `npm run migrate` → runs
+`npm run verify:cloud-database` using the application's connection role → confirms Security Advisor findings are cleared**, from the
+operator environment described in [the runbook](CLOUD-DATABASE.md). Prepare the
+reviewed revision and environment before resumption. Existing accounts mean
+`--expect-empty` must be omitted. Merging to `main` may create a Vercel
+Production deployment; it does not apply this migration. Delivery and enrollment
+remain disabled. This sequence takes priority over the historical next actions
+below; the 2026-09-24 consent evidence remains historical evidence.
+
 ## Current deployment and next action — 2026-09-24
 
 PRs [#25](https://github.com/tnoborio/eject/pull/25) and
@@ -45,8 +98,7 @@ relationship test. This is live recovery evidence, not a measurement of
 refresh concurrency or rotation internals.
 
 After validation, the test pair was disconnected and both browser sessions
-signed out (HTTP 204), with subsequent protected device requests returning
-401. A read-only database check found zero active relationships between the
+signed out (HTTP 204), with subsequent protected device requests returning 401. A read-only database check found zero active relationships between the
 test pair, zero mutual grants, zero test-owned devices or recipient commands,
 and neither account paused. Delivery remained disabled. The isolated test
 browser was closed. No addresses, codes, cookies, or private event logs are

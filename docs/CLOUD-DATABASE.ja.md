@@ -22,10 +22,95 @@
 Supabase projectはEJECT専用です。`sasara-hub`内のdatabaseではなく、他のSasara serviceと
 application schemaやcredentialを共有しません。
 
-repository migration 5件はすべて適用・checksum検証済みです。PostgreSQLはTLSを使わない外部接続を
+migration 0001〜0005は適用・checksum検証済みです。以下のrowの状態は2026-07-24の過去の
+記録であり、現在の本番へのquery結果ではありません。PostgreSQLはTLSを使わない外部接続を
 拒否します。singleton delivery gateは`false`、physical hourly ceilingは未設定で、EJECT application
 tableには招待済みperson 1件が存在し、relationship、relationship invitation、device、command、
 result、private eventは存在しません。
+
+## RLSとData APIの境界 — 2026-10-08
+
+所有者の報告では、projectは無操作による自動停止中です。2026-09-27にSecurity Advisorから
+Criticalの`rls_disabled_in_public`警告がありました。
+`0006_close_data_api_access.sql`をrepositoryに追加しましたが、本番には**未適用**です。
+この変更でcloud接続やprovider操作は行っていません。
+
+EJECTはSupabase Authを使い、Data API（PostgREST）は使いません。control-planeは
+`pg`から`DATABASE_URL`とSupavisorで接続します。migration 0006は全18 application tableと
+`schema_migrations`でRLSを有効にし、policyもFORCE RLSも追加しません。
+存在する`anon`と`authenticated`からpublicのtable・sequence・functionの全権限を取り消し、
+migration実行ロールが今後作るobjectのpublic schemaのdefault grantも除去します。
+APIロールが存在しなければskipするため、素のPostgreSQLにも対応します。
+別のobject作成ロールや今後の明示的grantは別途reviewが必要です。ロール指定の取り消しでは
+PostgreSQLが暗黙にPUBLICへ付与するfunctionのEXECUTE権限は除去されません。
+現在のEJECT migrationはfunctionを作りません。将来application dataを公開し得るfunctionを
+追加するときは、呼び出し権限を明示的にreviewしてください。
+
+具体的な別object作成ロールは`supabase_admin`です。このロールのpublic schemaの既定ACLは
+`anon` / `authenticated`への全権限付与が残り、`postgres`では取り消せません。
+dashboardやManagement APIから`supabase_admin`でtableを作ると、RLSなしで直ちに露出し得ます。
+verifierはRLS漏れとAPIの実効table権限を検知します。schema変更はrepositoryのmigrationだけで行い、
+これらのprovider経路では作成しません。
+
+Security AdvisorのINFO `rls_enabled_no_policy`は19 table分出るのが想定どおりです。
+policyなしのRLSは意図した設計であり、このINFOを消すためにpolicyを追加してはいけません。
+
+アプリの接続ロールには全application tableのownerか`BYPASSRLS`が必要です。
+verifierは台帳を含むpublicの全tableを保守的に調べ、bypassのないownerではFORCE RLSも拒否します。
+privilegedなoperatorロールだけでなく、アプリの接続ロールで検証してください。
+失敗をData APIのpolicy追加や権限拡大で回避してはいけません。
+今後のpublic tableも各migrationでRLSを有効にする必要があり、PostgreSQL testは全migration後の
+schema全体を検査します。
+
+review・merge後、本人がoperator環境で**再開 → ロール事前確認 → migrate → verify → Advisorで確認**を行います。
+再開前にreview済みrevisionとoperator環境を準備してください。
+repositoryの変更だけでは、再開したdatabaseは保護されません。
+
+1. projectを再開してhealthyになるまで待つ。
+2. アプリの接続ロールで以下の読み取り専用の事前確認を行い、bypassも所有権もなければ中止する。
+3. 以下の手順に従い、session poolerと既存のmigration実行ロールでrepository migrationを適用する。
+4. アプリの接続ロールとpin済みTLS CAで`npm run verify:cloud-database`を実行する。
+   既存accountがあるため`--expect-empty`は付けない。
+5. Security Advisorを更新し、`rls_disabled_in_public`警告の解消を確認する。
+   verifier失敗や残存警告は、境界を検証済みとする前に調査する。
+
+### migration 0006前の読み取り専用ロール確認
+
+`npm run migrate`の前に、アプリの`DATABASE_URL`のロールで認証した読み取り専用SQL sessionで
+次を1回実行します。pin済みCAと検証済みTLSを使い、dashboardのロールや、より強い権限の
+operatorロールで代用してはいけません。結果は真偽値と件数だけで、table・rowの識別子は含みません。
+
+```sql
+BEGIN READ ONLY;
+SELECT r.rolbypassrls,
+       (SELECT count(*) FROM pg_class AS c
+        JOIN pg_namespace AS n ON n.oid = c.relnamespace
+        WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p')
+          AND c.relowner <> r.oid) AS public_tables_owned_by_other_roles
+FROM pg_roles AS r
+WHERE r.rolname = current_user;
+COMMIT;
+```
+
+`rolbypassrls = true` **または** `public_tables_owned_by_other_roles = 0`なら進められます。
+どちらでもなければ**0006を適用しない**でください。先にreviewした変更で接続・所有権の不一致を
+解決します。この確認はFORCE RLSを使わない0006の適用前用です。適用後のverifierでは
+FORCE RLSとAPIの実効権限も検査します。
+
+BYPASSRLSはdata accessの権限であり、owner限定のDDLを許すものではありません。
+migration実行ロールには全対象tableの変更権限も必要です。ownerが混在し、対象tableのownerとして
+操作できなければ、0006は`must be owner`で失敗し、既存runnerのtransactionで0006全体がrollbackされます。
+アプリがbypassできることを、migrationロールが他ロールのtableを変更できる証拠にしてはいけません。
+
+### 緊急時の復旧
+
+0006適用後にアプリが予期せず遮断された場合、table ownerの権限を持つincident operatorは、
+特定した対象tableに限って一時的に`ALTER TABLE public.<affected_table> DISABLE ROW LEVEL SECURITY;`
+を実行できます（placeholderを対象tableに置き換える）。API権限の取り消しは維持し、
+配送・端末登録を無効のままにし、APIアクセスが閉じたままであることを検証してください。
+RLS無効化は多層防御を弱める一時的なincident対応であり、通常のschema管理ではありません。
+対象範囲を記録し、恒久対応と意図した境界の復元は次のreview済みforward-only migrationで行います。
+0006や台帳のchecksumを書き換えず、Data APIのpolicy追加を復旧の近道にしてはいけません。
 
 ## Environment境界
 
@@ -113,29 +198,35 @@ SupabaseはDashboardからCAを配布し、[SSL guide](https://supabase.com/docs
 `control-plane/migrations/`の英語SQL fileを、EJECT schemaの唯一の正本として維持します。
 provider dashboardでdatabase schemaを編集してはいけません。
 
+0006を適用する前に、上記の読み取り専用ロール確認を完了してください。
 operator sessionでは、database passwordと現在のSupabase CAをprovider controlから取得し、
 repositoryへ書き込まないでください。migrationにはport 5432のsession poolerを使い、次を実行します。
 
 ```sh
 cd control-plane
 npm run migrate
-npm run verify:cloud-database -- --expect-empty
+npm run verify:cloud-database
 ```
 
 そのprocess environmentに`DATABASE_URL`と`EJECT_DATABASE_SSL_CA_B64`が設定済みである必要が
 あります。migration runnerはPostgreSQL advisory lockを取得し、各fileをtransaction内で適用し、
 適用済みmigrationをskipする前に保存済みSHA-256 checksumを検証します。
 
-実accountが存在するようになった後は`--expect-empty`を外します。その場合もverifierは次を必須とします。
+`--expect-empty`は新規作成した空のdatabaseだけに使います。verifierは次を必須とします。
 
 - repositoryと完全一致するmigration名・checksum
 - PostgreSQL major version 17
 - pin済みTLS CAと検証済み接続の成功
+- `schema_migrations`を含むpublicの全tableでRLSが有効
+- 存在する`anon` / `authenticated`にpublicのtable・columnの実効権限がない（PUBLIC・継承経由を含む）
+- 接続ロールがpublicの全tableのownerでFORCE RLSなし、または`BYPASSRLS`あり
 - `delivery_enabled = false`
 - `physical_hourly_ceiling IS NULL`
 
-出力するのは限定された運用上の事実とEJECT rowの合計数だけです。connection string、host credential、
-row内容、event識別子は出力しません。
+出力するのは限定された運用上の事実、EJECT row・migration・security検査の件数と真偽値だけです。
+database名・migration file名・その他のobject識別子・credential・row内容は失敗時も出力しません。
+専用型の検証・設定errorは固定の診断文を表示し、上流由来のerrorは汎用文言にします。
+以下のJSON証拠は、この出力形式への変更前のものです。
 
 migration 0005をdeployした後、同じoperator専用環境からinvitation cleanupを実行します。
 

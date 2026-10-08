@@ -3,6 +3,10 @@ import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Pool } from "pg";
+import {
+  assertDatabaseSecurity,
+  inspectDatabaseSecurity,
+} from "../../scripts/database-security";
 import { migrate } from "../../src/infrastructure/postgres/migrate";
 
 const connectionString = process.env.TEST_DATABASE_URL;
@@ -56,7 +60,181 @@ describe("control-plane migrations", () => {
         filename: "0005_relationship_lifecycle.sql",
         checksum_length: 64,
       },
+      {
+        filename: "0006_close_data_api_access.sql",
+        checksum_length: 64,
+      },
     ]);
+  });
+
+  it("enables RLS on every public table, including the migration ledger", async () => {
+    const state = await inspectDatabaseSecurity(pool);
+    expect(state.public_tables).toBeGreaterThan(0);
+    expect(state.tables_without_rls).toBe(0);
+    expect(state.connection_bypasses_rls).toBe(true);
+    assertDatabaseSecurity(state);
+    const ledger = await pool.query<{ relrowsecurity: boolean }>(
+      "SELECT relrowsecurity FROM pg_class WHERE oid = 'public.schema_migrations'::regclass",
+    );
+    expect(ledger.rows).toEqual([{ relrowsecurity: true }]);
+    const policies = await pool.query(
+      "SELECT 1 FROM pg_policies WHERE schemaname = 'public'",
+    );
+    expect(policies.rows).toEqual([]);
+    const forced = await pool.query(
+      "SELECT 1 FROM pg_class WHERE relnamespace = 'public'::regnamespace AND relforcerowsecurity",
+    );
+    expect(forced.rows).toEqual([]);
+  });
+
+  it("leaves existing Data API roles without effective public table privileges", async () => {
+    const state = await inspectDatabaseSecurity(pool);
+    expect(state.api_table_privileges).toBe(0);
+  });
+
+  it("rejects a future public table without RLS in the cloud security verifier", async () => {
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query(
+        "CREATE TABLE public.rls_regression_probe (id integer)",
+      );
+      const state = await inspectDatabaseSecurity(client);
+      expect(state.tables_without_rls).toBe(1);
+      expect(() => assertDatabaseSecurity(state)).toThrow("row-level security");
+    } finally {
+      await client.query("ROLLBACK");
+      client.release();
+    }
+  });
+
+  it("revokes existing and future direct API grants when the roles exist", async (context) => {
+    const roles = await pool.query<{ rolname: string }>(
+      "SELECT rolname FROM pg_roles WHERE rolname IN ('anon', 'authenticated') ORDER BY rolname",
+    );
+    if (roles.rows.length === 0) return context.skip();
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query("CREATE SEQUENCE public.api_existing_sequence");
+      await client.query(
+        "CREATE FUNCTION public.api_existing_function() RETURNS integer LANGUAGE sql AS 'SELECT 1'",
+      );
+      for (const { rolname } of roles.rows) {
+        // Names come only from the fixed role allowlist above.
+        await client.query(
+          `GRANT ALL ON ALL TABLES IN SCHEMA public TO "${rolname}"`,
+        );
+        await client.query(
+          `GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO "${rolname}"`,
+        );
+        await client.query(
+          `GRANT ALL ON ALL FUNCTIONS IN SCHEMA public TO "${rolname}"`,
+        );
+        for (const kind of ["TABLES", "SEQUENCES", "FUNCTIONS"]) {
+          await client.query(
+            `ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON ${kind} TO "${rolname}"`,
+          );
+        }
+      }
+      const exposed = await inspectDatabaseSecurity(client);
+      expect(exposed.api_table_privileges).toBeGreaterThan(0);
+      expect(() => assertDatabaseSecurity(exposed)).toThrow("Data API roles");
+      await client.query(
+        await readFile(
+          resolve(migrations, "0006_close_data_api_access.sql"),
+          "utf8",
+        ),
+      );
+      assertDatabaseSecurity(await inspectDatabaseSecurity(client));
+      await client.query("CREATE TABLE public.api_future_table (id serial)");
+      await client.query(
+        "ALTER TABLE public.api_future_table ENABLE ROW LEVEL SECURITY",
+      );
+      await client.query(
+        "CREATE FUNCTION public.api_future_function() RETURNS integer LANGUAGE sql AS 'SELECT 1'",
+      );
+      assertDatabaseSecurity(await inspectDatabaseSecurity(client));
+      const sequenceGrants = await client.query(`
+        SELECT 1 FROM pg_class AS c CROSS JOIN pg_roles AS r
+        WHERE c.relnamespace = 'public'::regnamespace AND c.relkind = 'S'
+          AND r.rolname IN ('anon', 'authenticated')
+          AND has_sequence_privilege(r.oid, c.oid, 'USAGE, SELECT, UPDATE')
+      `);
+      expect(sequenceGrants.rows).toEqual([]);
+      // PostgreSQL's implicit PUBLIC EXECUTE is separate from named role grants.
+      const functionGrants = await client.query(`
+        SELECT 1 FROM pg_proc AS p
+        CROSS JOIN LATERAL aclexplode(p.proacl) AS acl
+        JOIN pg_roles AS r ON r.oid = acl.grantee
+        WHERE p.pronamespace = 'public'::regnamespace
+          AND r.rolname IN ('anon', 'authenticated')
+      `);
+      expect(functionGrants.rows).toEqual([]);
+    } finally {
+      await client.query("ROLLBACK");
+      client.release();
+    }
+  });
+
+  it("rejects an API connection role even when RLS would hide all rows", async (context) => {
+    const roles = await pool.query(`
+      SELECT 1 FROM pg_roles WHERE rolname = 'anon'
+        AND pg_has_role(current_user, oid, 'SET')
+    `);
+    if (roles.rowCount === 0) return context.skip();
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query("SET LOCAL ROLE anon");
+      const state = await inspectDatabaseSecurity(client);
+      expect(state.tables_without_rls).toBe(0);
+      expect(state.api_table_privileges).toBe(0);
+      expect(state.connection_bypasses_rls).toBe(false);
+      expect(() => assertDatabaseSecurity(state)).toThrow("connection role");
+    } finally {
+      await client.query("ROLLBACK");
+      client.release();
+    }
+  });
+
+  it("blocks anon SELECT and keeps RLS deny-by-default if SELECT is regranted", async (context) => {
+    const roles = await pool.query(`
+      SELECT 1 FROM pg_roles WHERE rolname = 'anon'
+        AND pg_has_role(current_user, oid, 'SET')
+    `);
+    if (roles.rowCount === 0) return context.skip();
+    const client = await pool.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query("GRANT USAGE ON SCHEMA public TO anon");
+      const owner = await client.query(
+        "SELECT 1 FROM public.system_delivery_policy",
+      );
+      expect(owner.rowCount).toBe(1);
+      await client.query("SET LOCAL ROLE anon");
+      await client.query("SAVEPOINT denied_select");
+      await expect(
+        client.query("SELECT 1 FROM public.system_delivery_policy"),
+      ).rejects.toMatchObject({ code: "42501" });
+      await client.query("ROLLBACK TO SAVEPOINT denied_select");
+      await client.query("RESET ROLE");
+      // Even a PUBLIC column grant must be detected as effective API access.
+      await client.query(
+        "GRANT SELECT (singleton) ON public.system_delivery_policy TO PUBLIC",
+      );
+      const exposed = await inspectDatabaseSecurity(client);
+      expect(exposed.api_table_privileges).toBeGreaterThan(0);
+      expect(() => assertDatabaseSecurity(exposed)).toThrow("Data API roles");
+      await client.query("SET LOCAL ROLE anon");
+      const hidden = await client.query(
+        "SELECT singleton FROM public.system_delivery_policy",
+      );
+      expect(hidden.rows).toEqual([]);
+    } finally {
+      await client.query("ROLLBACK");
+      client.release();
+    }
   });
 
   it("rejects modified migration history by checksum", async () => {
