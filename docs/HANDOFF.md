@@ -6,6 +6,40 @@ This document is the starting point for a new EJECT development session. It
 records what is implemented, what has been verified, what remains unknown, and
 the order in which work should continue.
 
+## Dependency upgrade blocked locally — 2026-10-12
+
+The baseline at `9361424` uses Next.js 16.2.10. Its root production audit
+reports seven vulnerabilities (one critical, four high, two moderate); the
+full audit reports 24 (one critical, 15 high, eight moderate). Next.js 16.4.0
+declares PostCSS 8.5.23 and optional `sharp ^0.35.4`, providing a compatible
+upgrade path for the historical Sharp limitation below.
+
+The attempted root dependency upgrade failed inside the installed npm 10.9.8
+Arborist peer resolver with `Cannot read properties of null (reading
+'edgesOut')`. The task explicitly prohibits workarounds for broken installed
+tools. Unapplied manifest changes were restored to keep the root manifest and
+lockfile consistent. **Next.js and the root dependency graph are not upgraded;
+the production audit remains unresolved.** Only the standalone protocol lockfile
+was updated through npm to fast-uri 3.1.8 within AJV's `^3.0.1` range; its
+standalone `npm ci` passes with zero audit vulnerabilities. No validator or
+application code changed.
+
+On Node.js 22.22.3, the baseline root `npm ci`, static/architecture checks,
+11 protocol and 128 control-plane tests, configured 100% coverage thresholds,
+and Next.js 16.2.10 production build pass. All 15 Route Handlers retain
+`runtime = "nodejs"` and `dynamic = "force-dynamic"`; no upgraded build exists
+for comparison. Local PostgreSQL 16 passed 32 of 38 tests; six security-verifier
+tests failed because PostgreSQL 16 does not recognize the existing `MAINTAIN`
+privilege query. PostgreSQL 17 CI verification remains required; no database
+code was changed to accommodate the older local image.
+
+Next: obtain a planner decision on an authorized environment/tool repair before
+retrying the root upgrade, then complete the updated dependency audit, build,
+route comparison, and independent review. This partial work must not be treated
+as a production security fix or merged as the completed upgrade. No merge,
+deployment, cloud connection, or hardware action was performed. The Data API
+operator sequence below remains pending.
+
 ## Data API closure prepared; production pending — 2026-10-08
 
 The owner reports that the dedicated Supabase project is paused after
@@ -875,6 +909,11 @@ Record the failure and narrow the supported capability contract instead.
   current latest stable Next.js still declares `sharp ^0.34.5`, while the audit
   fix requires Sharp 0.35 or later. Do not force an unsupported major override;
   update through a compatible Next.js release or an explicit reviewed decision.
+- Current dependency status on 2026-10-12: the root still uses Next.js 16.2.10
+  and reports seven production vulnerabilities. The historical statement above
+  about the latest stable release is superseded: 16.4.0 declares
+  `sharp ^0.35.4`. Its local installation is blocked by the npm peer-resolver
+  exception documented at the start of this handoff; no Sharp override was added.
 - Protocol sharing, pure test boundaries, SQL migrations, the PostgreSQL
   issuance repository, real-database race tests, and blocking control-plane CI
   are implemented. Scheduled advisory mutation testing is also implemented.

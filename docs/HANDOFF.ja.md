@@ -5,6 +5,36 @@
 この文書は、新しいEJECT開発セッションの開始点です。実装済みの内容、検証済みの内容、
 未確認事項、今後の作業順序を記録します。
 
+## 依存更新がローカルで停止 — 2026-10-12
+
+基準revision `9361424`はNext.js 16.2.10を使用しています。rootの本番auditは
+7件（critical 1・high 4・moderate 2）、全体auditは24件（critical 1・high 15・
+moderate 8）です。Next.js 16.4.0はPostCSS 8.5.23とoptional `sharp ^0.35.4`を
+宣言しており、下記の過去のSharp制限を互換更新で解消する経路があります。
+
+rootの依存更新は、導入済みnpm 10.9.8のArborist peer resolver内部で
+`Cannot read properties of null (reading 'edgesOut')`が発生して失敗しました。
+今回の指示書は、導入済みツールの不具合の回避策を禁止しています。未適用のmanifest変更を
+戻し、rootのmanifestとlockfileの整合性を維持しました。**Next.jsとrootの依存graphは
+未更新で、本番auditは未解消です。** standalone protocolのlockfileだけをnpm経由で
+更新し、AJVの`^3.0.1`の範囲内でfast-uri 3.1.8にしました。standaloneの`npm ci`は
+成功し、auditは0件です。validatorとapplication codeは変更していません。
+
+Node.js 22.22.3で、基準rootの`npm ci`、static/architecture check、protocol 11件・
+control-plane 128件のtest、設定された100% coverage閾値、Next.js 16.2.10の
+production buildは成功しました。Route Handler 15件の`runtime = "nodejs"`と
+`dynamic = "force-dynamic"`は維持しています。比較対象の更新後buildはありません。
+ローカルPostgreSQL 16では38件中32件成功し、既存の`MAINTAIN`権限queryを
+PostgreSQL 16が認識しないためsecurity verifier test 6件が失敗しました。
+PostgreSQL 17のCI検証が必要です。古いローカルimageに合わせたdatabase code変更は
+行っていません。
+
+次は、許可された実行環境・ツール修復についてplannerの判断を得てからrootの更新を再試行し、
+更新後の依存audit・build・route比較・独立reviewを完了してください。この部分成果を
+本番security fixとして扱ったり、更新完了としてmergeしたりしないでください。
+merge・deploy・cloud接続・実機操作は行っていません。下記のData API operator手順は
+引き続き未完了です。
+
 ## Data API遮断を準備済み・本番未適用 — 2026-10-08
 
 所有者の報告では、専用Supabase projectは無操作による自動停止中です。
@@ -701,6 +731,10 @@ artifactには期限があり、後続ビルドのチェックサムは変わり
   high-severityのlibvips advisoryを報告する。現在の最新stable Next.jsも`sharp ^0.34.5`を宣言する一方、
   audit上の修正版はSharp 0.35以降である。unsupportedなmajor overrideを強制せず、互換Next.js release
   または明示的にreviewしたdecisionで更新する。
+- 2026-10-12の現在の依存状況：rootは引き続きNext.js 16.2.10を使用し、本番の脆弱性は7件です。
+  上記の過去の記述のうち最新stable版に関する部分は現在の状況と異なり、16.4.0は
+  `sharp ^0.35.4`を宣言しています。ローカルinstallは冒頭に記録したnpm peer resolverの
+  例外で停止しており、Sharp overrideは追加していません。
 - protocol共有、pure test境界、SQL migration、PostgreSQL issuance repository、実database
   race test、blocking control-plane CIは実装済み。定期的なadvisory mutation testingも実装済み。
 - 実機証拠から説明可能なsafety ceilingが得られるまで、subscription価格とinbound frequency
