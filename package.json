@@ -10,9 +10,9 @@
     "node": ">=22 <23"
   },
   "overrides": {
-    "fast-uri": "3.1.4",
-    "postcss": "8.5.20",
-    "qs": "6.15.3"
+    "fast-uri": "3.1.8",
+    "postcss": "8.5.23",
+    "qs": "6.16.0"
   },
   "optionalDependencies": {
     "@rolldown/binding-linux-x64-gnu": "1.1.5"
