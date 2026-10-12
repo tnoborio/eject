@@ -5,6 +5,51 @@
 この文書は、新しいEJECT開発セッションの開始点です。実装済みの内容、検証済みの内容、
 未確認事項、今後の作業順序を記録します。
 
+## 依存更新をローカルで検証済み — 2026-10-12
+
+control-planeのNext.jsとeslint-config-nextを16.4.0にexact pinしました。
+root overrideとcontrol-plane devDependencyのPostCSSは8.5.23に揃え、
+fast-uriとqsのoverrideは3.1.8と6.16.0に更新しました。Next.jsの互換範囲内の
+optional Sharpは0.35.5に解決され、Sharp overrideは追加していません。
+standalone protocolのlockfileはfast-uri 3.1.8を維持しています。
+React 19.2.7とCIで必要なoptional Rolldown binding 1.1.5は変更していません。
+
+rootの本番auditは、基準revision `9361424`の7件（critical 1・high 4・moderate 2）から
+**0件**になりました。全体auditは24件から**dev依存のみ8件**（high 5・moderate 3）に
+減りました。high 5件はbracesからmicromatch、fast-glob、@next/eslint-plugin-next、
+eslint-config-nextへ伝わる依存経路です
+（[GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm)）。
+moderate 3件は@vitest/mocker、vitest、@vitest/coverage-v8です
+（[GHSA-82fw-gwwq-j7x9](https://github.com/advisories/GHSA-82fw-gwwq-j7x9)）。
+どちらの経路も本番依存ではありません。plannerの決定によりVitestとcoverage-v8は
+4.1.10を維持します。4.1.11への更新はViteのoptional peer setを再解決し、
+npm 10.9.8の`edgesOut`例外を引き起こします。auditはbracesに互換修正版を提示せず、
+提案されたeslint-config-nextのdowngradeはmajorを跨ぐため適用していません。
+残るdev依存は別のreview済みtooling更新で解消してください。
+
+plannerが許可した個別npm installと対象限定のnpm updateの順序で、既存lockfileを
+維持したまま更新できました。Viteは8.1.5のままです。lockfileの削除・手編集、
+npm audit fix・force fix、npmの置換、新規overrideは行っていません。
+前回のinstall阻害は今回の更新では解消しました。Next.js 16.4の型宣言が必要とする
+URLPatternのglobal型名2つを、固定されたTypeScript 5.9とNode型定義の組み合わせが
+提供しないため、型宣言だけで既存node:url型をaliasしています。strict checkと
+skipLibCheck falseは維持します。buildはnext-env.d.tsにroot-params型のimportも生成しました。
+
+Node.js 22.22.3/npm 10.9.8で、rootとstandalone protocolの`npm ci`、
+static/architecture check、protocol 11件・control-plane 128件のtest、設定された
+statement/branch/function/lineの100% coverage閾値、Next.js 16.4.0のproduction buildは
+成功しました。buildのroute一覧は16.2.10と完全一致し、Route Handler 15件の
+`runtime = "nodejs"`と`dynamic = "force-dynamic"`を維持しています。
+3つのcapability gateを無効にしたローカル起動で、/はHTTP 200、cookieなしの
+device-enrollment GETはHTTP 404 PERSON_AUTH_DISABLEDでした。外部serviceへは
+接続していません。ローカルPostgreSQL 16では再び38件中32件成功し、MAINTAIN権限queryが
+未対応のためsecurity verifier test 6件が失敗しました。PostgreSQL 17のCI検証が必要で、
+database codeは変更していません。
+
+次はPR #29のPostgreSQL 17 CIとClaude側の独立reviewを完了してください。
+merge・deploy・cloud接続・実機操作は行っていません。mainへのmergeでVercelの本番deployが
+走りますが、今回の更新はローカル検証のみです。下記のData API operator手順は引き続き未完了です。
+
 ## Data API遮断を準備済み・本番未適用 — 2026-10-08
 
 所有者の報告では、専用Supabase projectは無操作による自動停止中です。
@@ -701,6 +746,10 @@ artifactには期限があり、後続ビルドのチェックサムは変わり
   high-severityのlibvips advisoryを報告する。現在の最新stable Next.jsも`sharp ^0.34.5`を宣言する一方、
   audit上の修正版はSharp 0.35以降である。unsupportedなmajor overrideを強制せず、互換Next.js release
   または明示的にreviewしたdecisionで更新する。
+- 2026-10-12の現在の依存状況：Next.js 16.4.0と互換範囲内のSharp 0.35.5への更新で、
+  本番auditは0件です。全体auditはdev依存のみ8件（high 5・moderate 3）です。
+  前回のnpm例外はplanner指定の更新手順で回避できました。残るdev依存と検証結果は
+  冒頭の現在の状態を参照してください。上記の2026-07-22の記録は過去の証拠として保持します。
 - protocol共有、pure test境界、SQL migration、PostgreSQL issuance repository、実database
   race test、blocking control-plane CIは実装済み。定期的なadvisory mutation testingも実装済み。
 - 実機証拠から説明可能なsafety ceilingが得られるまで、subscription価格とinbound frequency

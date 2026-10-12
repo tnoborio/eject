@@ -6,6 +6,55 @@ This document is the starting point for a new EJECT development session. It
 records what is implemented, what has been verified, what remains unknown, and
 the order in which work should continue.
 
+## Dependency upgrade verified locally — 2026-10-12
+
+The control plane now pins Next.js and eslint-config-next at 16.4.0. PostCSS
+is pinned at 8.5.23 in both the root override and the control-plane devDependency;
+fast-uri and qs overrides are updated to 3.1.8 and 6.16.0. Next.js's compatible
+optional Sharp dependency resolves to 0.35.5, without a Sharp override. The
+standalone protocol lockfile retains fast-uri 3.1.8. React 19.2.7 and the
+CI-required optional Rolldown binding 1.1.5 are unchanged.
+
+The root production audit now reports **zero vulnerabilities**, down from seven
+(one critical, four high, two moderate) at baseline `9361424`. The full audit
+reports **eight dev-only vulnerabilities** (five high, three moderate), down
+from 24. Five high package findings are the braces chain through micromatch,
+fast-glob, @next/eslint-plugin-next, and eslint-config-next
+([GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm)).
+Three moderate findings are @vitest/mocker, vitest, and @vitest/coverage-v8
+([GHSA-82fw-gwwq-j7x9](https://github.com/advisories/GHSA-82fw-gwwq-j7x9)).
+Neither chain is a production dependency. Vitest and coverage-v8 remain at
+4.1.10 by planner decision: updating them to 4.1.11 re-resolves Vite's optional
+peer set and triggers npm 10.9.8's `edgesOut` exception. No compatible braces
+fix is reported by audit; its suggested eslint-config-next downgrade crosses
+majors and was not applied. Resolve these dev-only findings in a separate
+reviewed tooling update.
+
+The planner-authorized sequence of separate npm installs and targeted updates
+completed with the existing lockfile and retained Vite 8.1.5. No lockfile was
+deleted or hand-edited, and no npm audit fix, force fix, replacement npm, or new
+override was used. The earlier installation blocker is resolved for this update.
+Next.js 16.4's declarations require two global URLPattern type names not supplied
+by the pinned TypeScript 5.9/Node types combination. A declaration-only bridge
+aliases the existing node:url types; strict checking and skipLibCheck false remain.
+The build also generated the root-params type import in next-env.d.ts.
+
+On Node.js 22.22.3/npm 10.9.8, root and standalone protocol `npm ci`,
+static/architecture checks, 11 protocol and 128 control-plane tests, configured
+100% statement/branch/function/line coverage, and the Next.js 16.4.0 production
+build pass. Build route tables match 16.2.10 exactly; all 15 Route Handlers retain
+`runtime = "nodejs"` and `dynamic = "force-dynamic"`. Local startup with all
+three capability gates disabled returned HTTP 200 from / and HTTP 404
+PERSON_AUTH_DISABLED from the cookie-free device-enrollment GET. No external
+service was contacted. Local PostgreSQL 16 again passed 32 of 38 tests; six
+security-verifier tests failed on its unsupported MAINTAIN privilege query.
+PostgreSQL 17 CI evidence remains required; database code is unchanged.
+
+Next: complete PostgreSQL 17 CI and independent Claude-side review of PR #29.
+No merge, deployment, cloud connection, or hardware action was performed.
+Merging to main triggers Vercel production deployment; this update has only
+local evidence. The Data API operator sequence below remains pending.
+
 ## Data API closure prepared; production pending — 2026-10-08
 
 The owner reports that the dedicated Supabase project is paused after
@@ -875,6 +924,12 @@ Record the failure and narrow the supported capability contract instead.
   current latest stable Next.js still declares `sharp ^0.34.5`, while the audit
   fix requires Sharp 0.35 or later. Do not force an unsupported major override;
   update through a compatible Next.js release or an explicit reviewed decision.
+- Current dependency status on 2026-10-12: Next.js 16.4.0 and its compatible
+  Sharp 0.35.5 dependency produce zero production audit findings. The full audit
+  retains eight dev-only findings (five high, three moderate). The prior npm
+  exception was avoided by the planner-authorized update sequence. See the
+  current section above for remaining dev dependencies and verification; retain
+  the 2026-07-22 record above as historical evidence.
 - Protocol sharing, pure test boundaries, SQL migrations, the PostgreSQL
   issuance repository, real-database race tests, and blocking control-plane CI
   are implemented. Scheduled advisory mutation testing is also implemented.
