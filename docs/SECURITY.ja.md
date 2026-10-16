@@ -77,8 +77,9 @@ verifierはRLS漏れとAPIの実効table権限を検知します。schema変更�
 Security AdvisorのINFO `rls_enabled_no_policy`は19 table分出るのが想定どおりです。
 policyなしのRLSは意図した設計であり、このINFOを消すためにpolicyを追加してはいけません。
 
-migrationはrepositoryに準備済みで、停止中のcloud projectには未適用です。
-再開・適用・検証・Security Advisorでの確認は[運用手順](CLOUD-DATABASE.ja.md)を参照してください。
+Productionには2026-10-16にmigration 0006を適用し、cloud verifierを通過しました。
+Security Advisorでの確認はoperatorの残作業です。証拠と、databaseを再作成した場合の適用・検証・
+Security Advisorでの確認は[運用手順](CLOUD-DATABASE.ja.md)を参照してください。
 
 ## 能力の封じ込め
 

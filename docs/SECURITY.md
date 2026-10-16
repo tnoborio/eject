@@ -82,9 +82,10 @@ only through repository migrations, never through those provider paths.
 Security Advisor's INFO `rls_enabled_no_policy` is expected for all 19 tables:
 policy-free RLS is intentional. Do not add policies to silence these INFO findings.
 
-The migration is prepared in the repository; the paused cloud project has not
-received it yet. See [the operator runbook](CLOUD-DATABASE.md) for resumption,
-application, verification, and Security Advisor confirmation.
+Production received migration 0006 on 2026-10-16 and passed the cloud verifier;
+the Security Advisor confirmation remains an operator task. See
+[the operator runbook](CLOUD-DATABASE.md) for the evidence and for application,
+verification, and Security Advisor confirmation on a recreated database.
 
 ## Capability containment
 
