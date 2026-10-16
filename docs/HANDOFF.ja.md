@@ -5,6 +5,33 @@
 この文書は、新しいEJECT開発セッションの開始点です。実装済みの内容、検証済みの内容、
 未確認事項、今後の作業順序を記録します。
 
+## migration 0006用Production build bridgeを準備済み — 2026-10-16
+
+PR #28はbase `9361424d7626a31015af780802a1dabb0c52364e`へmerge済みです。
+**0006は本番未適用のままです。** `agent/rls-production-migration-bridge`は、Vercelのsensitiveな
+DB URL・CAをoperator CLIへexportできないため、一回限りのbridgeを追加します。
+本番接続・provider設定変更・deployは行っていません。migration SQL・checksumとアプリ動作は不変です。
+
+buildは`next build`前にVercel Production/main限定のfail-closed hookを実行します。
+session pooler用の環境をメモリ内だけで作り、アプリロールの事前確認を読み取り専用transactionで
+実行し、bypassまたは全table所有が確認できた場合のみmigrationを適用します。
+共有cloud verifierを`--expect-empty`なしで呼び、invitation cleanupは実行しません。
+出力は限定された事実だけで上流errorを伏せ、Preview・ローカルbuildはDB操作をすべてskipします。
+
+ローカル検証では`npm run check`と全170 unit/property test（bridge 42件を含む）が成功しました。
+既存PostgreSQL 17 imageでCIと同じ非bypass owner・API roleを用い、全38 PostgreSQL testが
+skipなしで成功しました。新しい事前確認関数は隔離DBのownerでfalse/0、`anon`でfalse/19を返します。
+`VERCEL_ENV`未設定時はCLIが`SKIPPED`を返し、verifierの不正引数は従来のusage error・exit 1です。
+これらはローカル検証であり、本番TLSやSecurity Advisorの証拠ではありません。
+
+次の行動は独立review・mergeです。本人がSupabase projectの正常稼働を確認し、Production buildの
+`APPLIED_AND_VERIFIED`とSecurity Advisorの警告解消を確認します。STOPの場合は接続・所有権の
+別途review済み修正が必要です。build失敗なら既存deploymentがactiveなまま残りますが、
+commit済みmigrationは戻りません。最初のbridge成功後は直ちにreview済みfollow-upでhookを削除し、
+通常の`next build`へ戻します。汎用migration runnerとして残しません。
+厳密な条件と手動の代替手順は[運用手順](CLOUD-DATABASE.ja.md)を参照してください。
+この順序を以下の過去の次作業より優先します。
+
 ## Data API遮断を準備済み・本番未適用 — 2026-10-08
 
 所有者の報告では、専用Supabase projectは無操作による自動停止中です。
@@ -39,13 +66,8 @@ REVOKE blockを外すとAPI権限回帰testが失敗しました。固定診断�
 返しました。前回の0006除外でも未保護table 19件で失敗しています。一時containerは停止・削除済みです。
 本番TLS検証とSecurity Advisorの確認はoperatorの次作業であり、ローカルの証拠には含みません。
 
-review・merge後の次の行動は、[運用手順](CLOUD-DATABASE.ja.md)のoperator環境で、
-**本人がprojectを再開 → アプリロールの読み取り専用事前確認 → `npm run migrate` → アプリの接続ロールで
-`npm run verify:cloud-database` → Advisorの警告解消を確認**です。
-再開前にreview済みrevisionと環境を準備します。既存accountがあるため
-`--expect-empty`は付けません。`main`へのmergeでVercel Production deployが作られ得ますが、
-migrationは適用されません。配送・端末登録は無効を維持します。
-この手順を以下の過去の次作業より優先し、2026-09-24の同意検証は過去の証拠として保持します。
+次の行動は上記の0006用build bridgeです。operator手動手順も代替として文書に残します。
+配送・端末登録は無効を維持し、2026-09-24の同意検証は過去の証拠として保持します。
 
 ## 現在の本番反映と次の作業 — 2026-09-24
 

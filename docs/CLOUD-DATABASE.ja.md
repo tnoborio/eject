@@ -62,7 +62,8 @@ privilegedなoperatorロールだけでなく、アプリの接続ロールで�
 今後のpublic tableも各migrationでRLSを有効にする必要があり、PostgreSQL testは全migration後の
 schema全体を検査します。
 
-review・merge後、本人がoperator環境で**再開 → ロール事前確認 → migrate → verify → Advisorで確認**を行います。
+手動operator経路（後述の一回限りのbuild bridgeの代替）では、review・merge後に本人が
+**再開 → ロール事前確認 → migrate → verify → Advisorで確認**を行います。
 再開前にreview済みrevisionとoperator環境を準備してください。
 repositoryの変更だけでは、再開したdatabaseは保護されません。
 
@@ -236,6 +237,49 @@ npm run relationships:cleanup
 
 1回につき、使用・無効化・失効から24時間を超えたrowを最大500件削除し、削除件数だけを出力します。
 0件になるまで実行してください。database credentialをpublic schedulerやbrowserへ設定してはいけません。
+
+### migration 0006用の一回限りのProduction build bridge
+
+VercelはsensitiveなProduction valueをoperator CLIへexportしません。PR #21の0005用bridge
+（PR #22で削除済み）と同様に、一時的に`next build`の前で
+`scripts/run-one-time-production-migration.ts`を実行します。この変更を`main`へmergeすると、
+Vercel Production buildが0006を含むrepository migrationを適用・検証します。
+このPRの作業では本番migrationを実行していません。上記のoperator手動手順も維持します。
+
+Production以外ではDB操作なしで`{"production_migration":"SKIPPED"}`を出力します。
+Productionでは次の条件すべてを満たさなければfail closedになります。
+
+- `VERCEL=1`かつ`VERCEL_GIT_COMMIT_REF=main`
+- `EJECT_AGENT_DELIVERY_ENABLED=false`を明示
+- `EJECT_DEVICE_ENROLLMENT_ENABLED`、`EJECT_SERVER_SIGNING_KEY_ID`、
+  `EJECT_SERVER_SIGNING_KEY_PKCS8_B64`は未設定または空
+- `EJECT_DATABASE_SSL_CA_B64`は空でなく、既存のCA検証に合格
+- `DATABASE_URL`は`postgres:`または`postgresql:`、host末尾は`.pooler.supabase.com`、
+  portは6543、pathは`/postgres`、query・fragmentなし
+
+bridgeはportだけ5432に替えた環境をメモリ上に作り、`process.env`を書き換えず、credentialを
+永続化しません。pin済みTLSとアプリのロールで、最初に上記の事前確認SQLを
+`BEGIN READ ONLY`内で実行します。`rolbypassrls = true`または
+`public_tables_owned_by_other_roles = 0`の場合だけmigrationへ進みます。
+STOPの場合はmigration・verifyとも呼びません。所有権の不一致解消はこのPRの範囲外です。
+BYPASSRLSだけでは0006に必要なowner専用DDL権限は得られません。
+
+続いて既存のadvisory lock・checksum台帳付きmigration runnerを呼び、共有cloud verifierを
+`--expect-empty`なしで実行します。0005用invitation cleanupは呼びません。
+成功時は`production_migration: "APPLIED_AND_VERIFIED"`、`preflight`の真偽値と件数、
+PostgreSQL major、TLS、migration件数、database-securityの全値、delivery無効、
+physical ceiling未設定、application row合計を1つのJSONで出力します。
+成功・失敗ともcredential、host名・DB名・表名、migrationファイル名、row内容は出力しません。
+専用の検証・設定errorは固定診断文、上流errorは汎用文言にし、失敗時はexit 1です。
+
+いずれかのstepが失敗すればbuildも失敗し、直前のProduction deploymentがactiveなまま残ります。
+ただし適用済みmigrationは、後続のverifyや`next build`失敗では戻りません。
+限定されたerrorを調査してから再試行し、build失敗をDB未変更の証拠にしないでください。
+
+最初の`APPLIED_AND_VERIFIED`後、Security AdvisorのCritical解消とdeploy済みagent routeの
+無効維持を確認し、直後のreview済みfollow-upでbridgeを削除して`next build`へ戻してください。
+bridgeを汎用migration runnerとして残さず、想定どおりの`rls_enabled_no_policy` INFOを
+消すためにpolicyを追加しないでください。
 
 ## Deployment動作
 

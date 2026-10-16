@@ -70,8 +70,8 @@ Do not work around a failure by adding Data API policies or widening privileges.
 Every future public table must enable RLS in its own migration; PostgreSQL tests
 check the whole schema after all migrations.
 
-After review and merge, the owner must complete this sequence in the operator
-environment: **resume → role preflight → migrate → verify → Security Advisor
+For the manual operator path (an alternative to the one-time build bridge
+below), after review and merge the owner must complete this sequence: **resume → role preflight → migrate → verify → Security Advisor
 confirmation**.
 Have the reviewed revision and operator environment ready before resuming;
 the repository change alone does not protect the resumed database.
@@ -274,6 +274,55 @@ npm run relationships:cleanup
 Each run deletes at most 500 rows that have been used, invalidated, or expired
 for more than 24 hours, and prints only the deleted count. Run until it reports
 zero. Do not configure database credentials in a public scheduler or browser.
+
+### One-time Production build bridge for migration 0006
+
+Vercel does not export sensitive Production values to the operator CLI. As with
+PR #21's migration 0005 bridge (removed in PR #22), the build temporarily runs
+`scripts/run-one-time-production-migration.ts` before `next build`. Merging this
+change to `main` makes the Vercel Production build apply and verify repository
+migrations, including 0006. No production migration has been run for this PR.
+The manual operator procedure above remains available.
+
+Non-Production builds print `{"production_migration":"SKIPPED"}` without any
+database operation. Production builds fail closed unless all conditions hold:
+
+- `VERCEL=1` and `VERCEL_GIT_COMMIT_REF=main`;
+- `EJECT_AGENT_DELIVERY_ENABLED=false` explicitly;
+- `EJECT_DEVICE_ENROLLMENT_ENABLED`, `EJECT_SERVER_SIGNING_KEY_ID`, and
+  `EJECT_SERVER_SIGNING_KEY_PKCS8_B64` are unset or empty;
+- `EJECT_DATABASE_SSL_CA_B64` is nonempty and passes the existing CA validation;
+- `DATABASE_URL` uses `postgres:` or `postgresql:`, a hostname ending in
+  `.pooler.supabase.com`, port 6543, path `/postgres`, and no query or fragment.
+
+The bridge creates an in-memory environment with only the pooler port changed
+to 5432; it never changes `process.env` or persists credentials. Using the
+application role with pinned TLS, it first executes the read-only role preflight
+above inside `BEGIN READ ONLY`. Only `rolbypassrls = true` or
+`public_tables_owned_by_other_roles = 0` allows migration. STOP prevents both
+migration and verification; resolving ownership mismatches is outside this PR.
+BYPASSRLS alone does not grant the ownership-only DDL rights needed by 0006.
+
+Next it calls the existing advisory-locked, checksum-ledger migration runner,
+then the shared cloud verifier without `--expect-empty`. It does not run the
+0005 invitation cleanup. Success prints one JSON object with
+`production_migration: "APPLIED_AND_VERIFIED"`, the `preflight` boolean/count,
+PostgreSQL major version, TLS status, migration count, all database-security
+facts, disabled delivery, unset physical ceiling, and aggregate application row
+count. Neither success nor failure prints credentials, host/database/table
+names, migration filenames, or row contents. Dedicated verification/configuration
+errors retain fixed diagnostics; upstream errors use a generic message and exit 1.
+
+A failed step fails the build, leaving the previous Production deployment active.
+An already committed migration is not undone if verification or `next build`
+subsequently fails. Investigate the bounded error before retrying; do not assume
+a failed build means the database was unchanged.
+
+After the first `APPLIED_AND_VERIFIED`, confirm Security Advisor's Critical
+findings have cleared and the deployed agent routes remain disabled. Immediately
+remove this bridge and restore `next build` in a reviewed follow-up. Do not
+retain the bridge as a general migration runner or add policies to silence the
+expected `rls_enabled_no_policy` INFO findings.
 
 ## Deployment behavior
 
