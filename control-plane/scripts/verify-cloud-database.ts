@@ -30,7 +30,7 @@ interface DatabaseState {
   application_rows: string;
 }
 
-export interface CloudDatabaseVerification extends DatabaseSecurity {
+interface CloudDatabaseVerification extends DatabaseSecurity {
   readonly postgres_major: 17;
   readonly tls: "CA_AND_HOSTNAME_VERIFIED";
   readonly migrations: number;

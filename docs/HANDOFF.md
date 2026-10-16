@@ -6,44 +6,44 @@ This document is the starting point for a new EJECT development session. It
 records what is implemented, what has been verified, what remains unknown, and
 the order in which work should continue.
 
-## Migration 0006 Production build bridge prepared — 2026-10-16
+## Migration 0006 verified in Production; bridge removed — 2026-10-16
 
-PR #28 is merged on base `9361424d7626a31015af780802a1dabb0c52364e`.
-**0006 remains unapplied to production.** This branch
-`agent/rls-production-migration-bridge` adds a one-time bridge because Vercel's
-sensitive database URL and CA cannot be exported to the operator CLI. No
-production connection, provider configuration change, or deployment was made.
-Migration SQL/checksums and application behavior are unchanged.
+PR #30 merged as `bafcb36a8240dd8e862bbca7f42951c292ba0a73`. After the operator
+restored the Supabase project, its Production build applied migration 0006 and
+reported `APPLIED_AND_VERIFIED` on 2026-10-16. Vercel deployment
+`eject-hefmv8d34` reached `Ready`, and the Production origin's home page returned
+HTTP 200 after deployment. The provided build evidence confirms PostgreSQL 17,
+pinned TLS, six verified migrations, 19 public tables with RLS, two API roles
+with zero effective table privileges, a connection that bypasses RLS, disabled
+delivery, an unset physical ceiling, and nine aggregate application rows.
+Preflight reported `rolbypassrls: true` and zero public tables owned by other
+roles. The exact JSON is recorded in [the runbook](CLOUD-DATABASE.md).
 
-The build now runs a fail-closed Vercel Production/main-only hook before
-`next build`. It prepares a session-pooler environment only in memory, runs the
-application-role preflight in a read-only transaction, applies migrations only
-with bypass or full ownership, and calls the shared cloud verifier without
-`--expect-empty`. No invitation cleanup runs. Output contains only bounded facts;
-upstream errors are redacted. Preview and local builds skip all DB operations.
+This follow-up removes the one-time bridge and restores `next build` as the
+complete build command, as PR #22 did after migration 0005. Subsequent Production
+builds do not run the bridge or apply migrations through it. The exported cloud
+verifier, CLI entrypoint guard, shared verification pool, and idle-client error
+regression remain; unused bridge-only exports and tests are removed. Migration
+SQL/checksums and application behavior are unchanged. No production connection,
+provider configuration change, or deployment was made for this removal.
 
-PR #30 received an independent approved review at `b371a6f`. The accepted P3-1
-follow-up adds a shared pool factory that consumes idle-client errors without
-logging connection details, plus fixed-message fatal process handlers at the
-bridge entrypoint. No connection, lock, or statement timeouts were added.
+Local verification of the removal: `npm run check` and all 129 control-plane
+unit/property tests pass. The verifier's invalid argument retains its usage
+error and exit 1; no bridge references remain under `control-plane`.
+PostgreSQL 17 is unavailable locally. On the existing isolated PostgreSQL 16
+image with CI's non-bypass owner and API roles, 32 of 38 tests pass; six fail
+because the existing security inspector requires the PostgreSQL 17 `MAINTAIN`
+privilege. This is not PostgreSQL 17 verification. No image was downloaded;
+the disposable container was stopped and removed.
 
-Local verification: `npm run check` and all 173 unit/property tests pass,
-including 42 bridge cases and three idle/fatal-error regression cases. All 38 PostgreSQL tests pass without skips on the
-existing PostgreSQL 17 image, with CI's non-bypass owner and API roles. The new
-preflight function returns false/0 for the owner and false/19 for `anon` in that
-isolated database. With `VERCEL_ENV` unset, the CLI reports `SKIPPED`; an invalid
-verifier argument retains the existing usage error and exit 1. These are local
-checks, not production TLS or Security Advisor evidence.
-
-Next: independent review and merge, with the owner ensuring the Supabase project
-is healthy, then require the Production build's `APPLIED_AND_VERIFIED` evidence
-and Security Advisor confirmation. A STOP requires a separately reviewed
-ownership/connection fix. A failed build leaves the existing deployment active,
-but cannot undo a migration already committed. Immediately after the first
-successful bridge run, publish a reviewed follow-up removing the hook and
-restoring ordinary `next build`; do not retain a general migration runner.
-See [the runbook](CLOUD-DATABASE.md) for the exact gates and manual alternative.
-This sequence supersedes the historical next actions below.
+Next: independent review and merge of this removal. The operator must refresh
+Security Advisor in the dashboard and confirm that `rls_disabled_in_public` is
+cleared; this is still pending and is not established by the build evidence.
+The expected `rls_enabled_no_policy` INFO findings require no policies. Keep
+delivery and enrollment disabled. The manual migration procedure remains in the
+runbook for future database recreation or recovery. After this follow-up,
+continue the 2026-09-24 cleanup, delivery-readiness, and Windows work below.
+This status supersedes historical pending-migration and bridge-removal actions.
 
 ## Data API closure prepared; production pending — 2026-10-08
 
@@ -88,9 +88,10 @@ postgres. Earlier removal of 0006 also failed with 19 unprotected tables.
 Temporary containers were stopped and removed. Production TLS verification
 and Security Advisor confirmation remain operator work, not local evidence.
 
-The next action is now the migration 0006 build bridge described above; the
-manual operator procedure remains documented as an alternative. Delivery and
-enrollment stay disabled. The 2026-09-24 consent evidence remains historical.
+This is the historical preparation record; the 2026-10-16 status above records
+the completed Production migration and bridge removal. The manual operator
+procedure remains documented for recovery. Delivery and enrollment stay disabled.
+The 2026-09-24 consent evidence remains historical.
 
 ## Current deployment and next action — 2026-09-24
 
