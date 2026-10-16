@@ -1,7 +1,5 @@
-import { EventEmitter } from "node:events";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createVerificationPool } from "../scripts/verification-pool";
-import { reportUnexpectedProductionMigrationFailure } from "../scripts/run-one-time-production-migration";
 import { reportVerificationFailure } from "../scripts/verification-error";
 
 const connection = {
@@ -53,25 +51,4 @@ describe("verification pool idle errors", () => {
       await pool.end();
     }
   });
-});
-
-describe("production migration fatal process errors", () => {
-  it.each(["uncaughtException", "unhandledRejection"])(
-    "exits with a fixed diagnostic for %s without inspecting the error",
-    (event) => {
-      const output = captureOutput();
-      const exited = new Error("test process exit");
-      const exit = vi.spyOn(process, "exit").mockImplementation(() => {
-        throw exited;
-      });
-      const emitter = new EventEmitter();
-      emitter.on(event, reportUnexpectedProductionMigrationFailure);
-      expect(() => emitter.emit(event, failure)).toThrow(exited);
-      expect(exit).toHaveBeenCalledExactlyOnceWith(1);
-      expect(console.error).toHaveBeenCalledExactlyOnceWith(
-        "Production migration hook failed",
-      );
-      expectNoConnectionDetails(output.map((spy) => spy.mock.calls));
-    },
-  );
 });

@@ -25,20 +25,22 @@ The Supabase project is dedicated to EJECT. It is not a database inside
 `sasara-hub`, and it does not share an application schema or credentials with
 another Sasara service.
 
-Migrations 0001–0005 were applied and checksum-verified. The following row
+All six repository migrations are applied and checksum-verified as of
+2026-10-16; see the migration 0006 evidence below. The following row
 snapshot is historical (2026-07-24), not a current production query. PostgreSQL
 rejects non-TLS external connections. The singleton delivery gate is `false`,
 the physical hourly ceiling is unset, and the EJECT application tables contain
 one invited person and no relationships, relationship invitations, devices,
 commands, results, or private events.
 
-## RLS and the Data API boundary — 2026-10-08
+## RLS and the Data API boundary — 2026-10-16
 
-The owner reports that the project is paused after inactivity. Security Advisor
-reported critical `rls_disabled_in_public` findings on 2026-09-27. Migration
-`0006_close_data_api_access.sql` is now in the repository but has **not** been
-applied to production. No cloud connection or provider operation was performed
-for this change.
+Security Advisor reported critical `rls_disabled_in_public` findings on
+2026-09-27 while the project was paused after inactivity. The operator restored
+the Supabase project before PR #30's Production deployment on 2026-10-16. That
+build applied and verified `0006_close_data_api_access.sql`; the exact evidence
+is recorded below. Dashboard confirmation that the Advisor findings are cleared
+remains an operator task.
 
 EJECT uses Supabase Auth, not the Data API (PostgREST). The control plane connects
 with `pg` through `DATABASE_URL` and Supavisor. Migration 0006 enables RLS on all
@@ -70,8 +72,9 @@ Do not work around a failure by adding Data API policies or widening privileges.
 Every future public table must enable RLS in its own migration; PostgreSQL tests
 check the whole schema after all migrations.
 
-For the manual operator path (an alternative to the one-time build bridge
-below), after review and merge the owner must complete this sequence: **resume → role preflight → migrate → verify → Security Advisor
+The manual operator procedure remains available for future database recreation
+or recovery. With a reviewed revision, the owner must complete this sequence:
+**restore/resume → role preflight → migrate → verify → Security Advisor
 confirmation**.
 Have the reviewed revision and operator environment ready before resuming;
 the repository change alone does not protect the resumed database.
@@ -275,58 +278,47 @@ Each run deletes at most 500 rows that have been used, invalidated, or expired
 for more than 24 hours, and prints only the deleted count. Run until it reports
 zero. Do not configure database credentials in a public scheduler or browser.
 
-### One-time Production build bridge for migration 0006
+### Migration 0006 applied and verified; one-time bridge removed — 2026-10-16
 
-Vercel does not export sensitive Production values to the operator CLI. As with
-PR #21's migration 0005 bridge (removed in PR #22), the build temporarily runs
-`scripts/run-one-time-production-migration.ts` before `next build`. Merging this
-change to `main` makes the Vercel Production build apply and verify repository
-migrations, including 0006. No production migration has been run for this PR.
-The manual operator procedure above remains available.
+After the operator restored the Supabase project, PR #30 (merge commit
+`bafcb36a8240dd8e862bbca7f42951c292ba0a73`) used a one-time Vercel Production
+build bridge to apply and verify migration 0006 on 2026-10-16. Deployment
+`eject-hefmv8d34` reached `Ready`. Its build reported this exact result:
 
-Non-Production builds print `{"production_migration":"SKIPPED"}` without any
-database operation. Production builds fail closed unless all conditions hold:
+```json
+{
+  "production_migration": "APPLIED_AND_VERIFIED",
+  "preflight": {
+    "rolbypassrls": true,
+    "public_tables_owned_by_other_roles": 0
+  },
+  "postgres_major": 17,
+  "tls": "CA_AND_HOSTNAME_VERIFIED",
+  "migrations": 6,
+  "public_tables": 19,
+  "tables_without_rls": 0,
+  "api_roles": 2,
+  "api_table_privileges": 0,
+  "connection_bypasses_rls": true,
+  "delivery_enabled": false,
+  "physical_hourly_ceiling": null,
+  "application_rows": 9
+}
+```
 
-- `VERCEL=1` and `VERCEL_GIT_COMMIT_REF=main`;
-- `EJECT_AGENT_DELIVERY_ENABLED=false` explicitly;
-- `EJECT_DEVICE_ENROLLMENT_ENABLED`, `EJECT_SERVER_SIGNING_KEY_ID`, and
-  `EJECT_SERVER_SIGNING_KEY_PKCS8_B64` are unset or empty;
-- `EJECT_DATABASE_SSL_CA_B64` is nonempty and passes the existing CA validation;
-- `DATABASE_URL` uses `postgres:` or `postgresql:`, a hostname ending in
-  `.pooler.supabase.com`, port 6543, path `/postgres`, and no query or fragment.
+After deployment, the Production origin's home page returned HTTP 200.
+The operator must still refresh Security Advisor in the dashboard and confirm
+that `rls_disabled_in_public` is cleared; that confirmation has not been recorded.
+The expected `rls_enabled_no_policy` INFO findings do not call for policies.
 
-The bridge creates an in-memory environment with only the pooler port changed
-to 5432; it never changes `process.env` or persists credentials. Using the
-application role with pinned TLS, it first executes the read-only role preflight
-above inside `BEGIN READ ONLY`. Only `rolbypassrls = true` or
-`public_tables_owned_by_other_roles = 0` allows migration. STOP prevents both
-migration and verification; resolving ownership mismatches is outside this PR.
-BYPASSRLS alone does not grant the ownership-only DDL rights needed by 0006.
-
-Next it calls the existing advisory-locked, checksum-ledger migration runner,
-then the shared cloud verifier without `--expect-empty`. It does not run the
-0005 invitation cleanup. Success prints one JSON object with
-`production_migration: "APPLIED_AND_VERIFIED"`, the `preflight` boolean/count,
-PostgreSQL major version, TLS status, migration count, all database-security
-facts, disabled delivery, unset physical ceiling, and aggregate application row
-count. Neither success nor failure prints credentials, host/database/table
-names, migration filenames, or row contents. Dedicated verification/configuration
-errors retain fixed diagnostics; upstream errors use a generic message and exit 1.
-All bridge/verifier pools consume idle-client error events without logging the
-attached client or connection details. Subsequent query failures still use the
-existing failure reporter. At the bridge entrypoint, uncaught exceptions and
-unhandled rejections print only `Production migration hook failed` and exit 1.
-
-A failed step fails the build, leaving the previous Production deployment active.
-An already committed migration is not undone if verification or `next build`
-subsequently fails. Investigate the bounded error before retrying; do not assume
-a failed build means the database was unchanged.
-
-After the first `APPLIED_AND_VERIFIED`, confirm Security Advisor's Critical
-findings have cleared and the deployed agent routes remain disabled. Immediately
-remove this bridge and restore `next build` in a reviewed follow-up. Do not
-retain the bridge as a general migration runner or add policies to silence the
-expected `rls_enabled_no_policy` INFO findings.
+This follow-up removes `scripts/run-one-time-production-migration.ts` and its
+build hook, following the migration 0005 removal in PR #22. The complete build
+command is `next build`; subsequent Production builds do not run the bridge or
+apply migrations through it. The exported `verifyCloudDatabase` function, CLI
+entrypoint guard, and shared verification pool remain so idle-client errors do
+not expose connection details. The manual operator procedure above is retained
+for future database recreation or recovery. The bridge is not a retained general
+migration runner.
 
 ## Deployment behavior
 
@@ -335,7 +327,7 @@ deployments without production database access. Merges to `main` may create a
 Production deployment with the protected database variables, but agent delivery
 continues to return `404 DELIVERY_DISABLED`.
 
-Migration 0005 and all five checksums are verified. Relationship disconnection
+Migration 0006 and all six checksums are verified. Relationship disconnection
 and reconnection are deployed, while authenticated use still requires an
 existing invited account and relationship. Applying the schema and deploying
 the routes did not enable device enrollment or physical delivery.

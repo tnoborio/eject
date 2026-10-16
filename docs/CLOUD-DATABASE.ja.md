@@ -22,18 +22,19 @@
 Supabase projectはEJECT専用です。`sasara-hub`内のdatabaseではなく、他のSasara serviceと
 application schemaやcredentialを共有しません。
 
-migration 0001〜0005は適用・checksum検証済みです。以下のrowの状態は2026-07-24の過去の
+2026-10-16時点でrepository migration 6件すべてが適用・checksum検証済みです。
+以下に0006の証拠を記録しています。以下のrowの状態は2026-07-24の過去の
 記録であり、現在の本番へのquery結果ではありません。PostgreSQLはTLSを使わない外部接続を
 拒否します。singleton delivery gateは`false`、physical hourly ceilingは未設定で、EJECT application
 tableには招待済みperson 1件が存在し、relationship、relationship invitation、device、command、
 result、private eventは存在しません。
 
-## RLSとData APIの境界 — 2026-10-08
+## RLSとData APIの境界 — 2026-10-16
 
-所有者の報告では、projectは無操作による自動停止中です。2026-09-27にSecurity Advisorから
-Criticalの`rls_disabled_in_public`警告がありました。
-`0006_close_data_api_access.sql`をrepositoryに追加しましたが、本番には**未適用**です。
-この変更でcloud接続やprovider操作は行っていません。
+無操作による自動停止中のprojectに対し、Security Advisorは2026-09-27にCriticalな
+`rls_disabled_in_public`を報告しました。operatorは2026-10-16のPR #30のProduction deploy前に
+Supabase projectをRestoreしました。そのbuildで`0006_close_data_api_access.sql`を適用・確認済みです。
+正確な証拠は後述します。dashboardでAdvisor警告の解消を確認する作業はoperatorに残っています。
 
 EJECTはSupabase Authを使い、Data API（PostgREST）は使いません。control-planeは
 `pg`から`DATABASE_URL`とSupavisorで接続します。migration 0006は全18 application tableと
@@ -62,8 +63,8 @@ privilegedなoperatorロールだけでなく、アプリの接続ロールで�
 今後のpublic tableも各migrationでRLSを有効にする必要があり、PostgreSQL testは全migration後の
 schema全体を検査します。
 
-手動operator経路（後述の一回限りのbuild bridgeの代替）では、review・merge後に本人が
-**再開 → ロール事前確認 → migrate → verify → Advisorで確認**を行います。
+今後のDB再作成・復旧のため、operator手動手順を残します。review済みrevisionを使い、本人が
+**Restore・再開 → ロール事前確認 → migrate → verify → Advisorで確認**を行います。
 再開前にreview済みrevisionとoperator環境を準備してください。
 repositoryの変更だけでは、再開したdatabaseは保護されません。
 
@@ -238,51 +239,45 @@ npm run relationships:cleanup
 1回につき、使用・無効化・失効から24時間を超えたrowを最大500件削除し、削除件数だけを出力します。
 0件になるまで実行してください。database credentialをpublic schedulerやbrowserへ設定してはいけません。
 
-### migration 0006用の一回限りのProduction build bridge
+### migration 0006を適用・確認済み、一回限りのbridgeを削除済み — 2026-10-16
 
-VercelはsensitiveなProduction valueをoperator CLIへexportしません。PR #21の0005用bridge
-（PR #22で削除済み）と同様に、一時的に`next build`の前で
-`scripts/run-one-time-production-migration.ts`を実行します。この変更を`main`へmergeすると、
-Vercel Production buildが0006を含むrepository migrationを適用・検証します。
-このPRの作業では本番migrationを実行していません。上記のoperator手動手順も維持します。
+operatorがSupabase projectをRestoreした後、PR #30（merge commit
+`bafcb36a8240dd8e862bbca7f42951c292ba0a73`）の一回限りのVercel Production build bridgeで、
+2026-10-16にmigration 0006を適用・確認しました。deployment `eject-hefmv8d34`は`Ready`になり、
+buildは次の結果をそのまま出力しました。
 
-Production以外ではDB操作なしで`{"production_migration":"SKIPPED"}`を出力します。
-Productionでは次の条件すべてを満たさなければfail closedになります。
+```json
+{
+  "production_migration": "APPLIED_AND_VERIFIED",
+  "preflight": {
+    "rolbypassrls": true,
+    "public_tables_owned_by_other_roles": 0
+  },
+  "postgres_major": 17,
+  "tls": "CA_AND_HOSTNAME_VERIFIED",
+  "migrations": 6,
+  "public_tables": 19,
+  "tables_without_rls": 0,
+  "api_roles": 2,
+  "api_table_privileges": 0,
+  "connection_bypasses_rls": true,
+  "delivery_enabled": false,
+  "physical_hourly_ceiling": null,
+  "application_rows": 9
+}
+```
 
-- `VERCEL=1`かつ`VERCEL_GIT_COMMIT_REF=main`
-- `EJECT_AGENT_DELIVERY_ENABLED=false`を明示
-- `EJECT_DEVICE_ENROLLMENT_ENABLED`、`EJECT_SERVER_SIGNING_KEY_ID`、
-  `EJECT_SERVER_SIGNING_KEY_PKCS8_B64`は未設定または空
-- `EJECT_DATABASE_SSL_CA_B64`は空でなく、既存のCA検証に合格
-- `DATABASE_URL`は`postgres:`または`postgresql:`、host末尾は`.pooler.supabase.com`、
-  portは6543、pathは`/postgres`、query・fragmentなし
+deploy後、本番originのトップページはHTTP 200を返しました。
+operatorは引き続きdashboardでSecurity Advisorを更新し、`rls_disabled_in_public`の解消を
+確認する必要があります。この確認はまだ記録されていません。想定どおりの
+`rls_enabled_no_policy` INFOを消すためにpolicyを追加してはいけません。
 
-bridgeはportだけ5432に替えた環境をメモリ上に作り、`process.env`を書き換えず、credentialを
-永続化しません。pin済みTLSとアプリのロールで、最初に上記の事前確認SQLを
-`BEGIN READ ONLY`内で実行します。`rolbypassrls = true`または
-`public_tables_owned_by_other_roles = 0`の場合だけmigrationへ進みます。
-STOPの場合はmigration・verifyとも呼びません。所有権の不一致解消はこのPRの範囲外です。
-BYPASSRLSだけでは0006に必要なowner専用DDL権限は得られません。
-
-続いて既存のadvisory lock・checksum台帳付きmigration runnerを呼び、共有cloud verifierを
-`--expect-empty`なしで実行します。0005用invitation cleanupは呼びません。
-成功時は`production_migration: "APPLIED_AND_VERIFIED"`、`preflight`の真偽値と件数、
-PostgreSQL major、TLS、migration件数、database-securityの全値、delivery無効、
-physical ceiling未設定、application row合計を1つのJSONで出力します。
-成功・失敗ともcredential、host名・DB名・表名、migrationファイル名、row内容は出力しません。
-専用の検証・設定errorは固定診断文、上流errorは汎用文言にし、失敗時はexit 1です。
-bridge・verifierのすべてのPoolは、idle clientのerror eventを受け取り、付随するclientや接続情報を
-出力しません。後続queryの失敗は従来のfailure reporterで処理します。bridge entrypointでの
-未処理例外・未処理Promise拒否は`Production migration hook failed`だけを出力し、exit 1で終了します。
-
-いずれかのstepが失敗すればbuildも失敗し、直前のProduction deploymentがactiveなまま残ります。
-ただし適用済みmigrationは、後続のverifyや`next build`失敗では戻りません。
-限定されたerrorを調査してから再試行し、build失敗をDB未変更の証拠にしないでください。
-
-最初の`APPLIED_AND_VERIFIED`後、Security AdvisorのCritical解消とdeploy済みagent routeの
-無効維持を確認し、直後のreview済みfollow-upでbridgeを削除して`next build`へ戻してください。
-bridgeを汎用migration runnerとして残さず、想定どおりの`rls_enabled_no_policy` INFOを
-消すためにpolicyを追加しないでください。
+このfollow-upでは、0005後のPR #22と同様に`scripts/run-one-time-production-migration.ts`と
+build hookを削除しました。build command全体は`next build`で、今後のProduction buildでは
+bridgeの実行やbridge経由のmigration適用を行いません。idle clientのerrorで接続情報を
+出さない性質を保つため、`verifyCloudDatabase`のexport、CLI entrypointの判定、共有verification poolは
+残しています。今後のDB再作成・復旧用に上記のoperator手動手順を維持し、bridgeを汎用migration runner
+として残しません。
 
 ## Deployment動作
 
@@ -290,7 +285,7 @@ Vercel projectはGitHubへ接続済みです。pull requestにはproduction data
 deploymentが作られます。`main`へのmergeではprotected database variableを持つProduction deploymentが
 作られ得ますが、agent deliveryは引き続き`404 DELIVERY_DISABLED`を返します。
 
-migration 0005とmigration 5件すべてのchecksumは検証済みです。relationship切断・再接続はdeploy済み
+migration 0006とmigration 6件すべてのchecksumは検証済みです。relationship切断・再接続はdeploy済み
 ですが、認証済み利用には既存の招待accountとrelationshipが引き続き必要です。schema適用とroute
 deployによってdevice enrollmentや物理deliveryは有効になっていません。
 

@@ -6,7 +6,7 @@
     "node": ">=22 <23"
   },
   "scripts": {
-    "build": "tsx scripts/run-one-time-production-migration.ts && next build",
+    "build": "next build",
     "check": "npm run format:check && npm run lint && npm run typecheck && npm run architecture",
     "format:check": "prettier --check .",
     "lint": "eslint . --max-warnings=0",
