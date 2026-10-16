@@ -6,6 +6,45 @@ This document is the starting point for a new EJECT development session. It
 records what is implemented, what has been verified, what remains unknown, and
 the order in which work should continue.
 
+## Migration 0006 Production build bridge prepared — 2026-10-16
+
+PR #28 is merged on base `9361424d7626a31015af780802a1dabb0c52364e`.
+**0006 remains unapplied to production.** This branch
+`agent/rls-production-migration-bridge` adds a one-time bridge because Vercel's
+sensitive database URL and CA cannot be exported to the operator CLI. No
+production connection, provider configuration change, or deployment was made.
+Migration SQL/checksums and application behavior are unchanged.
+
+The build now runs a fail-closed Vercel Production/main-only hook before
+`next build`. It prepares a session-pooler environment only in memory, runs the
+application-role preflight in a read-only transaction, applies migrations only
+with bypass or full ownership, and calls the shared cloud verifier without
+`--expect-empty`. No invitation cleanup runs. Output contains only bounded facts;
+upstream errors are redacted. Preview and local builds skip all DB operations.
+
+PR #30 received an independent approved review at `b371a6f`. The accepted P3-1
+follow-up adds a shared pool factory that consumes idle-client errors without
+logging connection details, plus fixed-message fatal process handlers at the
+bridge entrypoint. No connection, lock, or statement timeouts were added.
+
+Local verification: `npm run check` and all 173 unit/property tests pass,
+including 42 bridge cases and three idle/fatal-error regression cases. All 38 PostgreSQL tests pass without skips on the
+existing PostgreSQL 17 image, with CI's non-bypass owner and API roles. The new
+preflight function returns false/0 for the owner and false/19 for `anon` in that
+isolated database. With `VERCEL_ENV` unset, the CLI reports `SKIPPED`; an invalid
+verifier argument retains the existing usage error and exit 1. These are local
+checks, not production TLS or Security Advisor evidence.
+
+Next: independent review and merge, with the owner ensuring the Supabase project
+is healthy, then require the Production build's `APPLIED_AND_VERIFIED` evidence
+and Security Advisor confirmation. A STOP requires a separately reviewed
+ownership/connection fix. A failed build leaves the existing deployment active,
+but cannot undo a migration already committed. Immediately after the first
+successful bridge run, publish a reviewed follow-up removing the hook and
+restoring ordinary `next build`; do not retain a general migration runner.
+See [the runbook](CLOUD-DATABASE.md) for the exact gates and manual alternative.
+This sequence supersedes the historical next actions below.
+
 ## Data API closure prepared; production pending — 2026-10-08
 
 The owner reports that the dedicated Supabase project is paused after
@@ -49,15 +88,9 @@ postgres. Earlier removal of 0006 also failed with 19 unprotected tables.
 Temporary containers were stopped and removed. Production TLS verification
 and Security Advisor confirmation remain operator work, not local evidence.
 
-Next, after review and merge: **the owner resumes the project → performs the
-read-only application-role preflight → runs `npm run migrate` → runs
-`npm run verify:cloud-database` using the application's connection role → confirms Security Advisor findings are cleared**, from the
-operator environment described in [the runbook](CLOUD-DATABASE.md). Prepare the
-reviewed revision and environment before resumption. Existing accounts mean
-`--expect-empty` must be omitted. Merging to `main` may create a Vercel
-Production deployment; it does not apply this migration. Delivery and enrollment
-remain disabled. This sequence takes priority over the historical next actions
-below; the 2026-09-24 consent evidence remains historical evidence.
+The next action is now the migration 0006 build bridge described above; the
+manual operator procedure remains documented as an alternative. Delivery and
+enrollment stay disabled. The 2026-09-24 consent evidence remains historical.
 
 ## Current deployment and next action — 2026-09-24
 
