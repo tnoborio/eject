@@ -1,6 +1,7 @@
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { Pool, type PoolClient } from "pg";
+import type { PoolClient } from "pg";
+import { createVerificationPool } from "./verification-pool";
 import { migrate } from "../src/infrastructure/postgres/migrate";
 import { postgresPoolConfigFromEnvironment } from "../src/infrastructure/postgres/pool-config";
 import {
@@ -186,7 +187,7 @@ async function main(): Promise<void> {
     environment: process.env,
     operations: {
       preflight: async (environment) => {
-        const pool = new Pool(
+        const pool = createVerificationPool(
           postgresPoolConfigFromEnvironment(environment, 1),
         );
         try {
@@ -201,7 +202,7 @@ async function main(): Promise<void> {
         }
       },
       migrate: async (environment) => {
-        const pool = new Pool(
+        const pool = createVerificationPool(
           postgresPoolConfigFromEnvironment(environment, 1),
         );
         try {
@@ -217,10 +218,19 @@ async function main(): Promise<void> {
   console.log(JSON.stringify(result, null, 2));
 }
 
+// Do not inspect unexpected process failures, even dedicated error types:
+// they may carry connection details or come from outside the verified path.
+export function reportUnexpectedProductionMigrationFailure(): never {
+  console.error("Production migration hook failed");
+  process.exit(1);
+}
+
 const entrypoint = process.argv[1];
 if (
   entrypoint !== undefined &&
   import.meta.url === pathToFileURL(entrypoint).href
 ) {
+  process.on("uncaughtException", reportUnexpectedProductionMigrationFailure);
+  process.on("unhandledRejection", reportUnexpectedProductionMigrationFailure);
   void main().catch(reportVerificationFailure);
 }

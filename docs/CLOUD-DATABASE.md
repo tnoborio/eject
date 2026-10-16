@@ -312,6 +312,10 @@ facts, disabled delivery, unset physical ceiling, and aggregate application row
 count. Neither success nor failure prints credentials, host/database/table
 names, migration filenames, or row contents. Dedicated verification/configuration
 errors retain fixed diagnostics; upstream errors use a generic message and exit 1.
+All bridge/verifier pools consume idle-client error events without logging the
+attached client or connection details. Subsequent query failures still use the
+existing failure reporter. At the bridge entrypoint, uncaught exceptions and
+unhandled rejections print only `Production migration hook failed` and exit 1.
 
 A failed step fails the build, leaving the previous Production deployment active.
 An already committed migration is not undone if verification or `next build`

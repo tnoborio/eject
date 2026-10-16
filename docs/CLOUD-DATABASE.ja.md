@@ -271,6 +271,9 @@ PostgreSQL major、TLS、migration件数、database-securityの全値、delivery
 physical ceiling未設定、application row合計を1つのJSONで出力します。
 成功・失敗ともcredential、host名・DB名・表名、migrationファイル名、row内容は出力しません。
 専用の検証・設定errorは固定診断文、上流errorは汎用文言にし、失敗時はexit 1です。
+bridge・verifierのすべてのPoolは、idle clientのerror eventを受け取り、付随するclientや接続情報を
+出力しません。後続queryの失敗は従来のfailure reporterで処理します。bridge entrypointでの
+未処理例外・未処理Promise拒否は`Production migration hook failed`だけを出力し、exit 1で終了します。
 
 いずれかのstepが失敗すればbuildも失敗し、直前のProduction deploymentがactiveなまま残ります。
 ただし適用済みmigrationは、後続のverifyや`next build`失敗では戻りません。

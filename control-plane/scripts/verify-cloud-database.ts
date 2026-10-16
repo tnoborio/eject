@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { readdir, readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
-import { Pool } from "pg";
+import { createVerificationPool } from "./verification-pool";
 import { postgresPoolConfigFromEnvironment } from "../src/infrastructure/postgres/pool-config";
 
 import {
@@ -50,7 +50,7 @@ export async function verifyCloudDatabase(input: {
       "Cloud database verification requires a pinned TLS CA",
     );
   }
-  const pool = new Pool(poolConfig);
+  const pool = createVerificationPool(poolConfig);
   try {
     const migrations = await expectedMigrations(input.migrationsDirectory);
     const security = await inspectDatabaseSecurity(pool);

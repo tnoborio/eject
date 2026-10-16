@@ -18,7 +18,11 @@ session pooler用の環境をメモリ内だけで作り、アプリロールの
 共有cloud verifierを`--expect-empty`なしで呼び、invitation cleanupは実行しません。
 出力は限定された事実だけで上流errorを伏せ、Preview・ローカルbuildはDB操作をすべてskipします。
 
-ローカル検証では`npm run check`と全170 unit/property test（bridge 42件を含む）が成功しました。
+PR #30は`b371a6f`で独立reviewのapproved判定を受けました。採用したP3-1の修正では、
+idle clientのerrorを接続情報なしで受け取る共有Pool生成関数と、bridge entrypointで固定文言だけを
+出力する致命的process error handlerを追加しました。接続・lock・statementのtimeoutは追加していません。
+
+ローカル検証では`npm run check`と全173 unit/property test（bridge 42件、idle/fatal error回帰3件を含む）が成功しました。
 既存PostgreSQL 17 imageでCIと同じ非bypass owner・API roleを用い、全38 PostgreSQL testが
 skipなしで成功しました。新しい事前確認関数は隔離DBのownerでfalse/0、`anon`でfalse/19を返します。
 `VERCEL_ENV`未設定時はCLIが`SKIPPED`を返し、verifierの不正引数は従来のusage error・exit 1です。

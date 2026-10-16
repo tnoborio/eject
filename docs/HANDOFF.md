@@ -22,8 +22,13 @@ with bypass or full ownership, and calls the shared cloud verifier without
 `--expect-empty`. No invitation cleanup runs. Output contains only bounded facts;
 upstream errors are redacted. Preview and local builds skip all DB operations.
 
-Local verification: `npm run check` and all 170 unit/property tests pass,
-including 42 bridge cases. All 38 PostgreSQL tests pass without skips on the
+PR #30 received an independent approved review at `b371a6f`. The accepted P3-1
+follow-up adds a shared pool factory that consumes idle-client errors without
+logging connection details, plus fixed-message fatal process handlers at the
+bridge entrypoint. No connection, lock, or statement timeouts were added.
+
+Local verification: `npm run check` and all 173 unit/property tests pass,
+including 42 bridge cases and three idle/fatal-error regression cases. All 38 PostgreSQL tests pass without skips on the
 existing PostgreSQL 17 image, with CI's non-bypass owner and API roles. The new
 preflight function returns false/0 for the owner and false/19 for `anon` in that
 isolated database. With `VERCEL_ENV` unset, the CLI reports `SKIPPED`; an invalid
